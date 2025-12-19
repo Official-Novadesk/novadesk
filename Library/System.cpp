@@ -31,13 +31,13 @@ void System::Initialize(HINSTANCE instance)
     WNDCLASS wc = { 0 };
     wc.lpfnWndProc = (WNDPROC)System::WndProc;
     wc.hInstance = instance;
-    wc.lpszClassName = L"RainmeterSystem";
+    wc.lpszClassName = L"NovadeskSystem";
     RegisterClass(&wc);
 
     // Create a dummy window for System tracking
     c_Window = CreateWindowEx(
         WS_EX_TOOLWINDOW,
-        L"RainmeterSystem",
+        L"NovadeskSystem",
         L"System",
         WS_POPUP | WS_DISABLED,
         0, 0, 0, 0,
@@ -135,7 +135,7 @@ void System::PrepareHelperWindow(HWND desktopIconsHostWindow)
     {
         c_HelperWindow = CreateWindowEx(
             WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE,
-            L"RainmeterSystem", L"PositioningHelper",
+            L"NovadeskSystem", L"PositioningHelper",
             WS_POPUP,
             0, 0, 0, 0,
             nullptr, nullptr, GetModuleHandle(nullptr), nullptr);
@@ -165,7 +165,7 @@ bool System::CheckDesktopState(HWND desktopIconsHostWindow)
 
     if (desktopIconsHostWindow && IsWindowVisible(desktopIconsHostWindow))
     {
-        hwnd = FindWindowEx(nullptr, desktopIconsHostWindow, L"RainmeterSystem", L"System");
+        hwnd = FindWindowEx(nullptr, desktopIconsHostWindow, L"NovadeskSystem", L"System");
     }
 
     bool stateChanged = (hwnd && !c_ShowDesktop) || (!hwnd && c_ShowDesktop);
