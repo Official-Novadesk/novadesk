@@ -1,25 +1,29 @@
 function createMainWindow() {
     mainWindow = new widgetWindow({
-        width: 100,
-        height: 100,
-        backgroundColor: "rgb(10,10,10)",
-        zPos: "ondesktop"
+        width: 200,
+        height: 200,
+        backgroundColor: "rgba(10,10,10,200)",
+        zPos: "ondesktop",
+        draggable: true,
+        snapEdges: true,
+        keepOnScreen: true
     });
-    novadesk.log("widget Created", mainWindow);
-    novadesk.error("Error here");
-    novadesk.debug("debug here");
+    novadesk.log("Main widget created with snapping and keepOnScreen");
 }
 
-function createMainOneMoreWindow() {
-    mainWindowMore = new widgetWindow({
-        width: 100,
-        height: 100,
-        backgroundColor: "rgb(10,10,10)",
-        zPos: "ondesktop"
+function createClickThroughWindow() {
+    clickThroughWindow = new widgetWindow({
+        width: 150,
+        height: 150,
+        backgroundColor: "rgba(255,100,100,150)",
+        zPos: "ontop",
+        clickThrough: true,
+        draggable: false
     });
+    novadesk.log("Click-through widget created");
 }
 
 function novadeskAppReady(){
     createMainWindow();
-    createMainOneMoreWindow();
+    createClickThroughWindow();
 }

@@ -49,6 +49,9 @@ public:
 	static bool CheckDesktopState(HWND desktopIconsHostWindow);
 	static void ChangeZPosInOrder();
 
+	static const MultiMonitorInfo& GetMultiMonitorInfo() { return c_Monitors; }
+	static size_t GetMonitorCount() { return c_Monitors.monitors.size(); }
+
 	static LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
 private:

@@ -81,6 +81,10 @@ static duk_ret_t js_create_widget_window(duk_context *ctx) {
     options.zPos = ZPOSITION_NORMAL;
     options.alpha = 255;
     options.color = RGB(255, 255, 255);
+    options.draggable = false;
+    options.clickThrough = false;
+    options.keepOnScreen = false;
+    options.snapEdges = false;
 
     if (duk_get_prop_string(ctx, 0, "width")) options.width = duk_get_int(ctx, -1);
     duk_pop(ctx);
@@ -99,6 +103,22 @@ static duk_ret_t js_create_widget_window(duk_context *ctx) {
         else if (zPosStr == "ontopmost") options.zPos = ZPOSITION_ONTOPMOST;
     }
     duk_pop(ctx);
+    if (duk_get_prop_string(ctx, 0, "draggable")) options.draggable = duk_get_boolean(ctx, -1);
+    duk_pop(ctx);
+    if (duk_get_prop_string(ctx, 0, "clickThrough")) options.clickThrough = duk_get_boolean(ctx, -1);
+    duk_pop(ctx);
+    if (duk_get_prop_string(ctx, 0, "keepOnScreen")) options.keepOnScreen = duk_get_boolean(ctx, -1);
+    duk_pop(ctx);
+    if (duk_get_prop_string(ctx, 0, "snapEdges")) options.snapEdges = duk_get_boolean(ctx, -1);
+    duk_pop(ctx);
+
+    Logging::Log(LogLevel::Debug, L"Widget Creation Options:");
+    Logging::Log(LogLevel::Debug, L"  - Size: %dx%d", options.width, options.height);
+    Logging::Log(LogLevel::Debug, L"  - Draggable: %s", options.draggable ? L"true" : L"false");
+    Logging::Log(LogLevel::Debug, L"  - ClickThrough: %s", options.clickThrough ? L"true" : L"false");
+    Logging::Log(LogLevel::Debug, L"  - KeepOnScreen: %s", options.keepOnScreen ? L"true" : L"false");
+    Logging::Log(LogLevel::Debug, L"  - SnapEdges: %s", options.snapEdges ? L"true" : L"false");
+    Logging::Log(LogLevel::Debug, L"  - Color: RGB(%d,%d,%d) Alpha: %d", GetRValue(options.color), GetGValue(options.color), GetBValue(options.color), options.alpha);
 
     Widget* widget = new Widget(options);
     if (widget->Create()) {

@@ -1,8 +1,12 @@
 #include "Widget.h"
+#include "Logging.h"
 #include <vector>
+#include <windowsx.h>
+#include <algorithm>
 
 #define WIDGET_CLASS_NAME L"NovadeskWidget"
 #define ZPOS_FLAGS (SWP_NOMOVE | SWP_NOSIZE | SWP_NOOWNERZORDER | SWP_NOACTIVATE | SWP_NOSENDCHANGING)
+#define SNAP_DISTANCE 10
 
 extern std::vector<Widget*> widgets; // Defined in Novadesk.cpp
 
@@ -33,8 +37,14 @@ bool Widget::Create()
 
     RegisterClassExW(&wcex);
 
+    DWORD dwExStyle = WS_EX_TOOLWINDOW | WS_EX_LAYERED;
+    if (m_Options.clickThrough)
+    {
+        dwExStyle |= WS_EX_TRANSPARENT;
+    }
+
     m_hWnd = CreateWindowExW(
-        WS_EX_TOOLWINDOW | WS_EX_LAYERED,
+        dwExStyle,
         WIDGET_CLASS_NAME,
         L"Novadesk Widget",
         WS_POPUP,
@@ -162,6 +172,119 @@ LRESULT CALLBACK Widget::WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
             EndPaint(hWnd, &ps);
             return 0;
         }
+    case WM_LBUTTONDOWN:
+        if (widget && widget->m_Options.draggable)
+        {
+            Logging::Log(LogLevel::Debug, L"WM_LBUTTONDOWN: Starting drag");
+            ReleaseCapture();
+            SendMessage(hWnd, WM_NCLBUTTONDOWN, HTCAPTION, 0);
+            return 0;
+        }
+        return DefWindowProc(hWnd, message, wParam, lParam);
+
+    case WM_NCHITTEST:
+        {
+            LRESULT hit = DefWindowProc(hWnd, message, wParam, lParam);
+            if (widget && widget->m_Options.draggable)
+            {
+                // We return HTCAPTION even if it was HTCLIENT
+                if (hit == HTCLIENT) hit = HTCAPTION;
+            }
+            return hit;
+        }
+    case WM_WINDOWPOSCHANGING:
+        if (widget)
+        {
+            LPWINDOWPOS wp = (LPWINDOWPOS)lParam;
+            if (!(wp->flags & SWP_NOMOVE))
+            {
+                // Snapping
+                if (widget->m_Options.snapEdges)
+                {
+                    const auto& monitors = System::GetMultiMonitorInfo().monitors;
+                    RECT windowRect = { wp->x, wp->y, wp->x + widget->m_Options.width, wp->y + widget->m_Options.height };
+                    const RECT* workArea = nullptr;
+
+                    // Find monitor with largest intersection
+                    LONG maxArea = 0;
+                    for (const auto& mon : monitors)
+                    {
+                        if (!mon.active) continue;
+                        RECT intersect;
+                        if (::IntersectRect(&intersect, &windowRect, &mon.screen))
+                        {
+                            LONG area = (intersect.right - intersect.left) * (intersect.bottom - intersect.top);
+                            if (area > maxArea)
+                            {
+                                maxArea = area;
+                                workArea = &mon.work;
+                            }
+                        }
+                    }
+
+                    // Snap to other widgets
+                    for (Widget* w : widgets)
+                    {
+                        if (w == widget) continue;
+                        RECT otherRect;
+                        GetWindowRect(w->GetWindow(), &otherRect);
+                        
+                        // Vertical overlap -> Snap horizontally
+                        if (wp->y < otherRect.bottom && wp->y + widget->m_Options.height > otherRect.top)
+                        {
+                            if (abs(wp->x - otherRect.left) < SNAP_DISTANCE) wp->x = otherRect.left;
+                            if (abs(wp->x - otherRect.right) < SNAP_DISTANCE) wp->x = otherRect.right;
+                            if (abs(wp->x + widget->m_Options.width - otherRect.left) < SNAP_DISTANCE) wp->x = otherRect.left - widget->m_Options.width;
+                            if (abs(wp->x + widget->m_Options.width - otherRect.right) < SNAP_DISTANCE) wp->x = otherRect.right - widget->m_Options.width;
+                        }
+
+                        // Horizontal overlap -> Snap vertically
+                        if (wp->x < otherRect.right && wp->x + widget->m_Options.width > otherRect.left)
+                        {
+                            if (abs(wp->y - otherRect.top) < SNAP_DISTANCE) wp->y = otherRect.top;
+                            if (abs(wp->y - otherRect.bottom) < SNAP_DISTANCE) wp->y = otherRect.bottom;
+                            if (abs(wp->y + widget->m_Options.height - otherRect.top) < SNAP_DISTANCE) wp->y = otherRect.top - widget->m_Options.height;
+                            if (abs(wp->y + widget->m_Options.height - otherRect.bottom) < SNAP_DISTANCE) wp->y = otherRect.bottom - widget->m_Options.height;
+                        }
+                    }
+
+                    // Snap to screen edges
+                    if (workArea)
+                    {
+                        if (abs(wp->x - workArea->left) < SNAP_DISTANCE) wp->x = workArea->left;
+                        if (abs(wp->y - workArea->top) < SNAP_DISTANCE) wp->y = workArea->top;
+                        if (abs(wp->x + widget->m_Options.width - workArea->right) < SNAP_DISTANCE) wp->x = workArea->right - widget->m_Options.width;
+                        if (abs(wp->y + widget->m_Options.height - workArea->bottom) < SNAP_DISTANCE) wp->y = workArea->bottom - widget->m_Options.height;
+                    }
+                }
+
+                // Keep on screen
+                if (widget->m_Options.keepOnScreen)
+                {
+                    const auto& monitors = System::GetMultiMonitorInfo().monitors;
+                    RECT windowRect = { wp->x, wp->y, wp->x + widget->m_Options.width, wp->y + widget->m_Options.height };
+                    const RECT* targetWork = nullptr;
+
+                    // Find containing monitor (or primary)
+                    for (const auto& mon : monitors)
+                    {
+                        if (!mon.active) continue;
+                        if (PtInRect(&mon.screen, { wp->x + widget->m_Options.width / 2, wp->y + widget->m_Options.height / 2 }))
+                        {
+                            targetWork = &mon.work;
+                            break;
+                        }
+                    }
+
+                    if (targetWork)
+                    {
+                        wp->x = (std::max)((int)targetWork->left, (std::min)(wp->x, (int)targetWork->right - widget->m_Options.width));
+                        wp->y = (std::max)((int)targetWork->top, (std::min)(wp->y, (int)targetWork->bottom - widget->m_Options.height));
+                    }
+                }
+            }
+        }
+        return 0;
     case WM_DESTROY:
         if (widget)
         {

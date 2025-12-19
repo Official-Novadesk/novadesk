@@ -13,6 +13,10 @@ struct WidgetOptions
     ZPOSITION zPos;
     BYTE alpha;
     COLORREF color;
+    bool draggable;
+    bool clickThrough;
+    bool keepOnScreen;
+    bool snapEdges;
 };
 
 class Widget
