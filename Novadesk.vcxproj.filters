@@ -15,16 +15,16 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="framework.h">
+    <ClInclude Include="Library\framework.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="targetver.h">
+    <ClInclude Include="Library\targetver.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Resource.h">
+    <ClInclude Include="Library\Resource.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Novadesk.h">
+    <ClInclude Include="Library\Novadesk.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Library\duktape\duktape.h">
@@ -32,7 +32,7 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Novadesk.cpp">
+    <ClCompile Include="Library\Novadesk.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Library\duktape\duktape.c">
@@ -45,10 +45,10 @@
     </ResourceCompile>
   </ItemGroup>
   <ItemGroup>
-    <Image Include="small.ico">
+    <Image Include="assets\small.ico">
       <Filter>Resource Files</Filter>
     </Image>
-    <Image Include="Novadesk.ico">
+    <Image Include="assets\Novadesk.ico">
       <Filter>Resource Files</Filter>
     </Image>
   </ItemGroup>

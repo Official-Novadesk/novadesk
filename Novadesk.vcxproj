@@ -123,22 +123,22 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="framework.h" />
+    <ClInclude Include="Library\framework.h" />
     <ClInclude Include="Library\duktape\duktape.h" />
-    <ClInclude Include="Novadesk.h" />
-    <ClInclude Include="Resource.h" />
-    <ClInclude Include="targetver.h" />
+    <ClInclude Include="Library\Novadesk.h" />
+    <ClInclude Include="Library\Resource.h" />
+    <ClInclude Include="Library\targetver.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Library\duktape\duktape.c" />
-    <ClCompile Include="Novadesk.cpp" />
+    <ClCompile Include="Library\Novadesk.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="Novadesk.rc" />
   </ItemGroup>
   <ItemGroup>
-    <Image Include="Novadesk.ico" />
-    <Image Include="small.ico" />
+    <Image Include="assets\Novadesk.ico" />
+    <Image Include="assets\small.ico" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
