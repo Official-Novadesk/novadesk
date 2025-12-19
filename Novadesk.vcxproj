@@ -126,6 +126,7 @@
     <ClInclude Include="Library\System.h" />
     <ClInclude Include="Library\Widget.h" />
     <ClInclude Include="Library\ColorUtil.h" />
+    <ClInclude Include="Library\Logging.h" />
     <ClInclude Include="Library\framework.h" />
     <ClInclude Include="Library\duktape\duktape.h" />
     <ClInclude Include="Library\Novadesk.h" />
@@ -137,6 +138,7 @@
     <ClCompile Include="Library\Widget.cpp" />
     <ClCompile Include="Library\duktape\duktape.c" />
     <ClCompile Include="Library\Novadesk.cpp" />
+    <ClCompile Include="Library\Logging.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="Novadesk.rc" />

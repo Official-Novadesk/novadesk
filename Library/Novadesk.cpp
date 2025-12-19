@@ -3,6 +3,7 @@
 #include "duktape/duktape.h"
 #include "Widget.h"
 #include "System.h"
+#include "Logging.h"
 #include "ColorUtil.h"
 #include <vector>
 #include <fstream>
@@ -16,17 +17,6 @@ WCHAR szTitle[MAX_LOADSTRING];                  // The title bar text
 WCHAR szWindowClass[MAX_LOADSTRING];            // the main window class name
 duk_context *ctx = nullptr;
 std::vector<Widget*> widgets;
-
-void Log(const wchar_t* format, ...) {
-    va_list args;
-    va_start(args, format);
-    wchar_t buffer[1024];
-    vswprintf_s(buffer, format, args);
-    va_end(args);
-    OutputDebugStringW(L"[Novadesk] ");
-    OutputDebugStringW(buffer);
-    OutputDebugStringW(L"\n");
-}
 
 // Forward declarations of functions included in this code module:
 ATOM                MyRegisterClass(HINSTANCE hInstance);
@@ -43,9 +33,45 @@ std::wstring ToWString(const std::string& str) {
     return wstrTo;
 }
 
+// JS API: novadesk.log(...)
+static duk_ret_t js_log(duk_context *ctx) {
+    duk_idx_t n = duk_get_top(ctx);
+    std::wstring msg;
+    for (duk_idx_t i = 0; i < n; i++) {
+        if (i > 0) msg += L" ";
+        msg += ToWString(duk_safe_to_string(ctx, i));
+    }
+    Logging::Log(LogLevel::Info, L"%s", msg.c_str());
+    return 0;
+}
+
+// JS API: novadesk.error(...)
+static duk_ret_t js_error(duk_context *ctx) {
+    duk_idx_t n = duk_get_top(ctx);
+    std::wstring msg;
+    for (duk_idx_t i = 0; i < n; i++) {
+        if (i > 0) msg += L" ";
+        msg += ToWString(duk_safe_to_string(ctx, i));
+    }
+    Logging::Log(LogLevel::Error, L"%s", msg.c_str());
+    return 0;
+}
+
+// JS API: novadesk.debug(...)
+static duk_ret_t js_debug(duk_context *ctx) {
+    duk_idx_t n = duk_get_top(ctx);
+    std::wstring msg;
+    for (duk_idx_t i = 0; i < n; i++) {
+        if (i > 0) msg += L" ";
+        msg += ToWString(duk_safe_to_string(ctx, i));
+    }
+    Logging::Log(LogLevel::Debug, L"%s", msg.c_str());
+    return 0;
+}
+
 // JS API: novadesk.createWidgetWindow(options)
 static duk_ret_t js_create_widget_window(duk_context *ctx) {
-    Log(L"js_create_widget_window called");
+    Logging::Log(LogLevel::Debug, L"js_create_widget_window called");
     if (!duk_is_object(ctx, 0)) return DUK_RET_TYPE_ERROR;
 
     WidgetOptions options;
@@ -63,7 +89,6 @@ static duk_ret_t js_create_widget_window(duk_context *ctx) {
     if (duk_get_prop_string(ctx, 0, "backgroundColor")) {
         options.backgroundColor = ToWString(duk_get_string(ctx, -1));
         ColorUtil::ParseRGBA(options.backgroundColor, options.color, options.alpha);
-        Log(L"Parsed color: RGB(%d,%d,%d) Alpha: %d", GetRValue(options.color), GetGValue(options.color), GetBValue(options.color), options.alpha);
     }
     duk_pop(ctx);
     if (duk_get_prop_string(ctx, 0, "zPos")) {
@@ -72,7 +97,6 @@ static duk_ret_t js_create_widget_window(duk_context *ctx) {
         else if (zPosStr == "ontop") options.zPos = ZPOSITION_ONTOP;
         else if (zPosStr == "onbottom") options.zPos = ZPOSITION_ONBOTTOM;
         else if (zPosStr == "ontopmost") options.zPos = ZPOSITION_ONTOPMOST;
-        Log(L"zPos: %S", zPosStr.c_str());
     }
     duk_pop(ctx);
 
@@ -80,9 +104,9 @@ static duk_ret_t js_create_widget_window(duk_context *ctx) {
     if (widget->Create()) {
         widget->Show();
         widgets.push_back(widget);
-        Log(L"Widget created and shown. HWND: 0x%p", widget->GetWindow());
+        Logging::Log(LogLevel::Info, L"Widget created and shown. HWND: 0x%p", widget->GetWindow());
     } else {
-        Log(L"Failed to create widget.");
+        Logging::Log(LogLevel::Error, L"Failed to create widget.");
         delete widget;
     }
 
@@ -97,7 +121,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     UNREFERENCED_PARAMETER(hPrevInstance);
     UNREFERENCED_PARAMETER(lpCmdLine);
 
-    Log(L"Application starting...");
+    Logging::Log(LogLevel::Info, L"Application starting...");
     System::Initialize(hInstance);
 
     // Initialize global strings
@@ -112,10 +136,10 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     }
 
     // Initialize Duktape
-    Log(L"Initializing Duktape (version %ld)...", (long)DUK_VERSION);
+    Logging::Log(LogLevel::Info, L"Initializing Duktape (version %ld)...", (long)DUK_VERSION);
     ctx = duk_create_heap_default();
     if (!ctx) {
-        Log(L"Failed to create Duktape heap.");
+        Logging::Log(LogLevel::Error, L"Failed to create Duktape heap.");
         return FALSE;
     }
 
@@ -123,7 +147,17 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     duk_push_object(ctx);
     duk_push_c_function(ctx, js_create_widget_window, 1);
     duk_put_prop_string(ctx, -2, "createWidgetWindow");
+    duk_push_c_function(ctx, js_log, DUK_VARARGS);
+    duk_put_prop_string(ctx, -2, "log");
+    duk_push_c_function(ctx, js_error, DUK_VARARGS);
+    duk_put_prop_string(ctx, -2, "error");
+    duk_push_c_function(ctx, js_debug, DUK_VARARGS);
+    duk_put_prop_string(ctx, -2, "debug");
     duk_put_global_string(ctx, "novadesk");
+
+    // Bootstrap widgetWindow class
+    const char* bootstrap = "var widgetWindow = function(options) { novadesk.createWidgetWindow(options); };";
+    duk_eval_string(ctx, bootstrap);
 
     // Get executable path to find index.js
     wchar_t path[MAX_PATH];
@@ -132,22 +166,33 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     size_t lastBackslash = exePath.find_last_of(L"\\");
     std::wstring scriptPath = exePath.substr(0, lastBackslash + 1) + L"index.js";
 
-    Log(L"Loading script from: %s", scriptPath.c_str());
+    Logging::Log(LogLevel::Info, L"Loading script from: %s", scriptPath.c_str());
 
     std::ifstream t(scriptPath);
     if (t.is_open()) {
         std::stringstream buffer;
         buffer << t.rdbuf();
         std::string content = buffer.str();
-        Log(L"Script loaded, size: %zu", content.size());
+        Logging::Log(LogLevel::Info, L"Script loaded, size: %zu", content.size());
         if (duk_peval_string(ctx, content.c_str()) != 0) {
-            Log(L"Script execution failed: %S", duk_safe_to_string(ctx, -1));
+            Logging::Log(LogLevel::Error, L"Script execution failed: %S", duk_safe_to_string(ctx, -1));
         } else {
-            Log(L"Script execution successful.");
+            Logging::Log(LogLevel::Info, L"Script execution successful. Calling novadeskAppReady()...");
+            
+            // Call novadeskAppReady if defined
+            duk_get_global_string(ctx, "novadeskAppReady");
+            if (duk_is_function(ctx, -1)) {
+                if (duk_pcall(ctx, 0) != 0) {
+                    Logging::Log(LogLevel::Error, L"novadeskAppReady failed: %S", duk_safe_to_string(ctx, -1));
+                }
+            } else {
+                Logging::Log(LogLevel::Info, L"novadeskAppReady not defined.");
+            }
+            duk_pop(ctx);
         }
         duk_pop(ctx);
     } else {
-        Log(L"Failed to open index.js at %s", scriptPath.c_str());
+        Logging::Log(LogLevel::Error, L"Failed to open index.js at %s", scriptPath.c_str());
     }
 
     HACCEL hAccelTable = LoadAccelerators(hInstance, MAKEINTRESOURCE(IDC_NOVADESK));
