@@ -116,6 +116,10 @@ void Widget::ChangeZPos(ZPOSITION zPos, bool all)
 {
     ZPOSITION oldZPos = m_WindowZPosition;
     HWND winPos = HWND_NOTOPMOST;
+    
+    bool changed = (m_Options.zPos != zPos);
+    // Logging::Log(LogLevel::Debug, L"ChangeZPos: id=%s, current=%d, new=%d, changed=%d", m_Options.id.c_str(), m_Options.zPos, zPos, changed);
+    m_Options.zPos = zPos;
     m_WindowZPosition = zPos;
 
     switch (zPos)
@@ -181,8 +185,11 @@ void Widget::ChangeZPos(ZPOSITION zPos, bool all)
 
     SetWindowPos(m_hWnd, winPos, 0, 0, 0, 0, ZPOS_FLAGS);
 
-    // Save Z-Pos state
-    Settings::SaveWidget(m_Options.id, m_Options);
+    // Save Z-Pos state only if it actually changed
+    if (changed)
+    {
+        Settings::SaveWidget(m_Options.id, m_Options);
+    }
 
 timer_check:
     if (oldZPos == ZPOSITION_ONTOPMOST && m_WindowZPosition != ZPOSITION_ONTOPMOST)
@@ -211,6 +218,8 @@ void Widget::ChangeSingleZPos(ZPOSITION zPos, bool all)
     }
     else
     {
+        // For clicked widgets, we just want to re-assert z-order without necessarily saving
+        // unless it's a new Z-position.
         ChangeZPos(zPos, all);
     }
 }
@@ -257,9 +266,9 @@ LRESULT CALLBACK Widget::WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
             
             if (widget->m_Options.draggable)
             {
-                Logging::Log(LogLevel::Debug, L"WM_LBUTTONDOWN: Starting manual drag");
                 SetCapture(hWnd);
                 widget->m_IsDragging = true;
+                widget->m_DragThresholdMet = false;
                 GetCursorPos(&widget->m_DragStartCursor);
                 RECT rc;
                 GetWindowRect(hWnd, &rc);
@@ -275,14 +284,26 @@ LRESULT CALLBACK Widget::WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
                 widget->m_IsDragging = false;
                 ReleaseCapture();
                 
-                // Save final position
-                RECT rc;
-                GetWindowRect(hWnd, &rc);
-                widget->m_Options.x = rc.left;
-                widget->m_Options.y = rc.top;
-                Settings::SaveWidget(widget->m_Options.id, widget->m_Options);
+                if (widget->m_DragThresholdMet)
+                {
+                    // Save final position
+                    RECT rc;
+                    GetWindowRect(hWnd, &rc);
+                    widget->m_Options.x = rc.left;
+                    widget->m_Options.y = rc.top;
+                    Settings::SaveWidget(widget->m_Options.id, widget->m_Options);
+                }
+                else
+                {
+                    // If we didn't drag enough, it's a click
+                    widget->HandleMouseMessage(message, wParam, lParam);
+                }
+                widget->m_DragThresholdMet = false;
             }
-            widget->HandleMouseMessage(message, wParam, lParam);
+            else
+            {
+                widget->HandleMouseMessage(message, wParam, lParam);
+            }
         }
         return 0;
 
@@ -314,14 +335,25 @@ LRESULT CALLBACK Widget::WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
                 int dx = pt.x - widget->m_DragStartCursor.x;
                 int dy = pt.y - widget->m_DragStartCursor.y;
 
-                int newX = widget->m_DragStartWindow.x + dx;
-                int newY = widget->m_DragStartWindow.y + dy;
+                if (!widget->m_DragThresholdMet)
+                {
+                    if (abs(dx) > GetSystemMetrics(SM_CXDRAG) || abs(dy) > GetSystemMetrics(SM_CYDRAG))
+                    {
+                        widget->m_DragThresholdMet = true;
+                    }
+                }
 
-                SetWindowPos(hWnd, NULL, newX, newY, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
-                
-                // Update local options for hit testing
-                widget->m_Options.x = newX;
-                widget->m_Options.y = newY;
+                if (widget->m_DragThresholdMet)
+                {
+                    int newX = widget->m_DragStartWindow.x + dx;
+                    int newY = widget->m_DragStartWindow.y + dy;
+
+                    SetWindowPos(hWnd, NULL, newX, newY, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+                    
+                    // Update local options for hit testing
+                    widget->m_Options.x = newX;
+                    widget->m_Options.y = newY;
+                }
             }
             else
             {
@@ -517,7 +549,6 @@ void Widget::AddImage(const std::wstring& id, int x, int y, int w, int h,
     m_Elements.push_back(element);
     
     Redraw();
-    Logging::Log(LogLevel::Debug, L"Added image '%s' at (%d,%d)", id.c_str(), x, y);
 }
 
 void Widget::AddText(const std::wstring& id, int x, int y, int w, int h,
@@ -533,7 +564,6 @@ void Widget::AddText(const std::wstring& id, int x, int y, int w, int h,
     m_Elements.push_back(element);
     
     Redraw();
-    Logging::Log(LogLevel::Debug, L"Added text '%s': %s", id.c_str(), text.c_str());
 }
 
 bool Widget::UpdateImage(const std::wstring& id, const std::wstring& newPath)

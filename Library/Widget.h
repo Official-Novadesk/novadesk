@@ -171,6 +171,7 @@ private:
 
     // Dragging State
     bool m_IsDragging = false;
+    bool m_DragThresholdMet = false;
     POINT m_DragStartCursor = { 0, 0 };
     POINT m_DragStartWindow = { 0, 0 };
 

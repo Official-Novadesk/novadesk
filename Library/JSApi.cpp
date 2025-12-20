@@ -58,7 +58,6 @@ namespace JSApi {
 
     // JS API: new widgetWindow(options)
     duk_ret_t js_create_widget_window(duk_context* ctx) {
-        Logging::Log(LogLevel::Debug, L"js_create_widget_window called");
         if (!duk_is_object(ctx, 0)) return DUK_RET_TYPE_ERROR;
 
         WidgetOptions options;

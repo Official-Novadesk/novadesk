@@ -69,7 +69,6 @@ void Settings::Save()
     {
         o << std::setw(4) << s_Data << std::endl;
         s_Dirty = false;
-        Logging::Log(LogLevel::Debug, L"Settings saved to %s", path.c_str());
     }
 }
 
@@ -101,6 +100,15 @@ void Settings::SaveWidget(const std::wstring& id, const WidgetOptions& options)
     widgetData["clickThrough"] = options.clickThrough;
     widgetData["keepOnScreen"] = options.keepOnScreen;
     widgetData["snapEdges"] = options.snapEdges;
+    
+    // Only save if data has actually changed
+    if (s_Data.contains("widgets") && s_Data["widgets"].contains(idStr))
+    {
+        if (s_Data["widgets"][idStr] == widgetData)
+        {
+            return; // No changes, skip saving
+        }
+    }
     
     s_Data["widgets"][idStr] = widgetData;
     s_Dirty = true;
