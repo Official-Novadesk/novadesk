@@ -25,15 +25,10 @@ extern std::vector<Widget*> widgets; // Defined in Novadesk.cpp
 Widget::Widget(const WidgetOptions& options) 
     : m_hWnd(nullptr), m_Options(options), m_WindowZPosition(options.zPos)
 {
-    m_hBackBrush = CreateSolidBrush(m_Options.color);
 }
 
 Widget::~Widget()
 {
-    if (m_hBackBrush)
-    {
-        DeleteObject(m_hBackBrush);
-    }
     if (m_hWnd)
     {
         DestroyWindow(m_hWnd);
@@ -92,11 +87,11 @@ bool Widget::Create()
 
     if (!m_hWnd) return false;
 
-    // Set transparency
-    SetLayeredWindowAttributes(m_hWnd, 0, m_Options.alpha, LWA_ALPHA);
-
     // Initial Z-position - use ChangeSingleZPos to bring new widgets to front
     ChangeSingleZPos(m_WindowZPosition);
+
+    // Initial draw to set content
+    UpdateLayeredWindowContent();
 
     if (m_WindowZPosition == ZPOSITION_ONTOPMOST)
     {
@@ -238,25 +233,12 @@ LRESULT CALLBACK Widget::WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
     switch (message)
     {
     case WM_ERASEBKGND:
-        if (widget && widget->m_hBackBrush)
-        {
-            HDC hdc = (HDC)wParam;
-            RECT rect;
-            GetClientRect(hWnd, &rect);
-            FillRect(hdc, &rect, widget->m_hBackBrush);
-            return 1; // Handled
-        }
-        return 0;
+        return 1; // Handled, we don't need to erase background for layered window
+        
     case WM_PAINT:
         {
             PAINTSTRUCT ps;
-            HDC hdc = BeginPaint(hWnd, &ps);
-            
-            if (widget)
-            {
-                widget->RenderContent(hdc);
-            }
-            
+            BeginPaint(hWnd, &ps);
             EndPaint(hWnd, &ps);
             return 0;
         }
@@ -526,10 +508,79 @@ void Widget::ClearContent()
 
 void Widget::Redraw()
 {
-    if (m_hWnd)
+    UpdateLayeredWindowContent();
+}
+
+void Widget::UpdateLayeredWindowContent()
+{
+    if (!m_hWnd) return;
+
+    // Use m_Options dimensions as window size might not be fully updated yet
+    int w = m_Options.width;
+    int h = m_Options.height;
+    if (w <= 0 || h <= 0) return;
+
+    HDC hdcScreen = GetDC(NULL);
+    HDC hdcMem = CreateCompatibleDC(hdcScreen);
+    
+    // Create 32-bit bitmap for alpha channel
+    BITMAPINFO bmi;
+    ZeroMemory(&bmi, sizeof(BITMAPINFO));
+    bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+    bmi.bmiHeader.biWidth = w;
+    bmi.bmiHeader.biHeight = h;
+    bmi.bmiHeader.biPlanes = 1;
+    bmi.bmiHeader.biBitCount = 32;
+    bmi.bmiHeader.biCompression = BI_RGB;
+    
+    void* pvBits = NULL;
+    HBITMAP hBitmap = CreateDIBSection(hdcMem, &bmi, DIB_RGB_COLORS, &pvBits, NULL, 0);
+    HBITMAP hOldBitmap = (HBITMAP)SelectObject(hdcMem, hBitmap);
+
+    // Draw GDI+
     {
-        InvalidateRect(m_hWnd, nullptr, TRUE);
+        Graphics graphics(hdcMem);
+        graphics.SetSmoothingMode(SmoothingModeAntiAlias);
+        graphics.SetTextRenderingHint(TextRenderingHintAntiAlias);
+        graphics.SetCompositingMode(CompositingModeSourceOver);
+
+        // Clear with 0 alpha (fully transparent)
+        graphics.Clear(Color(0, 0, 0, 0));
+
+        // Draw Background
+        Color backColor(m_Options.bgAlpha, GetRValue(m_Options.color), GetGValue(m_Options.color), GetBValue(m_Options.color));
+        SolidBrush backBrush(backColor);
+        graphics.FillRectangle(&backBrush, 0, 0, w, h);
+
+        // Draw Elements
+        for (Element* element : m_Elements)
+        {
+            element->Render(graphics);
+        }
     }
+
+    POINT pptDst = { 0, 0 };
+    // We need current window position
+    RECT rc; 
+    GetWindowRect(m_hWnd, &rc);
+    pptDst.x = rc.left;
+    pptDst.y = rc.top;
+    
+    POINT pptSrc = { 0, 0 };
+    SIZE size = { w, h };
+    
+    BLENDFUNCTION bf;
+    bf.BlendOp = AC_SRC_OVER;
+    bf.BlendFlags = 0;
+    bf.SourceConstantAlpha = m_Options.windowOpacity; // Master opacity
+    bf.AlphaFormat = AC_SRC_ALPHA; // Pre-multiplied alpha
+
+    UpdateLayeredWindow(m_hWnd, hdcScreen, &pptDst, &size, hdcMem, &pptSrc, 0, &bf, ULW_ALPHA);
+
+    SelectObject(hdcMem, hOldBitmap);
+    DeleteObject(hBitmap);
+    DeleteDC(hdcMem);
+    ReleaseDC(NULL, hdcScreen);
 }
 
 Element* Widget::FindElementById(const std::wstring& id)
@@ -539,17 +590,5 @@ Element* Widget::FindElementById(const std::wstring& id)
         if (element->GetId() == id) return element;
     }
     return nullptr;
-}
-
-void Widget::RenderContent(HDC hdc)
-{
-    Graphics graphics(hdc);
-    graphics.SetSmoothingMode(SmoothingModeAntiAlias);
-    graphics.SetTextRenderingHint(TextRenderingHintAntiAlias);
-    
-    for (Element* element : m_Elements)
-    {
-        element->Render(graphics);
-    }
 }
 

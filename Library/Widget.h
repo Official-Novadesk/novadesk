@@ -22,7 +22,8 @@ struct WidgetOptions
     int height;
     std::wstring backgroundColor;
     ZPOSITION zPos;
-    BYTE alpha;
+    BYTE bgAlpha;        // Alpha component of background color (0-255)
+    BYTE windowOpacity;  // Overall window opacity (0-255)
     COLORREF color;
     bool draggable;
     bool clickThrough;
@@ -143,9 +144,10 @@ private:
     static Widget* GetWidgetFromHWND(HWND hWnd);
 
     /*
-    ** Render all content items (images and text) to the device context.
+    ** Update the layered window content using UpdateLayeredWindow.
+    ** Draws all content to a memory DC and updates the window.
     */
-    void RenderContent(HDC hdc);
+    void UpdateLayeredWindowContent();
 
     /*
     ** Find a content element by its ID.
@@ -156,7 +158,6 @@ private:
     HWND m_hWnd;
     WidgetOptions m_Options;
     ZPOSITION m_WindowZPosition;
-    HBRUSH m_hBackBrush;
     std::vector<Element*> m_Elements;
 
     static const UINT_PTR TIMER_TOPMOST = 2;

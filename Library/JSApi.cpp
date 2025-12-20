@@ -65,7 +65,8 @@ namespace JSApi {
         options.height = 300;
         options.backgroundColor = L"rgba(255,255,255,255)";
         options.zPos = ZPOSITION_NORMAL;
-        options.alpha = 255;
+        options.bgAlpha = 255;
+        options.windowOpacity = 255;
         options.color = RGB(255, 255, 255);
         options.draggable = false;
         options.clickThrough = false;
@@ -78,7 +79,21 @@ namespace JSApi {
         duk_pop(ctx);
         if (duk_get_prop_string(ctx, 0, "backgroundColor")) {
             options.backgroundColor = Utils::ToWString(duk_get_string(ctx, -1));
-            ColorUtil::ParseRGBA(options.backgroundColor, options.color, options.alpha);
+            ColorUtil::ParseRGBA(options.backgroundColor, options.color, options.bgAlpha);
+        }
+        duk_pop(ctx);
+        if (duk_get_prop_string(ctx, 0, "opacity")) {
+            if (duk_is_string(ctx, -1)) {
+                std::string s = duk_get_string(ctx, -1);
+                if (s.back() == '%') {
+                    int pct = std::stoi(s.substr(0, s.length() - 1));
+                    options.windowOpacity = (BYTE)((pct / 100.0f) * 255);
+                } else {
+                    options.windowOpacity = (BYTE)(duk_get_number(ctx, -1) * 255);
+                }
+            } else {
+                options.windowOpacity = (BYTE)(duk_get_number(ctx, -1) * 255);
+            }
         }
         duk_pop(ctx);
         if (duk_get_prop_string(ctx, 0, "zPos")) {
