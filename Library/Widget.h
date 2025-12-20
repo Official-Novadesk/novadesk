@@ -10,7 +10,11 @@
 
 #include <windows.h>
 #include <string>
+#include <vector>
 #include "System.h"
+#include "Element.h"
+#include "Text.h"
+#include "Image.h"
 
 struct WidgetOptions
 {
@@ -75,6 +79,51 @@ public:
     */
     ZPOSITION GetWindowZPosition() const { return m_WindowZPosition; }
 
+    /*
+    ** Add an image content item to the widget.
+    ** The image will be loaded and cached for rendering.
+    */
+    void AddImage(const std::wstring& id, int x, int y, int w, int h, 
+                  const std::wstring& path, ScaleMode mode = SCALE_FILL);
+
+    /*
+    ** Add a text content item to the widget.
+    ** Text will be rendered with the specified font and styling.
+    */
+    void AddText(const std::wstring& id, int x, int y, int w, int h,
+                 const std::wstring& text, const std::wstring& fontFamily,
+                 int fontSize, COLORREF color, BYTE alpha, bool bold = false,
+                 bool italic = false, TextAlign align = ALIGN_LEFT,
+                 VerticalAlign vAlign = VALIGN_TOP, float lineHeight = 1.0f);
+
+    /*
+    ** Update an existing image content item with a new image path.
+    ** Returns true if the item was found and updated.
+    */
+    bool UpdateImage(const std::wstring& id, const std::wstring& newPath);
+
+    /*
+    ** Update an existing text content item with new text.
+    ** Returns true if the item was found and updated.
+    */
+    bool UpdateText(const std::wstring& id, const std::wstring& newText);
+
+    /*
+    ** Remove a content item by its ID.
+    ** Returns true if the item was found and removed.
+    */
+    bool RemoveContent(const std::wstring& id);
+
+    /*
+    ** Clear all content items from the widget.
+    */
+    void ClearContent();
+
+    /*
+    ** Redraw the widget window to reflect content changes.
+    */
+    void Redraw();
+
 private:
     /*
     ** Window procedure for handling widget window messages.
@@ -92,13 +141,26 @@ private:
     ** Retrieve the Widget instance associated with a window handle.
     */
     static Widget* GetWidgetFromHWND(HWND hWnd);
+
+    /*
+    ** Render all content items (images and text) to the device context.
+    */
+    void RenderContent(HDC hdc);
+
+    /*
+    ** Find a content element by its ID.
+    ** Returns pointer to the element or nullptr if not found.
+    */
+    Element* FindElementById(const std::wstring& id);
     
     HWND m_hWnd;
     WidgetOptions m_Options;
     ZPOSITION m_WindowZPosition;
     HBRUSH m_hBackBrush;
+    std::vector<Element*> m_Elements;
 
     static const UINT_PTR TIMER_TOPMOST = 2;
 };
 
 #endif
+

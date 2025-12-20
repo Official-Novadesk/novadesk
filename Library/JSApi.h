@@ -59,4 +59,12 @@ namespace JSApi {
     ** clickThrough, keepOnScreen, and snapEdges.
     */
     duk_ret_t js_create_widget_window(duk_context* ctx);
+
+    // Widget content methods
+    duk_ret_t js_widget_add_image(duk_context* ctx);
+    duk_ret_t js_widget_add_text(duk_context* ctx);
+    duk_ret_t js_widget_update_image(duk_context* ctx);
+    duk_ret_t js_widget_update_text(duk_context* ctx);
+    duk_ret_t js_widget_remove_content(duk_context* ctx);
+    duk_ret_t js_widget_clear_content(duk_context* ctx);
 }

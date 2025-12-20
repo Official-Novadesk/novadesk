@@ -10,6 +10,11 @@
 #include <vector>
 #include <windowsx.h>
 #include <algorithm>
+#include <gdiplus.h>
+
+#pragma comment(lib, "gdiplus.lib")
+
+using namespace Gdiplus;
 
 #define WIDGET_CLASS_NAME L"NovadeskWidget"
 #define ZPOS_FLAGS (SWP_NOMOVE | SWP_NOSIZE | SWP_NOOWNERZORDER | SWP_NOACTIVATE | SWP_NOSENDCHANGING)
@@ -33,6 +38,13 @@ Widget::~Widget()
     {
         DestroyWindow(m_hWnd);
     }
+    
+    // Clean up elements
+    for (auto* element : m_Elements)
+    {
+        delete element;
+    }
+    m_Elements.clear();
 }
 
 bool Widget::Register()
@@ -239,7 +251,12 @@ LRESULT CALLBACK Widget::WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
         {
             PAINTSTRUCT ps;
             HDC hdc = BeginPaint(hWnd, &ps);
-            // Optionally draw a border or text for debugging
+            
+            if (widget)
+            {
+                widget->RenderContent(hdc);
+            }
+            
             EndPaint(hWnd, &ps);
             return 0;
         }
@@ -424,3 +441,115 @@ LRESULT CALLBACK Widget::WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
     }
     return 0;
 }
+
+// ============================================================================
+// Content Management Methods
+// ============================================================================
+
+void Widget::AddImage(const std::wstring& id, int x, int y, int w, int h,
+                      const std::wstring& path, ScaleMode mode)
+{
+    // Remove existing if any
+    RemoveContent(id);
+
+    ImageElement* element = new ImageElement(id, x, y, w, h, path, mode);
+    m_Elements.push_back(element);
+    
+    Redraw();
+    Logging::Log(LogLevel::Debug, L"Added image '%s' at (%d,%d)", id.c_str(), x, y);
+}
+
+void Widget::AddText(const std::wstring& id, int x, int y, int w, int h,
+                     const std::wstring& text, const std::wstring& fontFamily,
+                     int fontSize, COLORREF color, BYTE alpha, bool bold,
+                     bool italic, TextAlign align, VerticalAlign vAlign, float lineHeight)
+{
+    // Remove existing if any
+    RemoveContent(id);
+
+    Text* element = new Text(id, x, y, w, h, text, fontFamily, fontSize, color, alpha,
+                             bold, italic, align, vAlign, lineHeight);
+    m_Elements.push_back(element);
+    
+    Redraw();
+    Logging::Log(LogLevel::Debug, L"Added text '%s': %s", id.c_str(), text.c_str());
+}
+
+bool Widget::UpdateImage(const std::wstring& id, const std::wstring& newPath)
+{
+    Element* element = FindElementById(id);
+    if (!element || element->GetType() != ELEMENT_IMAGE) return false;
+    
+    // We know it's an ImageElement because of the type check
+    static_cast<ImageElement*>(element)->UpdateImage(newPath);
+    
+    Redraw();
+    return true;
+}
+
+bool Widget::UpdateText(const std::wstring& id, const std::wstring& newText)
+{
+    Element* element = FindElementById(id);
+    if (!element || element->GetType() != ELEMENT_TEXT) return false;
+    
+    // We know it's a Text element
+    static_cast<Text*>(element)->SetText(newText);
+    
+    Redraw();
+    return true;
+}
+
+bool Widget::RemoveContent(const std::wstring& id)
+{
+    for (auto it = m_Elements.begin(); it != m_Elements.end(); ++it)
+    {
+        if ((*it)->GetId() == id)
+        {
+            delete *it;
+            m_Elements.erase(it);
+            Redraw();
+            return true;
+        }
+    }
+    return false;
+}
+
+void Widget::ClearContent()
+{
+    for (auto* element : m_Elements)
+    {
+        delete element;
+    }
+    m_Elements.clear();
+    Redraw();
+}
+
+void Widget::Redraw()
+{
+    if (m_hWnd)
+    {
+        InvalidateRect(m_hWnd, nullptr, TRUE);
+    }
+}
+
+Element* Widget::FindElementById(const std::wstring& id)
+{
+    for (auto* element : m_Elements)
+    {
+        if (element->GetId() == id) return element;
+    }
+    return nullptr;
+}
+
+void Widget::RenderContent(HDC hdc)
+{
+    Graphics graphics(hdc);
+    graphics.SetSmoothingMode(SmoothingModeAntiAlias);
+    graphics.SetTextRenderingHint(TextRenderingHintAntiAlias);
+    
+    for (Element* element : m_Elements)
+    {
+        element->Render(graphics);
+    }
+}
+

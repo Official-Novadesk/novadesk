@@ -123,7 +123,10 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="Library\Element.h" />
+    <ClInclude Include="Library\Image.h" />
     <ClInclude Include="Library\System.h" />
+    <ClInclude Include="Library\Text.h" />
     <ClInclude Include="Library\Widget.h" />
     <ClInclude Include="Library\ColorUtil.h" />
     <ClInclude Include="Library\Logging.h" />
@@ -136,7 +139,9 @@
     <ClInclude Include="Library\targetver.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Library\Image.cpp" />
     <ClCompile Include="Library\System.cpp" />
+    <ClCompile Include="Library\Text.cpp" />
     <ClCompile Include="Library\Widget.cpp" />
     <ClCompile Include="Library\JSApi.cpp" />
     <ClCompile Include="Library\Utils.cpp" />

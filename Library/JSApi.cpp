@@ -99,19 +99,39 @@ namespace JSApi {
         if (duk_get_prop_string(ctx, 0, "snapEdges")) options.snapEdges = duk_get_boolean(ctx, -1);
         duk_pop(ctx);
 
-        Logging::Log(LogLevel::Debug, L"Widget Creation Options:");
-        Logging::Log(LogLevel::Debug, L"  - Size: %dx%d", options.width, options.height);
-        Logging::Log(LogLevel::Debug, L"  - Draggable: %s", options.draggable ? L"true" : L"false");
-        Logging::Log(LogLevel::Debug, L"  - ClickThrough: %s", options.clickThrough ? L"true" : L"false");
-        Logging::Log(LogLevel::Debug, L"  - KeepOnScreen: %s", options.keepOnScreen ? L"true" : L"false");
-        Logging::Log(LogLevel::Debug, L"  - SnapEdges: %s", options.snapEdges ? L"true" : L"false");
-        Logging::Log(LogLevel::Debug, L"  - Color: RGB(%d,%d,%d) Alpha: %d", GetRValue(options.color), GetGValue(options.color), GetBValue(options.color), options.alpha);
-
         Widget* widget = new Widget(options);
         if (widget->Create()) {
             widget->Show();
             widgets.push_back(widget);
             Logging::Log(LogLevel::Info, L"Widget created and shown. HWND: 0x%p", widget->GetWindow());
+            
+            // Create JavaScript object to represent the widget
+            duk_push_object(ctx);
+            
+            // Store widget pointer
+            duk_push_pointer(ctx, widget);
+            duk_put_prop_string(ctx, -2, "\xFF" "widgetPtr");
+            
+            // Add methods to the widget object
+            duk_push_c_function(ctx, js_widget_add_image, 1);
+            duk_put_prop_string(ctx, -2, "addImage");
+            
+            duk_push_c_function(ctx, js_widget_add_text, 1);
+            duk_put_prop_string(ctx, -2, "addText");
+            
+            duk_push_c_function(ctx, js_widget_update_image, 2);
+            duk_put_prop_string(ctx, -2, "updateImage");
+            
+            duk_push_c_function(ctx, js_widget_update_text, 2);
+            duk_put_prop_string(ctx, -2, "updateText");
+            
+            duk_push_c_function(ctx, js_widget_remove_content, 1);
+            duk_put_prop_string(ctx, -2, "removeContent");
+            
+            duk_push_c_function(ctx, js_widget_clear_content, 0);
+            duk_put_prop_string(ctx, -2, "clearContent");
+            
+            return 1; // Return the object
         }
         else {
             Logging::Log(LogLevel::Error, L"Failed to create widget.");
@@ -119,6 +139,180 @@ namespace JSApi {
         }
 
         return 0;
+    }
+
+    duk_ret_t js_widget_add_image(duk_context* ctx) {
+        duk_push_this(ctx);
+        duk_get_prop_string(ctx, -1, "\xFF" "widgetPtr");
+        Widget* widget = (Widget*)duk_get_pointer(ctx, -1);
+        duk_pop_2(ctx);
+
+        if (!widget || !duk_is_object(ctx, 0)) return DUK_RET_TYPE_ERROR;
+
+        // Defaults
+        std::wstring id = L"", path = L"";
+        int x = 0, y = 0, w = 100, h = 100;
+        ScaleMode mode = SCALE_FILL;
+
+        if (duk_get_prop_string(ctx, 0, "id")) id = Utils::ToWString(duk_get_string(ctx, -1));
+        duk_pop(ctx);
+        if (duk_get_prop_string(ctx, 0, "path")) path = Utils::ToWString(duk_get_string(ctx, -1));
+        duk_pop(ctx);
+        if (duk_get_prop_string(ctx, 0, "x")) x = duk_get_int(ctx, -1);
+        duk_pop(ctx);
+        if (duk_get_prop_string(ctx, 0, "y")) y = duk_get_int(ctx, -1);
+        duk_pop(ctx);
+        if (duk_get_prop_string(ctx, 0, "width")) w = duk_get_int(ctx, -1);
+        duk_pop(ctx);
+        if (duk_get_prop_string(ctx, 0, "height")) h = duk_get_int(ctx, -1);
+        duk_pop(ctx);
+        if (duk_get_prop_string(ctx, 0, "scaleMode")) {
+            std::string s = duk_get_string(ctx, -1);
+            if (s == "fill") mode = SCALE_FILL;
+            else if (s == "contain") mode = SCALE_CONTAIN;
+            else if (s == "cover") mode = SCALE_COVER;
+            else if (s == "stretch") mode = SCALE_STRETCH;
+        }
+        duk_pop(ctx);
+
+        widget->AddImage(id, x, y, w, h, path, mode);
+        
+        // Return 'this' for chaining
+        duk_push_this(ctx);
+        return 1;
+    }
+
+    duk_ret_t js_widget_add_text(duk_context* ctx) {
+        duk_push_this(ctx);
+        duk_get_prop_string(ctx, -1, "\xFF" "widgetPtr");
+        Widget* widget = (Widget*)duk_get_pointer(ctx, -1);
+        duk_pop_2(ctx);
+
+        if (!widget || !duk_is_object(ctx, 0)) return DUK_RET_TYPE_ERROR;
+
+        // Defaults
+        std::wstring id = L"", text = L"", fontFamily = L"Arial";
+        int x = 0, y = 0, w = 100, h = 30;
+        int fontSize = 12;
+        COLORREF color = RGB(0, 0, 0);
+        BYTE alpha = 255;
+        bool bold = false, italic = false;
+        TextAlign align = ALIGN_LEFT;
+        VerticalAlign vAlign = VALIGN_TOP;
+        float lineHeight = 1.0f;
+
+        if (duk_get_prop_string(ctx, 0, "id")) id = Utils::ToWString(duk_get_string(ctx, -1));
+        duk_pop(ctx);
+        if (duk_get_prop_string(ctx, 0, "text")) text = Utils::ToWString(duk_get_string(ctx, -1));
+        duk_pop(ctx);
+        if (duk_get_prop_string(ctx, 0, "fontFamily")) fontFamily = Utils::ToWString(duk_get_string(ctx, -1));
+        duk_pop(ctx);
+        if (duk_get_prop_string(ctx, 0, "x")) x = duk_get_int(ctx, -1);
+        duk_pop(ctx);
+        if (duk_get_prop_string(ctx, 0, "y")) y = duk_get_int(ctx, -1);
+        duk_pop(ctx);
+        if (duk_get_prop_string(ctx, 0, "width")) w = duk_get_int(ctx, -1);
+        duk_pop(ctx);
+        if (duk_get_prop_string(ctx, 0, "height")) h = duk_get_int(ctx, -1);
+        duk_pop(ctx);
+        if (duk_get_prop_string(ctx, 0, "fontSize")) fontSize = duk_get_int(ctx, -1);
+        duk_pop(ctx);
+        if (duk_get_prop_string(ctx, 0, "color")) {
+            std::wstring colorStr = Utils::ToWString(duk_get_string(ctx, -1));
+            ColorUtil::ParseRGBA(colorStr, color, alpha);
+        }
+        duk_pop(ctx);
+        if (duk_get_prop_string(ctx, 0, "fontWeight")) {
+            std::string s = duk_get_string(ctx, -1);
+            if (s == "bold") bold = true;
+        }
+        duk_pop(ctx);
+        if (duk_get_prop_string(ctx, 0, "fontStyle")) {
+            std::string s = duk_get_string(ctx, -1);
+            if (s == "italic") italic = true;
+        }
+        duk_pop(ctx);
+        if (duk_get_prop_string(ctx, 0, "align")) {
+            std::string s = duk_get_string(ctx, -1);
+            if (s == "center") align = ALIGN_CENTER;
+            else if (s == "right") align = ALIGN_RIGHT;
+        }
+        duk_pop(ctx);
+        if (duk_get_prop_string(ctx, 0, "verticalAlign")) {
+            std::string s = duk_get_string(ctx, -1);
+            if (s == "middle") vAlign = VALIGN_MIDDLE;
+            else if (s == "bottom") vAlign = VALIGN_BOTTOM;
+        }
+        duk_pop(ctx);
+        if (duk_get_prop_string(ctx, 0, "lineHeight")) lineHeight = (float)duk_get_number(ctx, -1);
+        duk_pop(ctx);
+
+        widget->AddText(id, x, y, w, h, text, fontFamily, fontSize, color, alpha, bold, italic, align, vAlign, lineHeight);
+        
+        // Return 'this' for chaining
+        duk_push_this(ctx);
+        return 1;
+    }
+
+    duk_ret_t js_widget_update_image(duk_context* ctx) {
+        duk_push_this(ctx);
+        duk_get_prop_string(ctx, -1, "\xFF" "widgetPtr");
+        Widget* widget = (Widget*)duk_get_pointer(ctx, -1);
+        duk_pop_2(ctx);
+
+        if (!widget) return DUK_RET_TYPE_ERROR;
+
+        std::wstring id = Utils::ToWString(duk_get_string(ctx, 0));
+        std::wstring path = Utils::ToWString(duk_get_string(ctx, 1));
+
+        bool result = widget->UpdateImage(id, path);
+        duk_push_boolean(ctx, result);
+        return 1;
+    }
+
+    duk_ret_t js_widget_update_text(duk_context* ctx) {
+        duk_push_this(ctx);
+        duk_get_prop_string(ctx, -1, "\xFF" "widgetPtr");
+        Widget* widget = (Widget*)duk_get_pointer(ctx, -1);
+        duk_pop_2(ctx);
+
+        if (!widget) return DUK_RET_TYPE_ERROR;
+
+        std::wstring id = Utils::ToWString(duk_get_string(ctx, 0));
+        std::wstring text = Utils::ToWString(duk_get_string(ctx, 1));
+
+        bool result = widget->UpdateText(id, text);
+        duk_push_boolean(ctx, result);
+        return 1;
+    }
+
+    duk_ret_t js_widget_remove_content(duk_context* ctx) {
+        duk_push_this(ctx);
+        duk_get_prop_string(ctx, -1, "\xFF" "widgetPtr");
+        Widget* widget = (Widget*)duk_get_pointer(ctx, -1);
+        duk_pop_2(ctx);
+
+        if (!widget) return DUK_RET_TYPE_ERROR;
+
+        std::wstring id = Utils::ToWString(duk_get_string(ctx, 0));
+        bool result = widget->RemoveContent(id);
+        duk_push_boolean(ctx, result);
+        return 1;
+    }
+
+    duk_ret_t js_widget_clear_content(duk_context* ctx) {
+        duk_push_this(ctx);
+        duk_get_prop_string(ctx, -1, "\xFF" "widgetPtr");
+        Widget* widget = (Widget*)duk_get_pointer(ctx, -1);
+        duk_pop_2(ctx);
+
+        if (!widget) return DUK_RET_TYPE_ERROR;
+
+        widget->ClearContent();
+        
+        // Return 'this' for chaining
+        duk_push_this(ctx);
+        return 1;
     }
 
     void InitializeJavaScriptAPI(duk_context* ctx) {

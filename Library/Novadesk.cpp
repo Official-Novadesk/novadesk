@@ -15,6 +15,11 @@
 #include "Resource.h"
 #include <vector>
 #include <shellapi.h>
+#include <gdiplus.h>
+
+#pragma comment(lib, "gdiplus.lib")
+
+using namespace Gdiplus;
 
 #define MAX_LOADSTRING 100
 
@@ -24,6 +29,7 @@ WCHAR szTitle[MAX_LOADSTRING];                  // The title bar text
 duk_context *ctx = nullptr;
 std::vector<Widget*> widgets;
 NOTIFYICONDATA nid = {};
+ULONG_PTR gdiplusToken;
 
 // Forward declarations of functions included in this code module:
 void InitTrayIcon(HWND hWnd);
@@ -41,6 +47,10 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
     Logging::Log(LogLevel::Info, L"Application starting...");
     System::Initialize(hInstance);
+    
+    // Initialize GDI+
+    GdiplusStartupInput gdiplusStartupInput;
+    GdiplusStartup(&gdiplusToken, &gdiplusStartupInput, NULL);
 
     // Initialize global strings
     LoadStringW(hInstance, IDS_APP_TITLE, szTitle, MAX_LOADSTRING);
@@ -119,6 +129,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     for (auto w : widgets) delete w;
     duk_destroy_heap(ctx);
     System::Finalize();
+    
+    // Convert GDI+ shutdown
+    GdiplusShutdown(gdiplusToken);
 
     return (int) msg.wParam;
 }
