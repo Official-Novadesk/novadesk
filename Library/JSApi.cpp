@@ -196,6 +196,47 @@ namespace JSApi {
         return 0;
     }
 
+    void ParseElementOptions(duk_context* ctx, Element* element) {
+        if (!element) return;
+        
+        // Helper to get string prop
+        auto getStr = [&](const char* key) -> std::wstring {
+            if (duk_get_prop_string(ctx, 0, key)) {
+                if (duk_is_string(ctx, -1)) {
+                    std::wstring val = Utils::ToWString(duk_get_string(ctx, -1));
+                    duk_pop(ctx);
+                    return val;
+                }
+            }
+            duk_pop(ctx); // pop undefined or non-string
+            return L"";
+        };
+
+        std::wstring val;
+        if (!(val = getStr("onLeftMouseUp")).empty()) element->m_OnLeftMouseUp = val;
+        if (!(val = getStr("onLeftMouseDown")).empty()) element->m_OnLeftMouseDown = val;
+        if (!(val = getStr("onLeftDoubleClick")).empty()) element->m_OnLeftDoubleClick = val;
+        if (!(val = getStr("onRightMouseUp")).empty()) element->m_OnRightMouseUp = val;
+        if (!(val = getStr("onRightMouseDown")).empty()) element->m_OnRightMouseDown = val;
+        if (!(val = getStr("onRightDoubleClick")).empty()) element->m_OnRightDoubleClick = val;
+        if (!(val = getStr("onMiddleMouseUp")).empty()) element->m_OnMiddleMouseUp = val;
+        if (!(val = getStr("onMiddleMouseDown")).empty()) element->m_OnMiddleMouseDown = val;
+        if (!(val = getStr("onMiddleDoubleClick")).empty()) element->m_OnMiddleDoubleClick = val;
+        if (!(val = getStr("onX1MouseUp")).empty()) element->m_OnX1MouseUp = val;
+        if (!(val = getStr("onX1MouseDown")).empty()) element->m_OnX1MouseDown = val;
+        if (!(val = getStr("onX1DoubleClick")).empty()) element->m_OnX1DoubleClick = val;
+        if (!(val = getStr("onX2MouseUp")).empty()) element->m_OnX2MouseUp = val;
+        if (!(val = getStr("onX2MouseDown")).empty()) element->m_OnX2MouseDown = val;
+        if (!(val = getStr("onX2DoubleClick")).empty()) element->m_OnX2DoubleClick = val;
+        if (!(val = getStr("onScrollUp")).empty()) element->m_OnScrollUp = val;
+        if (!(val = getStr("onScrollDown")).empty()) element->m_OnScrollDown = val;
+        if (!(val = getStr("onScrollLeft")).empty()) element->m_OnScrollLeft = val;
+        if (!(val = getStr("onScrollRight")).empty()) element->m_OnScrollRight = val;
+        if (!(val = getStr("onMouseOver")).empty()) element->m_OnMouseOver = val;
+        if (!(val = getStr("onMouseLeave")).empty()) element->m_OnMouseLeave = val;
+        
+    }
+
     duk_ret_t js_widget_add_image(duk_context* ctx) {
         duk_push_this(ctx);
         duk_get_prop_string(ctx, -1, "\xFF" "widgetPtr");
@@ -223,6 +264,10 @@ namespace JSApi {
 
         widget->AddImage(id, x, y, w, h, path);
         
+        // Parse Mouse Actions
+        Element* el = widget->FindElementById(id);
+        ParseElementOptions(ctx, el);
+
         // Return 'this' for chaining
         duk_push_this(ctx);
         return 1;
@@ -295,6 +340,10 @@ namespace JSApi {
 
         widget->AddText(id, x, y, w, h, text, fontFamily, fontSize, color, alpha, bold, italic, align, vAlign, lineHeight);
         
+        // Parse Mouse Actions
+        Element* el = widget->FindElementById(id);
+        ParseElementOptions(ctx, el);
+
         // Return 'this' for chaining
         duk_push_this(ctx);
         return 1;
@@ -346,6 +395,9 @@ namespace JSApi {
         return 1;
     }
 
+    // Global context pointer for callbacks
+    static duk_context* s_JsContext = nullptr;
+
     duk_ret_t js_widget_clear_content(duk_context* ctx) {
         duk_push_this(ctx);
         duk_get_prop_string(ctx, -1, "\xFF" "widgetPtr");
@@ -361,7 +413,22 @@ namespace JSApi {
         return 1;
     }
 
+    void ExecuteScript(const std::wstring& script) {
+        if (!s_JsContext) {
+            Logging::Log(LogLevel::Error, L"ExecuteScript: Context not set");
+            return;
+        }
+
+        std::string scriptStr = Utils::ToString(script);
+        if (duk_peval_string(s_JsContext, scriptStr.c_str()) != 0) {
+            Logging::Log(LogLevel::Error, L"JS Error: %S", duk_safe_to_string(s_JsContext, -1));
+        }
+        duk_pop(s_JsContext); // pop result/error
+    }
+
     void InitializeJavaScriptAPI(duk_context* ctx) {
+        s_JsContext = ctx; // Store context for callbacks
+
         // Register novadesk object and methods
         duk_push_object(ctx);
         duk_push_c_function(ctx, js_log, DUK_VARARGS);

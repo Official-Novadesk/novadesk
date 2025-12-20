@@ -56,6 +56,38 @@ public:
     void SetPosition(int x, int y) { m_X = x; m_Y = y; }
     void SetSize(int w, int h) { m_Width = w; m_Height = h; }
 
+    /*
+    ** Check if a point is within the element's bounds.
+    */
+    virtual bool HitTest(int x, int y) {
+        return (x >= m_X && x < m_X + m_Width && y >= m_Y && y < m_Y + m_Height);
+    }
+
+    // Mouse Actions
+    std::wstring m_OnLeftMouseUp;
+    std::wstring m_OnLeftMouseDown;
+    std::wstring m_OnLeftDoubleClick;
+    std::wstring m_OnRightMouseUp;
+    std::wstring m_OnRightMouseDown;
+    std::wstring m_OnRightDoubleClick;
+    std::wstring m_OnMiddleMouseUp;
+    std::wstring m_OnMiddleMouseDown;
+    std::wstring m_OnMiddleDoubleClick;
+    std::wstring m_OnX1MouseUp;
+    std::wstring m_OnX1MouseDown;
+    std::wstring m_OnX1DoubleClick;
+    std::wstring m_OnX2MouseUp;
+    std::wstring m_OnX2MouseDown;
+    std::wstring m_OnX2DoubleClick;
+    std::wstring m_OnScrollUp;
+    std::wstring m_OnScrollDown;
+    std::wstring m_OnScrollLeft;
+    std::wstring m_OnScrollRight;
+    std::wstring m_OnMouseOver;
+    std::wstring m_OnMouseLeave;
+
+    bool m_IsMouseOver = false;
+
 protected:
     ElementType m_Type;
     std::wstring m_Id;

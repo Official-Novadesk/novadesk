@@ -6,6 +6,7 @@
  * obtain one at <https://www.gnu.org/licenses/gpl-2.0.html>. */
  
 #pragma once
+#include <string>
 #include "duktape/duktape.h"
 
 namespace JSApi {
@@ -67,4 +68,10 @@ namespace JSApi {
     duk_ret_t js_widget_update_text(duk_context* ctx);
     duk_ret_t js_widget_remove_content(duk_context* ctx);
     duk_ret_t js_widget_clear_content(duk_context* ctx);
+
+    /*
+    ** Execute a JavaScript string explicitly.
+    ** Used for handling event callbacks.
+    */
+    void ExecuteScript(const std::wstring& script);
 }

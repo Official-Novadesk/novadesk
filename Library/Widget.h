@@ -128,6 +128,12 @@ public:
     */
     void Redraw();
 
+    /*
+    ** Find a content element by its ID.
+    ** Returns pointer to the element or nullptr if not found.
+    */
+    Element* FindElementById(const std::wstring& id);
+
 private:
     /*
     ** Window procedure for handling widget window messages.
@@ -153,15 +159,20 @@ private:
     void UpdateLayeredWindowContent();
 
     /*
-    ** Find a content element by its ID.
-    ** Returns pointer to the element or nullptr if not found.
+    ** Handle mouse messages and dispatch to elements.
     */
-    Element* FindElementById(const std::wstring& id);
-    
+    void HandleMouseMessage(UINT message, WPARAM wParam, LPARAM lParam);
+
     HWND m_hWnd;
     WidgetOptions m_Options;
     ZPOSITION m_WindowZPosition;
     std::vector<Element*> m_Elements;
+    Element* m_MouseOverElement = nullptr;
+
+    // Dragging State
+    bool m_IsDragging = false;
+    POINT m_DragStartCursor = { 0, 0 };
+    POINT m_DragStartWindow = { 0, 0 };
 
     static const UINT_PTR TIMER_TOPMOST = 2;
 };

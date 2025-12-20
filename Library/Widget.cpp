@@ -13,6 +13,7 @@
 #include <algorithm>
 #include <gdiplus.h>
 
+#include "JSApi.h"
 #pragma comment(lib, "gdiplus.lib")
 
 using namespace Gdiplus;
@@ -249,29 +250,89 @@ LRESULT CALLBACK Widget::WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
     case WM_LBUTTONDOWN:
         if (widget)
         {
+            widget->HandleMouseMessage(message, wParam, lParam);
+            
             // Bring widget to front when clicked (for ondesktop/normal)
             widget->ChangeSingleZPos(widget->m_WindowZPosition);
             
             if (widget->m_Options.draggable)
             {
-                Logging::Log(LogLevel::Debug, L"WM_LBUTTONDOWN: Starting drag");
-                ReleaseCapture();
-                SendMessage(hWnd, WM_NCLBUTTONDOWN, HTCAPTION, 0);
-                return 0;
+                Logging::Log(LogLevel::Debug, L"WM_LBUTTONDOWN: Starting manual drag");
+                SetCapture(hWnd);
+                widget->m_IsDragging = true;
+                GetCursorPos(&widget->m_DragStartCursor);
+                RECT rc;
+                GetWindowRect(hWnd, &rc);
+                widget->m_DragStartWindow = { rc.left, rc.top };
             }
         }
-        return DefWindowProc(hWnd, message, wParam, lParam);
+        return 0;
+    case WM_LBUTTONUP:
+        if (widget)
+        {
+            if (widget->m_IsDragging)
+            {
+                widget->m_IsDragging = false;
+                ReleaseCapture();
+                
+                // Save final position
+                RECT rc;
+                GetWindowRect(hWnd, &rc);
+                widget->m_Options.x = rc.left;
+                widget->m_Options.y = rc.top;
+                Settings::SaveWidget(widget->m_Options.id, widget->m_Options);
+            }
+            widget->HandleMouseMessage(message, wParam, lParam);
+        }
+        return 0;
+
+    case WM_LBUTTONDBLCLK:
+    case WM_RBUTTONDOWN:
+    case WM_RBUTTONUP:
+    case WM_RBUTTONDBLCLK:
+    case WM_MBUTTONDOWN:
+    case WM_MBUTTONUP:
+    case WM_MBUTTONDBLCLK:
+    case WM_XBUTTONDOWN:
+    case WM_XBUTTONUP:
+    case WM_XBUTTONDBLCLK:
+    case WM_MOUSEWHEEL:
+    case WM_MOUSEHWHEEL:
+        if (widget)
+        {
+            widget->HandleMouseMessage(message, wParam, lParam);
+        }
+        return 0;
+
+    case WM_MOUSEMOVE:
+        if (widget) 
+        {
+            if (widget->m_IsDragging)
+            {
+                POINT pt;
+                GetCursorPos(&pt);
+                int dx = pt.x - widget->m_DragStartCursor.x;
+                int dy = pt.y - widget->m_DragStartCursor.y;
+
+                int newX = widget->m_DragStartWindow.x + dx;
+                int newY = widget->m_DragStartWindow.y + dy;
+
+                SetWindowPos(hWnd, NULL, newX, newY, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+                
+                // Update local options for hit testing
+                widget->m_Options.x = newX;
+                widget->m_Options.y = newY;
+            }
+            else
+            {
+                widget->HandleMouseMessage(message, wParam, lParam);
+            }
+        }
+        return 0;
 
     case WM_NCHITTEST:
-        {
-            LRESULT hit = DefWindowProc(hWnd, message, wParam, lParam);
-            if (widget && widget->m_Options.draggable)
-            {
-                // We return HTCAPTION even if it was HTCLIENT
-                if (hit == HTCLIENT) hit = HTCAPTION;
-            }
-            return hit;
-        }
+        return HTCLIENT; // We handle everything in client area to get mouse messages
+        
     case WM_TIMER:
         if (wParam == TIMER_TOPMOST)
         {
@@ -608,5 +669,114 @@ Element* Widget::FindElementById(const std::wstring& id)
         if (element->GetId() == id) return element;
     }
     return nullptr;
+}
+
+void Widget::HandleMouseMessage(UINT message, WPARAM wParam, LPARAM lParam)
+{
+    int x = GET_X_LPARAM(lParam);
+    int y = GET_Y_LPARAM(lParam);
+
+    // For mouse wheel, coordinates are screen relative
+    if (message == WM_MOUSEWHEEL || message == WM_MOUSEHWHEEL)
+    {
+        POINT pt = { x, y };
+        ScreenToClient(m_hWnd, &pt);
+        x = pt.x;
+        y = pt.y;
+    }
+
+    // Find element at cursor (Front to Back)
+    Element* hitElement = nullptr;
+    for (auto it = m_Elements.rbegin(); it != m_Elements.rend(); ++it)
+    {
+        if ((*it)->HitTest(x, y))
+        {
+            hitElement = *it;
+            break;
+        }
+    }
+
+
+    // Handle Hover/Leave
+    if (message == WM_MOUSEMOVE)
+    {
+        if (hitElement != m_MouseOverElement)
+        {
+            if (m_MouseOverElement)
+            {
+                m_MouseOverElement->m_IsMouseOver = false;
+                if (!m_MouseOverElement->m_OnMouseLeave.empty())
+                    JSApi::ExecuteScript(m_MouseOverElement->m_OnMouseLeave);
+            }
+
+            if (hitElement)
+            {
+                hitElement->m_IsMouseOver = true;
+                if (!hitElement->m_OnMouseOver.empty())
+                    JSApi::ExecuteScript(hitElement->m_OnMouseOver);
+            }
+            m_MouseOverElement = hitElement;
+        }
+        
+        // Ensure we track mouse leave window events
+        TRACKMOUSEEVENT tme;
+        tme.cbSize = sizeof(TRACKMOUSEEVENT);
+        tme.dwFlags = TME_LEAVE;
+        tme.hwndTrack = m_hWnd;
+        TrackMouseEvent(&tme);
+    }
+    else if (message == WM_MOUSELEAVE)
+    {
+        if (m_MouseOverElement)
+        {
+             m_MouseOverElement->m_IsMouseOver = false;
+             if (!m_MouseOverElement->m_OnMouseLeave.empty())
+                 JSApi::ExecuteScript(m_MouseOverElement->m_OnMouseLeave);
+             m_MouseOverElement = nullptr;
+        }
+    }
+
+    // Dispatch Actions
+    if (hitElement)
+    {
+        std::wstring action;
+        switch (message)
+        {
+        case WM_LBUTTONUP:     action = hitElement->m_OnLeftMouseUp; break;
+        case WM_LBUTTONDOWN:   action = hitElement->m_OnLeftMouseDown; break;
+        case WM_LBUTTONDBLCLK: action = hitElement->m_OnLeftDoubleClick; break;
+        case WM_RBUTTONUP:     action = hitElement->m_OnRightMouseUp; break;
+        case WM_RBUTTONDOWN:   action = hitElement->m_OnRightMouseDown; break;
+        case WM_RBUTTONDBLCLK: action = hitElement->m_OnRightDoubleClick; break;
+        case WM_MBUTTONUP:     action = hitElement->m_OnMiddleMouseUp; break;
+        case WM_MBUTTONDOWN:   action = hitElement->m_OnMiddleMouseDown; break;
+        case WM_MBUTTONDBLCLK: action = hitElement->m_OnMiddleDoubleClick; break;
+        case WM_XBUTTONUP:
+            if (GET_XBUTTON_WPARAM(wParam) == XBUTTON1) action = hitElement->m_OnX1MouseUp;
+            else action = hitElement->m_OnX2MouseUp;
+            break;
+        case WM_XBUTTONDOWN:
+            if (GET_XBUTTON_WPARAM(wParam) == XBUTTON1) action = hitElement->m_OnX1MouseDown;
+            else action = hitElement->m_OnX2MouseDown;
+            break;
+        case WM_XBUTTONDBLCLK:
+            if (GET_XBUTTON_WPARAM(wParam) == XBUTTON1) action = hitElement->m_OnX1DoubleClick;
+            else action = hitElement->m_OnX2DoubleClick;
+            break;
+        case WM_MOUSEWHEEL:
+            if (GET_WHEEL_DELTA_WPARAM(wParam) > 0) action = hitElement->m_OnScrollUp;
+            else action = hitElement->m_OnScrollDown;
+            break;
+        case WM_MOUSEHWHEEL:
+            if (GET_WHEEL_DELTA_WPARAM(wParam) > 0) action = hitElement->m_OnScrollRight;
+            else action = hitElement->m_OnScrollLeft;
+            break;
+        }
+
+        if (!action.empty())
+        {
+            JSApi::ExecuteScript(action);
+        }
+    }
 }
 

@@ -1,3 +1,12 @@
+/* Copyright (C) 2026 Novadesk Project 
+ *
+ * This Source Code Form is subject to the terms of the GNU General Public
+ * License; either version 2 of the License, or (at your option) any later
+ * version. If a copy of the GPL was not distributed with this file, You can
+ * obtain one at <https://www.gnu.org/licenses/gpl-2.0.html>. */
+
+var mainWindow;
+
 function createMainWindow() {
     mainWindow = new widgetWindow({
         id: "mainWidget",
@@ -38,6 +47,28 @@ function createContentDemoWindow() {
         align: "center"
     });
 
+    demoWidget.addText({
+        id: "demoText",
+        text: "Hover & Click Me!",
+        x: 20, y: 200,
+        width: 260, height: 30,
+        fontSize: 24,
+        color: "rgba(255,255,255,255)",
+        onMouseOver: "novadesk.log('Mouse entered text!')",
+        onMouseLeave: "novadesk.log('Mouse left text!')",
+        onLeftMouseUp: "novadesk.log('Text clicked!')"
+    });
+
+    demoWidget.addImage({
+        id: "demoIcon",
+        path: "icon.png", // Assuming icon.png exists or use a placebo
+        x: 100, y: 100,
+        width: 64, height: 64,
+        onRightMouseUp: "novadesk.log('Icon Right Clicked!')",
+        onScrollUp: "novadesk.log('Scrolled Up over Icon!')",
+        onScrollDown: "novadesk.log('Scrolled Down over Icon!')"
+    });
+
     // Add Temperature
     demoWidget.addText({
         id: "temp",
@@ -66,25 +97,6 @@ function createContentDemoWindow() {
         fontStyle: "italic",
         align: "center"
     });
-
-    // Add Image (Placeholder path - user needs to provide real image)
-    // demoWidget.addImage({
-    //     id: "icon",
-    //     path: "weather.png", 
-    //     x: 100,
-    //     y: 200,
-    //     width: 100,
-    //     height: 100,
-    //     scaleMode: "contain"
-    // });
-
-    // Dynamic Update Demo
-    novadesk.log("Starting dynamic update timer...");
-
-    // Simple counter to simulate updates since we don't have setInterval in basic Duktape
-    // (Assuming Duktape usage doesn't imply full browser env, but if event loop exists...)
-    // Since I implemented basic logic, I don't know if setInterval is available.
-    // If not, this is just a static value setup.
 
     novadesk.log("Content demo widget created");
 }
