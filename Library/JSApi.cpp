@@ -101,12 +101,15 @@ namespace JSApi {
         // Hard to distinguish code change vs old saved state.
         // Let's stick to: JS Options are defaults/initial values. Saved State overrides them.
         
-        // So:
-        // 1. Parse JS Options into 'options'.
-        // 2. LoadWidget(id, options) -> This updates 'options' with saved values.
+        if (duk_get_prop_string(ctx, 0, "id")) options.id = Utils::ToWString(duk_get_string(ctx, -1));
+        duk_pop(ctx);
         
-        // Moving parsing block BEFORE LoadWidget.
+        // 1. Load settings FIRST to set defaults from saved state
+        if (!options.id.empty()) {
+            Settings::LoadWidget(options.id, options);
+        }
 
+        // 2. Overwrite with JS options if present
         if (duk_get_prop_string(ctx, 0, "width")) options.width = duk_get_int(ctx, -1);
         duk_pop(ctx);
         if (duk_get_prop_string(ctx, 0, "height")) options.height = duk_get_int(ctx, -1);
@@ -147,11 +150,10 @@ namespace JSApi {
         duk_pop(ctx);
         if (duk_get_prop_string(ctx, 0, "snapedges")) options.snapEdges = duk_get_boolean(ctx, -1);
         duk_pop(ctx);
-        
-        // Finally, load settings to override with saved state
-        if (!options.id.empty()) {
-            Settings::LoadWidget(options.id, options);
-        }
+        if (duk_get_prop_string(ctx, 0, "x")) options.x = duk_get_int(ctx, -1);
+        duk_pop(ctx);
+        if (duk_get_prop_string(ctx, 0, "y")) options.y = duk_get_int(ctx, -1);
+        duk_pop(ctx);
 
         Widget* widget = new Widget(options);
         if (widget->Create()) {
