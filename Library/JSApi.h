@@ -8,6 +8,7 @@
 #pragma once
 #include <string>
 #include "duktape/duktape.h"
+#include <Windows.h>
 
 namespace JSApi {
     /*
@@ -76,4 +77,9 @@ namespace JSApi {
     ** Used for handling event callbacks.
     */
     void ExecuteScript(const std::wstring& script);
+
+    // Event handlers for the main message loop
+    void OnTimer(UINT_PTR id);
+    void OnMessage(UINT message, WPARAM wParam, LPARAM lParam);
+    void SetMessageWindow(HWND hWnd);
 }

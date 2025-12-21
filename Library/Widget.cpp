@@ -759,6 +759,11 @@ void Widget::UpdateLayeredWindowContent()
     
     void* pvBits = NULL;
     HBITMAP hBitmap = CreateDIBSection(hdcMem, &bmi, DIB_RGB_COLORS, &pvBits, NULL, 0);
+    if (!hBitmap) {
+        DeleteDC(hdcMem);
+        ReleaseDC(NULL, hdcScreen);
+        return;
+    }
     HBITMAP hOldBitmap = (HBITMAP)SelectObject(hdcMem, hBitmap);
 
     // Draw GDI+
@@ -837,6 +842,7 @@ void Widget::HandleMouseMessage(UINT message, WPARAM wParam, LPARAM lParam)
     for (auto it = m_Elements.rbegin(); it != m_Elements.rend(); ++it)
     {
         Element* el = *it;
+        if (!el) continue;
         if (el->HitTest(x, y))
         {
             if (!hitElement) hitElement = el;

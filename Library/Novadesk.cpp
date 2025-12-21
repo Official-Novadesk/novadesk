@@ -64,8 +64,14 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     WNDCLASSEXW wcex = {};
     wcex.cbSize = sizeof(WNDCLASSEX);
     wcex.lpfnWndProc = [](HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) -> LRESULT {
+        // Route custom JSApi messages and timers
+        JSApi::OnMessage(message, wParam, lParam);
+
         switch (message)
         {
+        case WM_TIMER:
+            JSApi::OnTimer(wParam);
+            break;
         case WM_TRAYICON:
             if (lParam == WM_RBUTTONUP || lParam == WM_LBUTTONUP)
             {
@@ -103,7 +109,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
         return FALSE;
     }
 
-    // Initialize tray icon
+    // Initialize tray icon and JS message routing
+    JSApi::SetMessageWindow(hWnd);
     InitTrayIcon(hWnd);
 
     // Initialize Duktape
