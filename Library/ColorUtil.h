@@ -16,16 +16,64 @@ class ColorUtil
 {
 public:
     /*
-    ** Parse an RGBA color string and extract color and alpha values.
-    ** Supports formats: "rgba(r,g,b,a)" or "rgb(r,g,b)" with flexible whitespace.
-    ** Values: r,g,b are 0-255, alpha is 0-255 (defaults to 255 for rgb format).
+    ** Parse a color string and extract color and alpha values.
+    ** Supports formats: "rgba(r,g,b,a)", "#RRGGBB", "#RRGGBBAA", etc.
+    ** Values: r,g,b are 0-255, alpha is 0-255 (defaults to 255 if not specified).
     ** Returns true on successful parse, false otherwise.
     */
     static bool ParseRGBA(const std::wstring& rgbaStr, COLORREF& color, BYTE& alpha)
     {
-        // Handle rgba(r, g, b, alpha) or rgb(r, g, b) with flexible whitespace
+        if (rgbaStr.empty()) return false;
+
+        // 1. Handle Hex format: #RGB, #RGBA, #RRGGBB, #RRGGBBAA
+        if (rgbaStr[0] == L'#')
+        {
+            std::wstring hex = rgbaStr.substr(1);
+            if (hex.length() == 3) // #RGB
+            {
+                int r, g, b;
+                if (swscanf_s(hex.c_str(), L"%1x%1x%1x", &r, &g, &b) == 3)
+                {
+                    color = RGB(r * 17, g * 17, b * 17);
+                    alpha = 255;
+                    return true;
+                }
+            }
+            else if (hex.length() == 4) // #RGBA
+            {
+                int r, g, b, a;
+                if (swscanf_s(hex.c_str(), L"%1x%1x%1x%1x", &r, &g, &b, &a) == 4)
+                {
+                    color = RGB(r * 17, g * 17, b * 17);
+                    alpha = (BYTE)(a * 17);
+                    return true;
+                }
+            }
+            else if (hex.length() == 6) // #RRGGBB
+            {
+                int r, g, b;
+                if (swscanf_s(hex.c_str(), L"%2x%2x%2x", &r, &g, &b) == 3)
+                {
+                    color = RGB(r, g, b);
+                    alpha = 255;
+                    return true;
+                }
+            }
+            else if (hex.length() == 8) // #RRGGBBAA
+            {
+                unsigned int r, g, b, a;
+                if (swscanf_s(hex.c_str(), L"%2x%2x%2x%2x", &r, &g, &b, &a) == 4)
+                {
+                    color = RGB(r, g, b);
+                    alpha = (BYTE)a;
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // 2. Handle rgba(r, g, b, alpha) or rgb(r, g, b)
         int r, g, b, a = 255;
-        // swscanf_s with space in format string matches any amount of whitespace
         if (swscanf_s(rgbaStr.c_str(), L"rgba ( %d , %d , %d , %d )", &r, &g, &b, &a) == 4 ||
             swscanf_s(rgbaStr.c_str(), L"rgba(%d,%d,%d,%d)", &r, &g, &b, &a) == 4)
         {
