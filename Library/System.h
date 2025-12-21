@@ -142,7 +142,7 @@ private:
 	static bool c_ShowDesktop;
 
 	static const UINT_PTR TIMER_SHOWDESKTOP = 1;
-	static const int INTERVAL_SHOWDESKTOP = 500;
+	static const int INTERVAL_SHOWDESKTOP = 250;
 	static const int INTERVAL_RESTOREWINDOWS = 100;
 };
 

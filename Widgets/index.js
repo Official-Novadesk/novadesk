@@ -11,7 +11,7 @@ function createContentDemoWindow() {
         width: 800,
         height: 800,
         backgroundcolor: "rgba(10,10,10,200)",
-        zpos: "normal",
+        zpos: "ondesktop",
         draggable: true,
         keeponscreen: true
     });
