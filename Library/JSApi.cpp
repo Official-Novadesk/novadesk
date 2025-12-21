@@ -66,14 +66,14 @@ namespace JSApi {
         options.width = 400;
         options.height = 300;
         options.backgroundColor = L"rgba(255,255,255,255)";
-        options.zPos = ZPOSITION_NORMAL;
+        options.zPos = ZPOSITION_ONDESKTOP;
         options.bgAlpha = 255;
         options.windowOpacity = 255;
         options.color = RGB(255, 255, 255);
-        options.draggable = false;
+        options.draggable = true;
         options.clickThrough = false;
         options.keepOnScreen = false;
-        options.snapEdges = false;
+        options.snapEdges = true;
 
         if (duk_get_prop_string(ctx, 0, "id")) options.id = Utils::ToWString(duk_get_string(ctx, -1));
         duk_pop(ctx);
