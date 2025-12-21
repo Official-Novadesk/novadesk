@@ -23,7 +23,7 @@ function createSystemWidget() {
         text: "CPU: Calculating...",
         x: 10, y: 10,
         fontsize: 14,
-        color: "white"
+        color: "rgb(255,255,255)"
     });
 
     sysWidget.addText({
@@ -31,7 +31,7 @@ function createSystemWidget() {
         text: "RAM: Calculating...",
         x: 10, y: 35,
         fontsize: 14,
-        color: "white"
+        color: "rgb(255,255,255)"
     });
 
     // Initialize monitors
@@ -42,8 +42,9 @@ function createSystemWidget() {
     novadesk.setInterval(function () {
         var cpuUsage = cpuMonitor.usage();
         var memStats = memMonitor.stats();
+        var ws = novadesk.system.getWorkspaceVariables();
 
-        sysWidget.updateText("cpuText", "CPU: " + cpuUsage.toFixed(1) + "%");
+        sysWidget.updateText("cpuText", "CPU: " + cpuUsage.toFixed(1) + "% (" + ws.WORKAREAWIDTH + "px wide)");
 
         var usedGB = (memStats.used / (1024 * 1024 * 1024)).toFixed(1);
         var totalGB = (memStats.total / (1024 * 1024 * 1024)).toFixed(0);

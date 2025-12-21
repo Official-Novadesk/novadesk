@@ -32,6 +32,12 @@ void System::Initialize(HINSTANCE instance)
 {
     // Initialize monitors
     c_Monitors.monitors.clear();
+    c_Monitors.vsL = GetSystemMetrics(SM_XVIRTUALSCREEN);
+    c_Monitors.vsT = GetSystemMetrics(SM_YVIRTUALSCREEN);
+    c_Monitors.vsW = GetSystemMetrics(SM_CXVIRTUALSCREEN);
+    c_Monitors.vsH = GetSystemMetrics(SM_CYVIRTUALSCREEN);
+    c_Monitors.primaryIndex = 0;
+
     EnumDisplayMonitors(NULL, NULL, MonitorEnumProc, 0);
 
     // Register a specialized class for system tracking
@@ -92,6 +98,11 @@ BOOL CALLBACK System::MonitorEnumProc(HMONITOR hMonitor, HDC hdcMonitor, LPRECT 
                 info.monitorName = ddm.DeviceString;
                 break;
             }
+        }
+
+        if (mi.dwFlags & MONITORINFOF_PRIMARY)
+        {
+            c_Monitors.primaryIndex = (int)c_Monitors.monitors.size();
         }
     }
     

@@ -217,6 +217,67 @@ namespace JSApi {
         return 1;
     }
 
+    duk_ret_t js_system_get_workspace_variables(duk_context* ctx) {
+        const MultiMonitorInfo& info = System::GetMultiMonitorInfo();
+        duk_push_object(ctx);
+
+        // Current (Monitor 0 for now as default)
+        const MonitorInfo* current = info.monitors.empty() ? nullptr : &info.monitors[0];
+        const MonitorInfo* primary = info.monitors.empty() ? nullptr : &info.monitors[info.primaryIndex < info.monitors.size() ? info.primaryIndex : 0];
+
+        auto pushVars = [&](const char* prefix, const MonitorInfo* m) {
+            std::string p = prefix ? prefix : "";
+            if (m) {
+                duk_push_int(ctx, m->work.left); duk_put_prop_string(ctx, -2, (p + "WORKAREAX").c_str());
+                duk_push_int(ctx, m->work.top); duk_put_prop_string(ctx, -2, (p + "WORKAREAY").c_str());
+                duk_push_int(ctx, m->work.right - m->work.left); duk_put_prop_string(ctx, -2, (p + "WORKAREAWIDTH").c_str());
+                duk_push_int(ctx, m->work.bottom - m->work.top); duk_put_prop_string(ctx, -2, (p + "WORKAREAHEIGHT").c_str());
+
+                duk_push_int(ctx, m->screen.left); duk_put_prop_string(ctx, -2, (p + "SCREENAREAX").c_str());
+                duk_push_int(ctx, m->screen.top); duk_put_prop_string(ctx, -2, (p + "SCREENAREAY").c_str());
+                duk_push_int(ctx, m->screen.right - m->screen.left); duk_put_prop_string(ctx, -2, (p + "SCREENAREAWIDTH").c_str());
+                duk_push_int(ctx, m->screen.bottom - m->screen.top); duk_put_prop_string(ctx, -2, (p + "SCREENAREAHEIGHT").c_str());
+            }
+        };
+
+        // Standard tags (Current)
+        pushVars(nullptr, current);
+
+        // Primary tags
+        pushVars("P", primary);
+
+        // Virtual Screen tags
+        duk_push_int(ctx, info.vsL); duk_put_prop_string(ctx, -2, "VSCREENAREAX");
+        duk_push_int(ctx, info.vsT); duk_put_prop_string(ctx, -2, "VSCREENAREAY");
+        duk_push_int(ctx, info.vsW); duk_put_prop_string(ctx, -2, "VSCREENAREAWIDTH");
+        duk_push_int(ctx, info.vsH); duk_put_prop_string(ctx, -2, "VSCREENAREAHEIGHT");
+
+        // Nth Monitor tags (@N) -> actually translated to _N for simplicity in JS property access
+        for (size_t i = 0; i < info.monitors.size(); ++i) {
+            char suffix[16];
+            sprintf_s(suffix, "@%zu", i + 1);
+            // We'll also provide underbar versions just in case JS hates @
+            
+            auto pushNth = [&](const char* base, int val) {
+                char key[64];
+                sprintf_s(key, "%s%s", base, suffix);
+                duk_push_int(ctx, val); duk_put_prop_string(ctx, -2, key);
+            };
+
+            const MonitorInfo& m = info.monitors[i];
+            pushNth("WORKAREAX", m.work.left);
+            pushNth("WORKAREAY", m.work.top);
+            pushNth("WORKAREAWIDTH", m.work.right - m.work.left);
+            pushNth("WORKAREAHEIGHT", m.work.bottom - m.work.top);
+            pushNth("SCREENAREAX", m.screen.left);
+            pushNth("SCREENAREAY", m.screen.top);
+            pushNth("SCREENAREAWIDTH", m.screen.right - m.screen.left);
+            pushNth("SCREENAREAHEIGHT", m.screen.bottom - m.screen.top);
+        }
+
+        return 1;
+    }
+
     // JS API: novadesk.include(filename)
     duk_ret_t js_include(duk_context* ctx) {
         std::wstring filename = Utils::ToWString(duk_require_string(ctx, 0));
@@ -800,6 +861,9 @@ namespace JSApi {
         duk_push_c_function(ctx, js_memory_finalizer, 1);
         duk_set_finalizer(ctx, -2);
         duk_put_prop_string(ctx, -2, "Memory");
+        
+        duk_push_c_function(ctx, js_system_get_workspace_variables, 0);
+        duk_put_prop_string(ctx, -2, "getWorkspaceVariables");
 
         duk_put_prop_string(ctx, -2, "system");
 

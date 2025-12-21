@@ -22,7 +22,7 @@ function createClockWidget() {
         text: "Loading time...",
         x: 10, y: 10,
         fontsize: 20,
-        color: "white"
+        color: "rgb(255,255,255)"
     });
 
     clockWidget.addText({

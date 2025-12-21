@@ -35,6 +35,7 @@ struct MultiMonitorInfo
 {
 	int vsT, vsL, vsH, vsW;
 	int primary;
+	int primaryIndex;
 	std::vector<MonitorInfo> monitors;
 };
 
