@@ -81,11 +81,7 @@ void Settings::SaveWidget(const std::wstring& id, const WidgetOptions& options)
     json widgetData;
     widgetData["x"] = options.x;
     widgetData["y"] = options.y;
-    widgetData["width"] = options.width;
-    widgetData["height"] = options.height;
-    widgetData["bgAlpha"] = options.bgAlpha;
-    widgetData["windowOpacity"] = options.windowOpacity;
-    widgetData["backgroundColor"] = Utils::ToString(options.backgroundColor);
+    widgetData["windowopacity"] = options.windowOpacity;
     
     std::string zPosStr = "normal";
     switch(options.zPos) {
@@ -94,12 +90,12 @@ void Settings::SaveWidget(const std::wstring& id, const WidgetOptions& options)
         case ZPOSITION_ONBOTTOM: zPosStr = "onbottom"; break;
         case ZPOSITION_ONTOPMOST: zPosStr = "ontopmost"; break;
     }
-    widgetData["zPos"] = zPosStr;
+    widgetData["zpos"] = zPosStr;
     
     widgetData["draggable"] = options.draggable;
-    widgetData["clickThrough"] = options.clickThrough;
-    widgetData["keepOnScreen"] = options.keepOnScreen;
-    widgetData["snapEdges"] = options.snapEdges;
+    widgetData["clickthrough"] = options.clickThrough;
+    widgetData["keeponscreen"] = options.keepOnScreen;
+    widgetData["snapedges"] = options.snapEdges;
     
     // Only save if data has actually changed
     if (s_Data.contains("widgets") && s_Data["widgets"].contains(idStr))
@@ -132,18 +128,10 @@ bool Settings::LoadWidget(const std::wstring& id, WidgetOptions& outOptions)
         
         if (w.contains("x")) outOptions.x = w["x"];
         if (w.contains("y")) outOptions.y = w["y"];
-        if (w.contains("width")) outOptions.width = w["width"];
-        if (w.contains("height")) outOptions.height = w["height"];
-        if (w.contains("bgAlpha")) outOptions.bgAlpha = w["bgAlpha"];
-        if (w.contains("windowOpacity")) outOptions.windowOpacity = w["windowOpacity"];
+        if (w.contains("windowopacity")) outOptions.windowOpacity = w["windowopacity"];
         
-        if (w.contains("backgroundColor")) {
-            outOptions.backgroundColor = Utils::ToWString(w["backgroundColor"]);
-            ColorUtil::ParseRGBA(outOptions.backgroundColor, outOptions.color, outOptions.bgAlpha);
-        }
-        
-        if (w.contains("zPos")) {
-            std::string z = w["zPos"];
+        if (w.contains("zpos")) {
+            std::string z = w["zpos"];
             if (z == "ondesktop") outOptions.zPos = ZPOSITION_ONDESKTOP;
             else if (z == "ontop") outOptions.zPos = ZPOSITION_ONTOP;
             else if (z == "onbottom") outOptions.zPos = ZPOSITION_ONBOTTOM;
@@ -152,9 +140,9 @@ bool Settings::LoadWidget(const std::wstring& id, WidgetOptions& outOptions)
         }
         
         if (w.contains("draggable")) outOptions.draggable = w["draggable"];
-        if (w.contains("clickThrough")) outOptions.clickThrough = w["clickThrough"];
-        if (w.contains("keepOnScreen")) outOptions.keepOnScreen = w["keepOnScreen"];
-        if (w.contains("snapEdges")) outOptions.snapEdges = w["snapEdges"];
+        if (w.contains("clickthrough")) outOptions.clickThrough = w["clickthrough"];
+        if (w.contains("keeponscreen")) outOptions.keepOnScreen = w["keeponscreen"];
+        if (w.contains("snapedges")) outOptions.snapEdges = w["snapedges"];
         
         return true;
     } catch (std::exception& e) {

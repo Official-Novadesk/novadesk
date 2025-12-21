@@ -12,11 +12,11 @@ using namespace Gdiplus;
 Text::Text(const std::wstring& id, int x, int y, int w, int h,
      const std::wstring& text, const std::wstring& fontFamily,
      int fontSize, COLORREF color, BYTE alpha,
-     bool bold, bool italic, TextAlign align, VerticalAlign vAlign, float lineHeight)
+     bool bold, bool italic, Alignment align)
     : Element(ELEMENT_TEXT, id, x, y, w, h),
       m_Text(text), m_FontFamily(fontFamily), m_FontSize(fontSize),
       m_Color(color), m_Alpha(alpha), m_Bold(bold), m_Italic(italic),
-      m_Align(align), m_VerticalAlign(vAlign), m_LineHeight(lineHeight)
+      m_Align(align)
 {
 }
 
@@ -37,16 +37,40 @@ void Text::Render(Graphics& graphics)
     StringFormat format;
     switch (m_Align)
     {
-    case ALIGN_LEFT:   format.SetAlignment(StringAlignmentNear); break;
-    case ALIGN_CENTER: format.SetAlignment(StringAlignmentCenter); break;
-    case ALIGN_RIGHT:  format.SetAlignment(StringAlignmentFar); break;
+    case ALIGN_LEFT_TOP:
+    case ALIGN_LEFT_CENTER:
+    case ALIGN_LEFT_BOTTOM:
+        format.SetAlignment(StringAlignmentNear);
+        break;
+    case ALIGN_CENTER_TOP:
+    case ALIGN_CENTER_CENTER:
+    case ALIGN_CENTER_BOTTOM:
+        format.SetAlignment(StringAlignmentCenter);
+        break;
+    case ALIGN_RIGHT_TOP:
+    case ALIGN_RIGHT_CENTER:
+    case ALIGN_RIGHT_BOTTOM:
+        format.SetAlignment(StringAlignmentFar);
+        break;
     }
-    
-    switch (m_VerticalAlign)
+
+    switch (m_Align)
     {
-    case VALIGN_TOP:    format.SetLineAlignment(StringAlignmentNear); break;
-    case VALIGN_MIDDLE: format.SetLineAlignment(StringAlignmentCenter); break;
-    case VALIGN_BOTTOM: format.SetLineAlignment(StringAlignmentFar); break;
+    case ALIGN_LEFT_TOP:
+    case ALIGN_CENTER_TOP:
+    case ALIGN_RIGHT_TOP:
+        format.SetLineAlignment(StringAlignmentNear);
+        break;
+    case ALIGN_LEFT_CENTER:
+    case ALIGN_CENTER_CENTER:
+    case ALIGN_RIGHT_CENTER:
+        format.SetLineAlignment(StringAlignmentCenter);
+        break;
+    case ALIGN_LEFT_BOTTOM:
+    case ALIGN_CENTER_BOTTOM:
+    case ALIGN_RIGHT_BOTTOM:
+        format.SetLineAlignment(StringAlignmentFar);
+        break;
     }
     
     // Draw text

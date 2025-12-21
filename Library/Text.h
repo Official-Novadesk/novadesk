@@ -9,19 +9,21 @@
 #define __NOVADESK_TEXT_H__
 
 #include "Element.h"
+#include <string>
+#include <windows.h>
+#include <gdiplus.h>
 
-enum TextAlign
+enum Alignment
 {
-    ALIGN_LEFT,
-    ALIGN_CENTER,
-    ALIGN_RIGHT
-};
-
-enum VerticalAlign
-{
-    VALIGN_TOP,
-    VALIGN_MIDDLE,
-    VALIGN_BOTTOM
+    ALIGN_LEFT_TOP,
+    ALIGN_CENTER_TOP,
+    ALIGN_RIGHT_TOP,
+    ALIGN_LEFT_CENTER,
+    ALIGN_CENTER_CENTER,
+    ALIGN_RIGHT_CENTER,
+    ALIGN_LEFT_BOTTOM,
+    ALIGN_CENTER_BOTTOM,
+    ALIGN_RIGHT_BOTTOM
 };
 
 class Text : public Element
@@ -30,7 +32,7 @@ public:
     Text(const std::wstring& id, int x, int y, int w, int h,
          const std::wstring& text, const std::wstring& fontFamily,
          int fontSize, COLORREF color, BYTE alpha,
-         bool bold, bool italic, TextAlign align, VerticalAlign vAlign, float lineHeight);
+         bool bold, bool italic, Alignment align);
 
     virtual ~Text() {}
 
@@ -49,9 +51,7 @@ private:
     BYTE m_Alpha;
     bool m_Bold;
     bool m_Italic;
-    TextAlign m_Align;
-    VerticalAlign m_VerticalAlign;
-    float m_LineHeight;
+    Alignment m_Align;
 };
 
 #endif

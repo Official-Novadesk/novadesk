@@ -111,7 +111,7 @@ namespace JSApi {
         duk_pop(ctx);
         if (duk_get_prop_string(ctx, 0, "height")) options.height = duk_get_int(ctx, -1);
         duk_pop(ctx);
-        if (duk_get_prop_string(ctx, 0, "backgroundColor")) {
+        if (duk_get_prop_string(ctx, 0, "backgroundcolor")) {
             options.backgroundColor = Utils::ToWString(duk_get_string(ctx, -1));
             ColorUtil::ParseRGBA(options.backgroundColor, options.color, options.bgAlpha);
         }
@@ -130,7 +130,7 @@ namespace JSApi {
             }
         }
         duk_pop(ctx);
-        if (duk_get_prop_string(ctx, 0, "zPos")) {
+        if (duk_get_prop_string(ctx, 0, "zpos")) {
             std::string zPosStr = duk_get_string(ctx, -1);
             if (zPosStr == "ondesktop") options.zPos = ZPOSITION_ONDESKTOP;
             else if (zPosStr == "ontop") options.zPos = ZPOSITION_ONTOP;
@@ -141,11 +141,11 @@ namespace JSApi {
         duk_pop(ctx);
         if (duk_get_prop_string(ctx, 0, "draggable")) options.draggable = duk_get_boolean(ctx, -1);
         duk_pop(ctx);
-        if (duk_get_prop_string(ctx, 0, "clickThrough")) options.clickThrough = duk_get_boolean(ctx, -1);
+        if (duk_get_prop_string(ctx, 0, "clickthrough")) options.clickThrough = duk_get_boolean(ctx, -1);
         duk_pop(ctx);
-        if (duk_get_prop_string(ctx, 0, "keepOnScreen")) options.keepOnScreen = duk_get_boolean(ctx, -1);
+        if (duk_get_prop_string(ctx, 0, "keeponscreen")) options.keepOnScreen = duk_get_boolean(ctx, -1);
         duk_pop(ctx);
-        if (duk_get_prop_string(ctx, 0, "snapEdges")) options.snapEdges = duk_get_boolean(ctx, -1);
+        if (duk_get_prop_string(ctx, 0, "snapedges")) options.snapEdges = duk_get_boolean(ctx, -1);
         duk_pop(ctx);
         
         // Finally, load settings to override with saved state
@@ -212,27 +212,27 @@ namespace JSApi {
         };
 
         std::wstring val;
-        if (!(val = getStr("onLeftMouseUp")).empty()) element->m_OnLeftMouseUp = val;
-        if (!(val = getStr("onLeftMouseDown")).empty()) element->m_OnLeftMouseDown = val;
-        if (!(val = getStr("onLeftDoubleClick")).empty()) element->m_OnLeftDoubleClick = val;
-        if (!(val = getStr("onRightMouseUp")).empty()) element->m_OnRightMouseUp = val;
-        if (!(val = getStr("onRightMouseDown")).empty()) element->m_OnRightMouseDown = val;
-        if (!(val = getStr("onRightDoubleClick")).empty()) element->m_OnRightDoubleClick = val;
-        if (!(val = getStr("onMiddleMouseUp")).empty()) element->m_OnMiddleMouseUp = val;
-        if (!(val = getStr("onMiddleMouseDown")).empty()) element->m_OnMiddleMouseDown = val;
-        if (!(val = getStr("onMiddleDoubleClick")).empty()) element->m_OnMiddleDoubleClick = val;
-        if (!(val = getStr("onX1MouseUp")).empty()) element->m_OnX1MouseUp = val;
-        if (!(val = getStr("onX1MouseDown")).empty()) element->m_OnX1MouseDown = val;
-        if (!(val = getStr("onX1DoubleClick")).empty()) element->m_OnX1DoubleClick = val;
-        if (!(val = getStr("onX2MouseUp")).empty()) element->m_OnX2MouseUp = val;
-        if (!(val = getStr("onX2MouseDown")).empty()) element->m_OnX2MouseDown = val;
-        if (!(val = getStr("onX2DoubleClick")).empty()) element->m_OnX2DoubleClick = val;
-        if (!(val = getStr("onScrollUp")).empty()) element->m_OnScrollUp = val;
-        if (!(val = getStr("onScrollDown")).empty()) element->m_OnScrollDown = val;
-        if (!(val = getStr("onScrollLeft")).empty()) element->m_OnScrollLeft = val;
-        if (!(val = getStr("onScrollRight")).empty()) element->m_OnScrollRight = val;
-        if (!(val = getStr("onMouseOver")).empty()) element->m_OnMouseOver = val;
-        if (!(val = getStr("onMouseLeave")).empty()) element->m_OnMouseLeave = val;
+        if (!(val = getStr("onleftmouseup")).empty()) element->m_OnLeftMouseUp = val;
+        if (!(val = getStr("onleftmousedown")).empty()) element->m_OnLeftMouseDown = val;
+        if (!(val = getStr("onleftdoubleclick")).empty()) element->m_OnLeftDoubleClick = val;
+        if (!(val = getStr("onrightmouseup")).empty()) element->m_OnRightMouseUp = val;
+        if (!(val = getStr("onrightmousedown")).empty()) element->m_OnRightMouseDown = val;
+        if (!(val = getStr("onrightdoubleclick")).empty()) element->m_OnRightDoubleClick = val;
+        if (!(val = getStr("onmiddlemouseup")).empty()) element->m_OnMiddleMouseUp = val;
+        if (!(val = getStr("onmiddlemousedown")).empty()) element->m_OnMiddleMouseDown = val;
+        if (!(val = getStr("onmiddledoubleclick")).empty()) element->m_OnMiddleDoubleClick = val;
+        if (!(val = getStr("onx1mouseup")).empty()) element->m_OnX1MouseUp = val;
+        if (!(val = getStr("onx1mousedown")).empty()) element->m_OnX1MouseDown = val;
+        if (!(val = getStr("onx1doubleclick")).empty()) element->m_OnX1DoubleClick = val;
+        if (!(val = getStr("onx2mouseup")).empty()) element->m_OnX2MouseUp = val;
+        if (!(val = getStr("onx2mousedown")).empty()) element->m_OnX2MouseDown = val;
+        if (!(val = getStr("onx2doubleclick")).empty()) element->m_OnX2DoubleClick = val;
+        if (!(val = getStr("onscrollup")).empty()) element->m_OnScrollUp = val;
+        if (!(val = getStr("onscrolldown")).empty()) element->m_OnScrollDown = val;
+        if (!(val = getStr("onscrollleft")).empty()) element->m_OnScrollLeft = val;
+        if (!(val = getStr("onscrollright")).empty()) element->m_OnScrollRight = val;
+        if (!(val = getStr("onmouseover")).empty()) element->m_OnMouseOver = val;
+        if (!(val = getStr("onmouseleave")).empty()) element->m_OnMouseLeave = val;
         
     }
 
@@ -287,15 +287,11 @@ namespace JSApi {
         COLORREF color = RGB(0, 0, 0);
         BYTE alpha = 255;
         bool bold = false, italic = false;
-        TextAlign align = ALIGN_LEFT;
-        VerticalAlign vAlign = VALIGN_TOP;
-        float lineHeight = 1.0f;
-
         if (duk_get_prop_string(ctx, 0, "id")) id = Utils::ToWString(duk_get_string(ctx, -1));
         duk_pop(ctx);
         if (duk_get_prop_string(ctx, 0, "text")) text = Utils::ToWString(duk_get_string(ctx, -1));
         duk_pop(ctx);
-        if (duk_get_prop_string(ctx, 0, "fontFamily")) fontFamily = Utils::ToWString(duk_get_string(ctx, -1));
+        if (duk_get_prop_string(ctx, 0, "fontfamily")) fontFamily = Utils::ToWString(duk_get_string(ctx, -1));
         duk_pop(ctx);
         if (duk_get_prop_string(ctx, 0, "x")) x = duk_get_int(ctx, -1);
         duk_pop(ctx);
@@ -305,39 +301,40 @@ namespace JSApi {
         duk_pop(ctx);
         if (duk_get_prop_string(ctx, 0, "height")) h = duk_get_int(ctx, -1);
         duk_pop(ctx);
-        if (duk_get_prop_string(ctx, 0, "fontSize")) fontSize = duk_get_int(ctx, -1);
+        if (duk_get_prop_string(ctx, 0, "fontsize")) fontSize = duk_get_int(ctx, -1);
         duk_pop(ctx);
         if (duk_get_prop_string(ctx, 0, "color")) {
             std::wstring colorStr = Utils::ToWString(duk_get_string(ctx, -1));
             ColorUtil::ParseRGBA(colorStr, color, alpha);
         }
         duk_pop(ctx);
-        if (duk_get_prop_string(ctx, 0, "fontWeight")) {
+        if (duk_get_prop_string(ctx, 0, "fontweight")) {
             std::string s = duk_get_string(ctx, -1);
             if (s == "bold") bold = true;
         }
         duk_pop(ctx);
-        if (duk_get_prop_string(ctx, 0, "fontStyle")) {
+        if (duk_get_prop_string(ctx, 0, "fontstyle")) {
             std::string s = duk_get_string(ctx, -1);
             if (s == "italic") italic = true;
         }
         duk_pop(ctx);
+
+        Alignment align = ALIGN_LEFT_TOP;
         if (duk_get_prop_string(ctx, 0, "align")) {
             std::string s = duk_get_string(ctx, -1);
-            if (s == "center") align = ALIGN_CENTER;
-            else if (s == "right") align = ALIGN_RIGHT;
+            if (s == "left" || s == "lefttop") align = ALIGN_LEFT_TOP;
+            else if (s == "center" || s == "centertop") align = ALIGN_CENTER_TOP;
+            else if (s == "right" || s == "righttop") align = ALIGN_RIGHT_TOP;
+            else if (s == "leftcenter") align = ALIGN_LEFT_CENTER;
+            else if (s == "centercenter") align = ALIGN_CENTER_CENTER;
+            else if (s == "rightcenter") align = ALIGN_RIGHT_CENTER;
+            else if (s == "leftbottom") align = ALIGN_LEFT_BOTTOM;
+            else if (s == "centerbottom") align = ALIGN_CENTER_BOTTOM;
+            else if (s == "rightbottom") align = ALIGN_RIGHT_BOTTOM;
         }
-        duk_pop(ctx);
-        if (duk_get_prop_string(ctx, 0, "verticalAlign")) {
-            std::string s = duk_get_string(ctx, -1);
-            if (s == "middle") vAlign = VALIGN_MIDDLE;
-            else if (s == "bottom") vAlign = VALIGN_BOTTOM;
-        }
-        duk_pop(ctx);
-        if (duk_get_prop_string(ctx, 0, "lineHeight")) lineHeight = (float)duk_get_number(ctx, -1);
         duk_pop(ctx);
 
-        widget->AddText(id, x, y, w, h, text, fontFamily, fontSize, color, alpha, bold, italic, align, vAlign, lineHeight);
+        widget->AddText(id, x, y, w, h, text, fontFamily, fontSize, color, alpha, bold, italic, align);
         
         // Parse Mouse Actions
         Element* el = widget->FindElementById(id);

@@ -8,81 +8,25 @@
 function createContentDemoWindow() {
     var demoWidget = new widgetWindow({
         id: "demoWidget",
-        width: 100,
-        height: 100,
-        backgroundColor: "rgba(10,10,10,200)",
-        zPos: "ondesktop",
+        width: 800,
+        height: 800,
+        backgroundcolor: "rgba(10,10,10,200)",
+        zpos: "normal",
         draggable: true,
-        keepOnScreen: true
+        keeponscreen: true
     });
-
-    // // Add Title
-    // demoWidget.addText({
-    //     id: "title",
-    //     x: 0,
-    //     y: 20,
-    //     width: 300,
-    //     height: 40,
-    //     text: "Weather Widget",
-    //     fontFamily: "Segoe UI",
-    //     fontSize: 24,
-    //     color: "rgba(255,255,255,255)",
-    //     fontWeight: "bold",
-    //     align: "center"
-    // });
 
     demoWidget.addText({
         id: "demoText",
         text: "Novadesk",
-        x: 50, y: 50,
-        fontSize: 24,
-        align: "center",
-        verticalAlign: "middle",
+        x: 0, y: 0,
+        width: 300,
+        height: 300,
+        fontsize: 32,
+        align: "centercenter",
         color: "rgba(255,255,255,255)",
-        onLeftMouseUp: "novadesk.log('Text clicked!')",
-        // onMouseOver: "novadesk.log('Mouse entered text!')",
-        // onMouseLeave: "novadesk.log('Mouse left text!')",
-        // onLeftMouseUp: "novadesk.log('Text clicked!')"
+        onleftmouseup: "novadesk.log('Text clicked!')"
     });
-
-    // demoWidget.addImage({
-    //     id: "demoIcon",
-    //     path: "icon.png", // Assuming icon.png exists or use a placebo
-    //     x: 100, y: 100,
-    //     width: 64, height: 64,
-    //     // onRightMouseUp: "novadesk.log('Icon Right Clicked!')",
-    //     // onScrollUp: "novadesk.log('Scrolled Up over Icon!')",
-    //     // onScrollDown: "novadesk.log('Scrolled Down over Icon!')"
-    // });
-
-    // // Add Temperature
-    // demoWidget.addText({
-    //     id: "temp",
-    //     x: 0,
-    //     y: 80,
-    //     width: 300,
-    //     height: 80,
-    //     text: "72°",
-    //     fontFamily: "Segoe UI",
-    //     fontSize: 64,
-    //     color: "rgba(255,255,255,255)",
-    //     align: "center"
-    // });
-
-    // // Add Condition Text
-    // demoWidget.addText({
-    //     id: "condition",
-    //     x: 0,
-    //     y: 160,
-    //     width: 300,
-    //     height: 30,
-    //     text: "Partly Cloudy",
-    //     fontFamily: "Segoe UI",
-    //     fontSize: 16,
-    //     color: "rgba(200,200,200,255)",
-    //     fontStyle: "italic",
-    //     align: "center"
-    // });
 
     novadesk.log("Content demo widget created");
 }

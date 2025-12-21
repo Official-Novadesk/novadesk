@@ -97,8 +97,7 @@ public:
     void AddText(const std::wstring& id, int x, int y, int w, int h,
                  const std::wstring& text, const std::wstring& fontFamily,
                  int fontSize, COLORREF color, BYTE alpha, bool bold = false,
-                 bool italic = false, TextAlign align = ALIGN_LEFT,
-                 VerticalAlign vAlign = VALIGN_TOP, float lineHeight = 1.0f);
+                 bool italic = false, Alignment align = ALIGN_LEFT_TOP);
 
     /*
     ** Update an existing image content item with a new image path.
