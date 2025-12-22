@@ -962,29 +962,6 @@ namespace JSApi {
         duk_push_c_function(ctx, js_include, 1);
         duk_put_prop_string(ctx, -2, "include");
 
-        // Timers
-        duk_push_c_function(ctx, js_set_timer, 2);
-        duk_set_magic(ctx, -1, 1); // 1 = repeating
-        duk_put_prop_string(ctx, -2, "setInterval");
-        
-        duk_push_c_function(ctx, js_set_timer, 2);
-        duk_set_magic(ctx, -1, 0); // 0 = one-shot
-        duk_put_prop_string(ctx, -2, "setTimeout");
-
-        duk_push_c_function(ctx, js_clear_timer, 1);
-        duk_put_prop_string(ctx, -2, "clearInterval");
-        duk_push_c_function(ctx, js_clear_timer, 1);
-        duk_put_prop_string(ctx, -2, "clearTimeout");
-
-        duk_push_c_function(ctx, js_set_immediate, 1);
-        duk_put_prop_string(ctx, -2, "setImmediate");
-
-        // process.nextTick
-        duk_push_object(ctx);
-        duk_push_c_function(ctx, js_set_immediate, 1);
-        duk_put_prop_string(ctx, -2, "nextTick");
-        duk_put_prop_string(ctx, -2, "process");
-
         // novadesk.system object with constructors
         duk_push_object(ctx);
 
@@ -1014,6 +991,30 @@ namespace JSApi {
         duk_put_prop_string(ctx, -2, "system");
 
         duk_put_global_string(ctx, "novadesk");
+
+        // Register timer functions globally (not on novadesk)
+        duk_push_c_function(ctx, js_set_timer, 2);
+        duk_set_magic(ctx, -1, 1); // 1 = repeating
+        duk_put_global_string(ctx, "setInterval");
+        
+        duk_push_c_function(ctx, js_set_timer, 2);
+        duk_set_magic(ctx, -1, 0); // 0 = one-shot
+        duk_put_global_string(ctx, "setTimeout");
+
+        duk_push_c_function(ctx, js_clear_timer, 1);
+        duk_put_global_string(ctx, "clearInterval");
+        
+        duk_push_c_function(ctx, js_clear_timer, 1);
+        duk_put_global_string(ctx, "clearTimeout");
+
+        duk_push_c_function(ctx, js_set_immediate, 1);
+        duk_put_global_string(ctx, "setImmediate");
+
+        // process.nextTick
+        duk_push_object(ctx);
+        duk_push_c_function(ctx, js_set_immediate, 1);
+        duk_put_prop_string(ctx, -2, "nextTick");
+        duk_put_global_string(ctx, "process");
 
         // Add refresh method to novadesk
         duk_get_global_string(ctx, "novadesk");

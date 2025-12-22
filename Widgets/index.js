@@ -67,7 +67,7 @@ function onAppReady() {
     createClockWidget();
 
     // Test monitor cleanup after 2 seconds
-    novadesk.setTimeout(function () {
+    setTimeout(function () {
         testMonitors();
     }, 2000);
 
