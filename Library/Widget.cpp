@@ -640,13 +640,14 @@ void Widget::AddImage(const std::wstring& id, int x, int y, int w, int h,
 void Widget::AddText(const std::wstring& id, int x, int y, int w, int h,
                      const std::wstring& text, const std::wstring& fontFamily,
                      int fontSize, COLORREF color, BYTE alpha, bool bold,
-                     bool italic, Alignment align)
+                     bool italic, Alignment align,
+                     ClipString clip, int clipW, int clipH)
 {
     // Remove existing if any
     RemoveContent(id);
 
     Text* element = new Text(id, x, y, w, h, text, fontFamily, fontSize, color, alpha,
-                             bold, italic, align);
+                             bold, italic, align, clip, clipW, clipH);
     m_Elements.push_back(element);
     
     Redraw();

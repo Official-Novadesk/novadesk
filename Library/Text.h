@@ -26,13 +26,21 @@ enum Alignment
     ALIGN_RIGHT_BOTTOM
 };
 
+enum ClipString
+{
+    CLIP_NONE = 0,
+    CLIP_ON = 1,
+    CLIP_ELLIPSIS = 2
+};
+
 class Text : public Element
 {
 public:
     Text(const std::wstring& id, int x, int y, int w, int h,
          const std::wstring& text, const std::wstring& fontFamily,
          int fontSize, COLORREF color, BYTE alpha,
-         bool bold, bool italic, Alignment align);
+         bool bold, bool italic, Alignment align,
+         ClipString clip = CLIP_NONE, int clipW = -1, int clipH = -1);
 
     virtual ~Text() {}
 
@@ -56,6 +64,9 @@ private:
     bool m_Bold;
     bool m_Italic;
     Alignment m_Align;
+    ClipString m_ClipString;
+    int m_ClipStringW;
+    int m_ClipStringH;
 };
 
 #endif

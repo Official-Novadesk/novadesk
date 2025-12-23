@@ -890,7 +890,16 @@ namespace JSApi {
         }
         duk_pop(ctx);
 
-        widget->AddText(id, x, y, w, h, text, fontFamily, fontSize, color, alpha, bold, italic, align);
+        ClipString clip = CLIP_NONE;
+        int clipW = -1, clipH = -1;
+        if (duk_get_prop_string(ctx, 0, "clipstring")) clip = (ClipString)duk_get_int(ctx, -1);
+        duk_pop(ctx);
+        if (duk_get_prop_string(ctx, 0, "clipstringw")) clipW = duk_get_int(ctx, -1);
+        duk_pop(ctx);
+        if (duk_get_prop_string(ctx, 0, "clipstringh")) clipH = duk_get_int(ctx, -1);
+        duk_pop(ctx);
+
+        widget->AddText(id, x, y, w, h, text, fontFamily, fontSize, color, alpha, bold, italic, align, clip, clipW, clipH);
         
         // Parse Mouse Actions
         Element* el = widget->FindElementById(id);

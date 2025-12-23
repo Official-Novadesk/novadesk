@@ -12,11 +12,12 @@ using namespace Gdiplus;
 Text::Text(const std::wstring& id, int x, int y, int w, int h,
      const std::wstring& text, const std::wstring& fontFamily,
      int fontSize, COLORREF color, BYTE alpha,
-     bool bold, bool italic, Alignment align)
+     bool bold, bool italic, Alignment align,
+     ClipString clip, int clipW, int clipH)
     : Element(ELEMENT_TEXT, id, x, y, w, h),
       m_Text(text), m_FontFamily(fontFamily), m_FontSize(fontSize),
       m_Color(color), m_Alpha(alpha), m_Bold(bold), m_Italic(italic),
-      m_Align(align)
+      m_Align(align), m_ClipString(clip), m_ClipStringW(clipW), m_ClipStringH(clipH)
 {
 }
 
@@ -72,6 +73,16 @@ void Text::Render(Graphics& graphics)
         format.SetLineAlignment(StringAlignmentFar);
         break;
     }
+
+    // Set trimming/clipping
+    if (m_ClipString == CLIP_ELLIPSIS)
+    {
+        format.SetTrimming(StringTrimmingEllipsisCharacter);
+    }
+    else if (m_ClipString == CLIP_ON)
+    {
+        format.SetTrimming(StringTrimmingCharacter);
+    }
     
     // Draw text
     RectF layoutRect((REAL)m_X, (REAL)m_Y, (REAL)GetWidth(), (REAL)GetHeight());
@@ -92,7 +103,13 @@ int Text::GetAutoWidth()
     graphics.MeasureString(m_Text.c_str(), -1, &font, PointF(0, 0), &boundingBox);
     
     ReleaseDC(NULL, hdc);
-    return (int)ceil(boundingBox.Width);
+    
+    int width = (int)ceil(boundingBox.Width);
+    if (!m_WDefined && m_ClipString != CLIP_NONE && m_ClipStringW != -1)
+    {
+        if (width > m_ClipStringW) return m_ClipStringW;
+    }
+    return width;
 }
 
 int Text::GetAutoHeight()
@@ -109,7 +126,13 @@ int Text::GetAutoHeight()
     graphics.MeasureString(m_Text.c_str(), -1, &font, PointF(0, 0), &boundingBox);
     
     ReleaseDC(NULL, hdc);
-    return (int)ceil(boundingBox.Height);
+    
+    int height = (int)ceil(boundingBox.Height);
+    if (!m_HDefined && m_ClipString != CLIP_NONE && m_ClipStringH != -1)
+    {
+        if (height > m_ClipStringH) return m_ClipStringH;
+    }
+    return height;
 }
 
 bool Text::HitTest(int x, int y)
