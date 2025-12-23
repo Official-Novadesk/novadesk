@@ -17,10 +17,9 @@
 #include "MouseMonitor.h"
 #include "DiskMonitor.h"
 #include "PathUtils.h"
+#include "FileUtils.h"
 #include <map>
-#include <fstream>
 #include <sstream>
-#include <Windows.h>
 #include <Windows.h>
 #include "Novadesk.h"
 #include <cwctype>
@@ -60,14 +59,6 @@ namespace JSApi {
     static std::wstring s_CurrentScriptPath = L""; // Remember script path for reloads
     static int s_NextTempId = 1; 
 
-    // Helper to read file content
-    std::string ReadFileContent(const std::wstring& path) {
-        std::ifstream t(path);
-        if (!t.is_open()) return "";
-        std::stringstream buffer;
-        buffer << t.rdbuf();
-        return buffer.str();
-    }
 
 
     // Helper to call a JS function by its index in the "pending handlers" object
@@ -628,7 +619,7 @@ namespace JSApi {
         std::wstring filename = Utils::ToWString(duk_require_string(ctx, 0));
         std::wstring fullPath = PathUtils::ResolvePath(filename, PathUtils::GetWidgetsDir());
 
-        std::string content = ReadFileContent(fullPath);
+        std::string content = FileUtils::ReadFileContent(fullPath);
         if (content.empty()) {
             return duk_error(ctx, DUK_ERR_ERROR, "Could not read file: %s", Utils::ToString(filename).c_str());
         }
@@ -1415,7 +1406,7 @@ namespace JSApi {
 
         Logging::Log(LogLevel::Info, L"Loading script from: %s", finalScriptPath.c_str());
 
-        std::string content = ReadFileContent(finalScriptPath);
+        std::string content = FileUtils::ReadFileContent(finalScriptPath);
         if (content.empty()) {
             Logging::Log(LogLevel::Error, L"Failed to open script at %s", finalScriptPath.c_str());
             return false;
