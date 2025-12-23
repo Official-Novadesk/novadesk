@@ -11,6 +11,7 @@
 #endif
 #include <windows.h>
 #include <string>
+#include <vector>
 
 class DiskMonitor {
 public:
@@ -22,9 +23,11 @@ public:
         unsigned __int64 freeSpace;       // Free disk space in bytes
         unsigned __int64 usedSpace;       // Used disk space in bytes
         int percentUsed;                  // Percentage used
+        std::wstring driveLetter;         // Drive letter (e.g., "C:")
     };
 
-    Stats GetStats();
+    Stats GetStats();                     // Get stats for single drive
+    std::vector<Stats> GetAllDrives();    // Get stats for all drives
 
 private:
     std::wstring m_DriveLetter;

@@ -350,10 +350,12 @@ namespace JSApi {
     duk_ret_t js_disk_constructor(duk_context* ctx) {
         if (!duk_is_constructor_call(ctx)) return DUK_RET_TYPE_ERROR;
         
-        std::wstring driveLetter = L"C:";
+        std::wstring driveLetter = L"";  // Empty = all drives
         if (duk_get_top(ctx) > 0 && duk_is_object(ctx, 0)) {
             if (duk_get_prop_string(ctx, 0, "drive")) {
-                driveLetter = Utils::ToWString(duk_get_string(ctx, -1));
+                if (!duk_is_null_or_undefined(ctx, -1)) {
+                    driveLetter = Utils::ToWString(duk_get_string(ctx, -1));
+                }
             }
             duk_pop(ctx);
         }
@@ -377,13 +379,36 @@ namespace JSApi {
         duk_get_prop_string(ctx, -1, "\xFF" "monitorPtr");
         DiskMonitor* monitor = (DiskMonitor*)duk_get_pointer(ctx, -1);
         if (!monitor) return DUK_RET_ERROR;
-        auto stats = monitor->GetStats();
-        duk_push_object(ctx);
-        duk_push_number(ctx, (double)stats.totalSpace); duk_put_prop_string(ctx, -2, "total");
-        duk_push_number(ctx, (double)stats.freeSpace); duk_put_prop_string(ctx, -2, "free");
-        duk_push_number(ctx, (double)stats.usedSpace); duk_put_prop_string(ctx, -2, "used");
-        duk_push_int(ctx, stats.percentUsed); duk_put_prop_string(ctx, -2, "percent");
-        return 1;
+        
+        // Check if we should return all drives or single drive
+        auto allDrives = monitor->GetAllDrives();
+        
+        if (allDrives.empty()) {
+            // Single drive mode
+            auto stats = monitor->GetStats();
+            duk_push_object(ctx);
+            duk_push_string(ctx, Utils::ToString(stats.driveLetter).c_str()); duk_put_prop_string(ctx, -2, "drive");
+            duk_push_number(ctx, (double)stats.totalSpace); duk_put_prop_string(ctx, -2, "total");
+            duk_push_number(ctx, (double)stats.freeSpace); duk_put_prop_string(ctx, -2, "free");
+            duk_push_number(ctx, (double)stats.usedSpace); duk_put_prop_string(ctx, -2, "used");
+            duk_push_int(ctx, stats.percentUsed); duk_put_prop_string(ctx, -2, "percent");
+            return 1;
+        }
+        else {
+            // All drives mode - return array
+            duk_push_array(ctx);
+            for (size_t i = 0; i < allDrives.size(); i++) {
+                auto& stats = allDrives[i];
+                duk_push_object(ctx);
+                duk_push_string(ctx, Utils::ToString(stats.driveLetter).c_str()); duk_put_prop_string(ctx, -2, "drive");
+                duk_push_number(ctx, (double)stats.totalSpace); duk_put_prop_string(ctx, -2, "total");
+                duk_push_number(ctx, (double)stats.freeSpace); duk_put_prop_string(ctx, -2, "free");
+                duk_push_number(ctx, (double)stats.usedSpace); duk_put_prop_string(ctx, -2, "used");
+                duk_push_int(ctx, stats.percentUsed); duk_put_prop_string(ctx, -2, "percent");
+                duk_put_prop_index(ctx, -2, (duk_uarridx_t)i);
+            }
+            return 1;
+        }
     }
 
     duk_ret_t js_disk_destroy(duk_context* ctx) {

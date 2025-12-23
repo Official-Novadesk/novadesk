@@ -52,7 +52,8 @@ var cpu = new novadesk.system.CPU();
 var mem = new novadesk.system.Memory();
 var net = new novadesk.system.Network();
 var mouse = new novadesk.system.Mouse();
-var disk = new novadesk.system.Disk({ drive: "C:" });
+var disk = new novadesk.system.Disk({ drive: "C:" });  // Single drive
+var allDisks = new novadesk.system.Disk();              // All drives
 
 function testMonitors() {
     // Use existing monitors (don't recreate each time)
@@ -68,8 +69,16 @@ function testMonitors() {
     var mousePos = mouse.position();
     novadesk.log("Mouse Position: X=" + mousePos.x + ", Y=" + mousePos.y);
 
+    // Single drive
     var diskStats = disk.stats();
-    novadesk.log("Disk C: " + (diskStats.used / (1024 * 1024 * 1024)).toFixed(2) + " GB / " + (diskStats.total / (1024 * 1024 * 1024)).toFixed(2) + " GB (" + diskStats.percent + "%)");
+    novadesk.log("Disk " + diskStats.drive + " " + (diskStats.used / (1024 * 1024 * 1024)).toFixed(2) + " GB / " + (diskStats.total / (1024 * 1024 * 1024)).toFixed(2) + " GB (" + diskStats.percent + "%)");
+
+    // All drives (returns array)
+    var allDiskStats = allDisks.stats();
+    for (var i = 0; i < allDiskStats.length; i++) {
+        var d = allDiskStats[i];
+        novadesk.log("Drive " + d.drive + " " + (d.used / (1024 * 1024 * 1024)).toFixed(2) + " GB / " + (d.total / (1024 * 1024 * 1024)).toFixed(2) + " GB (" + d.percent + "%)");
+    }
 }
 
 novadesk.onReady(function () {
