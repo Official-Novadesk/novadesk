@@ -82,6 +82,12 @@ function testMonitors() {
 }
 
 novadesk.onReady(function () {
+    // Log executable path info
+    var exePath = novadesk.getExePath();
+    novadesk.log("Executable: " + exePath.fullPath);
+    novadesk.log("Directory: " + exePath.directory);
+    novadesk.log("Filename: " + exePath.filename);
+
     createClockWidget();
 
     // Call every second - monitors stay alive and track changes

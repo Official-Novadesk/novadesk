@@ -423,6 +423,25 @@ namespace JSApi {
         return 0;
     }
 
+    duk_ret_t js_get_exe_path(duk_context* ctx) {
+        wchar_t exePath[MAX_PATH];
+        GetModuleFileNameW(NULL, exePath, MAX_PATH);
+        
+        std::wstring fullPath = exePath;
+        size_t lastBackslash = fullPath.find_last_of(L"\\");
+        std::wstring directory = fullPath.substr(0, lastBackslash + 1);
+        std::wstring filename = fullPath.substr(lastBackslash + 1);
+        
+        duk_push_object(ctx);
+        duk_push_string(ctx, Utils::ToString(fullPath).c_str());
+        duk_put_prop_string(ctx, -2, "fullPath");
+        duk_push_string(ctx, Utils::ToString(directory).c_str());
+        duk_put_prop_string(ctx, -2, "directory");
+        duk_push_string(ctx, Utils::ToString(filename).c_str());
+        duk_put_prop_string(ctx, -2, "filename");
+        return 1;
+    }
+
     duk_ret_t js_system_get_workspace_variables(duk_context* ctx) {
         const MultiMonitorInfo& info = System::GetMultiMonitorInfo();
         duk_push_object(ctx);
@@ -1140,6 +1159,8 @@ namespace JSApi {
         duk_put_prop_string(ctx, -2, "include");
         duk_push_c_function(ctx, js_on_ready, 1);
         duk_put_prop_string(ctx, -2, "onReady");
+        duk_push_c_function(ctx, js_get_exe_path, 0);
+        duk_put_prop_string(ctx, -2, "getExePath");
 
         // novadesk.system object with constructors
         duk_push_object(ctx);
