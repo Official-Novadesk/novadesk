@@ -19,6 +19,7 @@
 #include "PathUtils.h"
 #include "FileUtils.h"
 #include "TimerManager.h"
+#include "PropertyParser.h"
 #include <map>
 #include <sstream>
 #include <Windows.h>
@@ -40,10 +41,52 @@ namespace JSApi {
     duk_ret_t js_widget_get_properties(duk_context* ctx);
     duk_ret_t js_widget_close(duk_context* ctx);
     duk_ret_t js_novadesk_refresh(duk_context* ctx);
+    duk_ret_t js_log(duk_context* ctx);
+    duk_ret_t js_error(duk_context* ctx);
+    duk_ret_t js_debug(duk_context* ctx);
+    duk_ret_t js_include(duk_context* ctx);
+    duk_ret_t js_on_ready(duk_context* ctx);
+    duk_ret_t js_get_exe_path(duk_context* ctx);
+    duk_ret_t js_get_env(duk_context* ctx);
+    duk_ret_t js_get_all_env(duk_context* ctx);
+    duk_ret_t js_register_hotkey(duk_context* ctx);
+    duk_ret_t js_unregister_hotkey(duk_context* ctx);
+    duk_ret_t js_system_get_workspace_variables(duk_context* ctx);
+    duk_ret_t js_set_timer(duk_context* ctx);
+    duk_ret_t js_clear_timer(duk_context* ctx);
+    duk_ret_t js_set_immediate(duk_context* ctx);
+    
+    // Monitor constructors/methods
+    duk_ret_t js_cpu_constructor(duk_context* ctx);
+    duk_ret_t js_cpu_usage(duk_context* ctx);
+    duk_ret_t js_cpu_destroy(duk_context* ctx);
+    duk_ret_t js_cpu_finalizer(duk_context* ctx);
+    duk_ret_t js_memory_constructor(duk_context* ctx);
+    duk_ret_t js_memory_stats(duk_context* ctx);
+    duk_ret_t js_memory_destroy(duk_context* ctx);
+    duk_ret_t js_memory_finalizer(duk_context* ctx);
+    duk_ret_t js_network_constructor(duk_context* ctx);
+    duk_ret_t js_network_stats(duk_context* ctx);
+    duk_ret_t js_network_destroy(duk_context* ctx);
+    duk_ret_t js_network_finalizer(duk_context* ctx);
+    duk_ret_t js_mouse_constructor(duk_context* ctx);
+    duk_ret_t js_mouse_position(duk_context* ctx);
+    duk_ret_t js_mouse_destroy(duk_context* ctx);
+    duk_ret_t js_mouse_finalizer(duk_context* ctx);
+    duk_ret_t js_disk_constructor(duk_context* ctx);
+    duk_ret_t js_disk_stats(duk_context* ctx);
+    duk_ret_t js_disk_destroy(duk_context* ctx);
+    duk_ret_t js_disk_finalizer(duk_context* ctx);
+
+    // Internal helpers
+    void ReloadScripts(duk_context* ctx);
+    void CallHotkeyCallback(int callbackIdx);
+    void CallStoredCallback(int id);
+    bool LoadAndExecuteScript(duk_context* ctx, const std::wstring& scriptPath);
+    std::string ParseConfigDirectives(const std::string& script);
 
     // Ready callback storage
     static int s_ReadyCallbackIndex = -1;
-
 
     // Global context pointer for callbacks
     static duk_context* s_JsContext = nullptr;
@@ -51,8 +94,6 @@ namespace JSApi {
     static int s_NextTempId = 1; 
     static int s_NextTimerId = 1;
     static int s_NextImmId = 1;
-
-
 
     // Helper to call a JS function by its index in the "pending handlers" object
     void CallStoredCallback(int id) {
@@ -687,68 +728,9 @@ namespace JSApi {
         options.clickThrough = false;
         options.keepOnScreen = false;
         options.snapEdges = true;
-
-        if (duk_get_prop_string(ctx, 0, "id")) options.id = Utils::ToWString(duk_get_string(ctx, -1));
-        duk_pop(ctx);
-
-        // 1. Load settings FIRST to set defaults from saved state
-        if (!options.id.empty()) {
-            Settings::LoadWidget(options.id, options);
-        }
-
-        // 2. Overwrite with JS options if present
-        if (duk_get_prop_string(ctx, 0, "width")) {
-            options.width = duk_get_int(ctx, -1);
-            options.m_WDefined = (options.width > 0);
-        }
-        duk_pop(ctx);
-        if (duk_get_prop_string(ctx, 0, "height")) {
-            options.height = duk_get_int(ctx, -1);
-            options.m_HDefined = (options.height > 0);
-        }
-        duk_pop(ctx);
-        // ... (rest of the properties)
-        if (duk_get_prop_string(ctx, 0, "backgroundcolor")) {
-            options.backgroundColor = Utils::ToWString(duk_get_string(ctx, -1));
-            ColorUtil::ParseRGBA(options.backgroundColor, options.color, options.bgAlpha);
-        }
-        duk_pop(ctx);
-        if (duk_get_prop_string(ctx, 0, "opacity")) {
-            if (duk_is_string(ctx, -1)) {
-                std::string s = duk_get_string(ctx, -1);
-                if (s.back() == '%') {
-                    int pct = std::stoi(s.substr(0, s.length() - 1));
-                    options.windowOpacity = (BYTE)((pct / 100.0f) * 255);
-                } else {
-                    options.windowOpacity = (BYTE)(duk_get_number(ctx, -1) * 255);
-                }
-            } else {
-                options.windowOpacity = (BYTE)(duk_get_number(ctx, -1) * 255);
-            }
-        }
-        duk_pop(ctx);
-        if (duk_get_prop_string(ctx, 0, "zpos")) {
-            std::string zPosStr = duk_get_string(ctx, -1);
-            if (zPosStr == "ondesktop") options.zPos = ZPOSITION_ONDESKTOP;
-            else if (zPosStr == "ontop") options.zPos = ZPOSITION_ONTOP;
-            else if (zPosStr == "onbottom") options.zPos = ZPOSITION_ONBOTTOM;
-            else if (zPosStr == "ontopmost") options.zPos = ZPOSITION_ONTOPMOST;
-            else if (zPosStr == "normal") options.zPos = ZPOSITION_NORMAL;
-        }
-        duk_pop(ctx);
-        if (duk_get_prop_string(ctx, 0, "draggable")) options.draggable = duk_get_boolean(ctx, -1);
-        duk_pop(ctx);
-        if (duk_get_prop_string(ctx, 0, "clickthrough")) options.clickThrough = duk_get_boolean(ctx, -1);
-        duk_pop(ctx);
-        if (duk_get_prop_string(ctx, 0, "keeponscreen")) options.keepOnScreen = duk_get_boolean(ctx, -1);
-        duk_pop(ctx);
-        if (duk_get_prop_string(ctx, 0, "snapedges")) options.snapEdges = duk_get_boolean(ctx, -1);
-        duk_pop(ctx);
-        if (duk_get_prop_string(ctx, 0, "x")) options.x = duk_get_int(ctx, -1);
-        duk_pop(ctx);
-        if (duk_get_prop_string(ctx, 0, "y")) options.y = duk_get_int(ctx, -1);
-        duk_pop(ctx);
-
+ 
+        PropertyParser::ParseWidgetOptions(ctx, options);
+ 
         Widget* widget = new Widget(options);
         if (widget->Create()) {
             widget->Show();
@@ -804,44 +786,7 @@ namespace JSApi {
     }
 
     void ParseElementOptions(duk_context* ctx, Element* element) {
-        if (!element) return;
-        
-        // Helper to get string prop
-        auto getStr = [&](const char* key) -> std::wstring {
-            if (duk_get_prop_string(ctx, 0, key)) {
-                if (duk_is_string(ctx, -1)) {
-                    std::wstring val = Utils::ToWString(duk_get_string(ctx, -1));
-                    duk_pop(ctx);
-                    return val;
-                }
-            }
-            duk_pop(ctx); // pop undefined or non-string
-            return L"";
-        };
-
-        std::wstring val;
-        if (!(val = getStr("onleftmouseup")).empty()) element->m_OnLeftMouseUp = val;
-        if (!(val = getStr("onleftmousedown")).empty()) element->m_OnLeftMouseDown = val;
-        if (!(val = getStr("onleftdoubleclick")).empty()) element->m_OnLeftDoubleClick = val;
-        if (!(val = getStr("onrightmouseup")).empty()) element->m_OnRightMouseUp = val;
-        if (!(val = getStr("onrightmousedown")).empty()) element->m_OnRightMouseDown = val;
-        if (!(val = getStr("onrightdoubleclick")).empty()) element->m_OnRightDoubleClick = val;
-        if (!(val = getStr("onmiddlemouseup")).empty()) element->m_OnMiddleMouseUp = val;
-        if (!(val = getStr("onmiddlemousedown")).empty()) element->m_OnMiddleMouseDown = val;
-        if (!(val = getStr("onmiddledoubleclick")).empty()) element->m_OnMiddleDoubleClick = val;
-        if (!(val = getStr("onx1mouseup")).empty()) element->m_OnX1MouseUp = val;
-        if (!(val = getStr("onx1mousedown")).empty()) element->m_OnX1MouseDown = val;
-        if (!(val = getStr("onx1doubleclick")).empty()) element->m_OnX1DoubleClick = val;
-        if (!(val = getStr("onx2mouseup")).empty()) element->m_OnX2MouseUp = val;
-        if (!(val = getStr("onx2mousedown")).empty()) element->m_OnX2MouseDown = val;
-        if (!(val = getStr("onx2doubleclick")).empty()) element->m_OnX2DoubleClick = val;
-        if (!(val = getStr("onscrollup")).empty()) element->m_OnScrollUp = val;
-        if (!(val = getStr("onscrolldown")).empty()) element->m_OnScrollDown = val;
-        if (!(val = getStr("onscrollleft")).empty()) element->m_OnScrollLeft = val;
-        if (!(val = getStr("onscrollright")).empty()) element->m_OnScrollRight = val;
-        if (!(val = getStr("onmouseover")).empty()) element->m_OnMouseOver = val;
-        if (!(val = getStr("onmouseleave")).empty()) element->m_OnMouseLeave = val;
-        
+        PropertyParser::ParseElementOptions(ctx, element);
     }
 
     duk_ret_t js_widget_add_image(duk_context* ctx) {
@@ -1025,76 +970,9 @@ namespace JSApi {
         duk_pop_2(ctx);
 
         if (!widget || !duk_is_object(ctx, 0)) return DUK_RET_TYPE_ERROR;
-
-        // X, Y, Width, Height
-        int x = CW_USEDEFAULT, y = CW_USEDEFAULT, w = -1, h = -1;
-        bool posChange = false;
-
-        if (duk_get_prop_string(ctx, 0, "x")) { x = duk_get_int(ctx, -1); posChange = true; }
-        duk_pop(ctx);
-        if (duk_get_prop_string(ctx, 0, "y")) { y = duk_get_int(ctx, -1); posChange = true; }
-        duk_pop(ctx);
-        if (duk_get_prop_string(ctx, 0, "width")) { w = duk_get_int(ctx, -1); posChange = true; }
-        duk_pop(ctx);
-        if (duk_get_prop_string(ctx, 0, "height")) { h = duk_get_int(ctx, -1); posChange = true; }
-        duk_pop(ctx);
-
-        if (posChange) widget->SetWindowPosition(x, y, w, h);
-
-        // Opacity
-        if (duk_get_prop_string(ctx, 0, "opacity")) {
-            BYTE alpha = 255;
-            if (duk_is_string(ctx, -1)) {
-                std::string s = duk_get_string(ctx, -1);
-                if (s.back() == '%') {
-                    int pct = std::stoi(s.substr(0, s.length() - 1));
-                    alpha = (BYTE)((pct / 100.0f) * 255);
-                }
-            } else {
-                alpha = (BYTE)(duk_get_number(ctx, -1) * 255);
-            }
-            widget->SetWindowOpacity(alpha);
-        }
-        duk_pop(ctx);
-
-        // Z-Pos
-        if (duk_get_prop_string(ctx, 0, "zpos")) {
-            std::string zPosStr = duk_get_string(ctx, -1);
-            ZPOSITION zPos = widget->GetWindowZPosition();
-            bool found = true;
-            if (zPosStr == "ondesktop") zPos = ZPOSITION_ONDESKTOP;
-            else if (zPosStr == "ontop") zPos = ZPOSITION_ONTOP;
-            else if (zPosStr == "onbottom") zPos = ZPOSITION_ONBOTTOM;
-            else if (zPosStr == "ontopmost") zPos = ZPOSITION_ONTOPMOST;
-            else if (zPosStr == "normal") zPos = ZPOSITION_NORMAL;
-            else found = false;
-            
-            if (found) widget->ChangeZPos(zPos);
-        }
-        duk_pop(ctx);
-
-        // Background Color
-        if (duk_get_prop_string(ctx, 0, "backgroundcolor")) {
-            widget->SetBackgroundColor(Utils::ToWString(duk_get_string(ctx, -1)));
-        }
-        duk_pop(ctx);
-
-        // Draggable
-        if (duk_get_prop_string(ctx, 0, "draggable")) widget->SetDraggable(duk_get_boolean(ctx, -1));
-        duk_pop(ctx);
-
-        // ClickThrough
-        if (duk_get_prop_string(ctx, 0, "clickthrough")) widget->SetClickThrough(duk_get_boolean(ctx, -1));
-        duk_pop(ctx);
-
-        // KeepOnScreen
-        if (duk_get_prop_string(ctx, 0, "keeponscreen")) widget->SetKeepOnScreen(duk_get_boolean(ctx, -1));
-        duk_pop(ctx);
-
-        // SnapEdges
-        if (duk_get_prop_string(ctx, 0, "snapedges")) widget->SetSnapEdges(duk_get_boolean(ctx, -1));
-        duk_pop(ctx);
-
+ 
+        PropertyParser::ApplyWidgetProperties(ctx, widget);
+ 
         duk_push_this(ctx);
         return 1;
     }
@@ -1106,31 +984,9 @@ namespace JSApi {
         duk_pop_2(ctx);
 
         if (!widget) return DUK_RET_TYPE_ERROR;
-
-        const WidgetOptions& opt = widget->GetOptions();
-        
-        duk_push_object(ctx);
-        duk_push_int(ctx, opt.x); duk_put_prop_string(ctx, -2, "x");
-        duk_push_int(ctx, opt.y); duk_put_prop_string(ctx, -2, "y");
-        duk_push_int(ctx, opt.width); duk_put_prop_string(ctx, -2, "width");
-        duk_push_int(ctx, opt.height); duk_put_prop_string(ctx, -2, "height");
-        
-        const char* zPosStr = "normal";
-        switch (opt.zPos) {
-            case ZPOSITION_ONDESKTOP: zPosStr = "ondesktop"; break;
-            case ZPOSITION_ONTOP:     zPosStr = "ontop";     break;
-            case ZPOSITION_ONBOTTOM:  zPosStr = "onbottom";  break;
-            case ZPOSITION_ONTOPMOST: zPosStr = "ontopmost"; break;
-        }
-        duk_push_string(ctx, zPosStr); duk_put_prop_string(ctx, -2, "zpos");
-        
-        duk_push_number(ctx, opt.windowOpacity / 255.0); duk_put_prop_string(ctx, -2, "opacity");
-        duk_push_boolean(ctx, opt.draggable); duk_put_prop_string(ctx, -2, "draggable");
-        duk_push_boolean(ctx, opt.clickThrough); duk_put_prop_string(ctx, -2, "clickthrough");
-        duk_push_boolean(ctx, opt.keepOnScreen); duk_put_prop_string(ctx, -2, "keeponscreen");
-        duk_push_boolean(ctx, opt.snapEdges); duk_put_prop_string(ctx, -2, "snapedges");
-        duk_push_string(ctx, Utils::ToString(opt.backgroundColor).c_str()); duk_put_prop_string(ctx, -2, "backgroundcolor");
-
+ 
+        PropertyParser::PushWidgetProperties(ctx, widget);
+ 
         return 1;
     }
 
@@ -1214,7 +1070,7 @@ namespace JSApi {
                     Logging::Log(LogLevel::Info, L"Directive: File logging enabled to %s", logPath.c_str());
                 }
                 else if (directive == "hideTrayIcon") {
-                    HideTrayIconDynamic();
+                    ::HideTrayIconDynamic();
                 }
                 else {
                     Logging::Log(LogLevel::Error, L"Unknown directive: !%S", directive.c_str());
@@ -1456,7 +1312,7 @@ namespace JSApi {
         s_NextImmId = 1;
 
         // Reload and execute script
-        LoadAndExecuteScript(ctx);
+        LoadAndExecuteScript(ctx, L"");
     }
 
     void OnTimer(UINT_PTR id) {
