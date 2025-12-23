@@ -136,7 +136,9 @@ public:
                   const std::wstring& imageTint = L"",
                   int imageAlpha = 255,
                   bool grayscale = false,
-                  const std::vector<float>& colorMatrix = {});
+                  const std::vector<float>& colorMatrix = {},
+                  bool tile = false,
+                  float imageRotate = 0.0f);
 
     /*
     ** Add a text content item to the widget.

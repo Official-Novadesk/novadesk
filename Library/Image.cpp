@@ -162,10 +162,36 @@ void ImageElement::Render(Graphics& graphics)
         attr = &imageAttr;
     }
     
-    graphics.DrawImage(m_Image, RectF(finalX, finalY, finalW, finalH), 
-                       0, 0, (REAL)m_Image->GetWidth(), (REAL)m_Image->GetHeight(), 
-                       UnitPixel, attr);
+    // Rotation
+    if (m_ImageRotate != 0.0f)
+    {
+        graphics.TranslateTransform(finalX + finalW / 2.0f, finalY + finalH / 2.0f);
+        graphics.RotateTransform(m_ImageRotate);
+        graphics.TranslateTransform(-(finalX + finalW / 2.0f), -(finalY + finalH / 2.0f));
+    }
 
+    if (m_Tile)
+    {
+        RectF srcRect(0, 0, (REAL)m_Image->GetWidth(), (REAL)m_Image->GetHeight());
+        TextureBrush tiledBrush(m_Image, srcRect, attr);
+        tiledBrush.SetWrapMode(WrapModeTile);
+        tiledBrush.TranslateTransform(finalX, finalY);
+        graphics.FillRectangle(&tiledBrush, finalX, finalY, finalW, finalH);
+    }
+    else
+    {
+        graphics.DrawImage(m_Image, RectF(finalX, finalY, finalW, finalH), 
+                           0, 0, (REAL)m_Image->GetWidth(), (REAL)m_Image->GetHeight(), 
+                           UnitPixel, attr);
+    }
+    
+    // Restore transform if rotated
+    if (m_ImageRotate != 0.0f)
+    {
+        graphics.ResetTransform();
+    }
+    
+    // Restore clip if it was set for Crop mode
     if (m_PreserveAspectRatio == 2)
     {
         graphics.ResetClip();

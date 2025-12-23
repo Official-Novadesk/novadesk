@@ -47,6 +47,9 @@ public:
             m_HasColorMatrix = false;
         }
     }
+    
+    void SetTile(bool tile) { m_Tile = tile; }
+    void SetImageRotate(float degrees) { m_ImageRotate = degrees; }
 
 private:
     std::wstring m_ImagePath;
@@ -64,6 +67,10 @@ private:
     bool m_Grayscale = false;
     bool m_HasColorMatrix = false;
     float m_ColorMatrix[5][5];
+
+    // Newest properties
+    bool m_Tile = false;
+    float m_ImageRotate = 0.0f;
 
     void LoadImage();
 };

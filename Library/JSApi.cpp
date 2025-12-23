@@ -841,6 +841,14 @@ namespace JSApi {
         if (duk_get_prop_string(ctx, 0, "grayscale")) grayscale = duk_get_boolean(ctx, -1);
         duk_pop(ctx);
         
+        bool tile = false;
+        if (duk_get_prop_string(ctx, 0, "tile")) tile = duk_get_boolean(ctx, -1);
+        duk_pop(ctx);
+        
+        float imageRotate = 0.0f;
+        if (duk_get_prop_string(ctx, 0, "imagerotate")) imageRotate = (float)duk_get_number(ctx, -1);
+        duk_pop(ctx);
+        
         std::vector<float> colorMatrix;
         
         // Support single 'colormatrix' array
@@ -861,7 +869,7 @@ namespace JSApi {
             duk_pop(ctx);
         }
 
-        widget->AddImage(id, x, y, w, h, path, solidColor, solidColorRadius, preserveAspectRatio, imageTint, imageAlpha, grayscale, colorMatrix);
+        widget->AddImage(id, x, y, w, h, path, solidColor, solidColorRadius, preserveAspectRatio, imageTint, imageAlpha, grayscale, colorMatrix, tile, imageRotate);
         
         // Parse Mouse Actions
         Element* el = widget->FindElementById(id);
