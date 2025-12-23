@@ -158,6 +158,7 @@
     <ClInclude Include="Library\Settings.h" />
     <ClInclude Include="Library\PathUtils.h" />
     <ClInclude Include="Library\FileUtils.h" />
+    <ClInclude Include="Library\TimerManager.h" />
     <ClInclude Include="Library\json\json.hpp" />
   </ItemGroup>
   <ItemGroup>
@@ -178,6 +179,7 @@
     <ClCompile Include="Library\Novadesk.cpp" />
     <ClCompile Include="Library\PathUtils.cpp" />
     <ClCompile Include="Library\FileUtils.cpp" />
+    <ClCompile Include="Library\TimerManager.cpp" />
     <ClCompile Include="Library\Logging.cpp" />
   </ItemGroup>
   <ItemGroup>

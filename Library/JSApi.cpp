@@ -18,6 +18,7 @@
 #include "DiskMonitor.h"
 #include "PathUtils.h"
 #include "FileUtils.h"
+#include "TimerManager.h"
 #include <map>
 #include <sstream>
 #include <Windows.h>
@@ -43,21 +44,13 @@ namespace JSApi {
     // Ready callback storage
     static int s_ReadyCallbackIndex = -1;
 
-    // Timer logic
-    struct Timer {
-        bool repeating;
-        int callbackIndex; // Key in the JS-side callback map
-    };
-
-    static HWND s_MessageWindow = nullptr;
-    static std::map<UINT_PTR, Timer> s_Timers;
-    static UINT_PTR s_NextTimerId = 1000;
-    static const UINT WM_NOVADESK_ACTION = WM_USER + 100;
 
     // Global context pointer for callbacks
     static duk_context* s_JsContext = nullptr;
     static std::wstring s_CurrentScriptPath = L""; // Remember script path for reloads
     static int s_NextTempId = 1; 
+    static int s_NextTimerId = 1;
+    static int s_NextImmId = 1;
 
 
 
@@ -112,9 +105,9 @@ namespace JSApi {
         if (!duk_is_function(ctx, 0)) return DUK_RET_TYPE_ERROR;
         int ms = duk_get_int_default(ctx, 1, 0);
 
-        UINT_PTR id = s_NextTimerId++;
+        int tempId = s_NextTimerId++;
         
-        // Store callback in novadesk.__timers[id]
+        // Store callback in novadesk.__timers[tempId]
         duk_get_global_string(ctx, "novadesk");
         if (!duk_get_prop_string(ctx, -1, "__timers")) {
             duk_pop(ctx);
@@ -123,45 +116,41 @@ namespace JSApi {
             duk_get_prop_string(ctx, -1, "__timers");
         }
         
-        duk_push_int(ctx, (int)id);
+        duk_push_int(ctx, tempId);
         duk_dup(ctx, 0); // Duplicate the callback function
         duk_put_prop(ctx, -3);
         duk_pop_2(ctx); // Pop __timers and novadesk
-
-        s_Timers[id] = { repeating, (int)id };
-        SetTimer(s_MessageWindow, id, ms, NULL);
-
-        duk_push_int(ctx, (int)id);
+ 
+        int id = TimerManager::Register(ms, tempId, repeating);
+ 
+        duk_push_int(ctx, id);
         return 1;
     }
 
     // JS API: novadesk.clearTimer(id)
     duk_ret_t js_clear_timer(duk_context* ctx) {
         if (duk_get_top(ctx) == 0) return 0;
-        UINT_PTR id = (UINT_PTR)duk_get_int(ctx, 0);
-        auto it = s_Timers.find(id);
-        if (it != s_Timers.end()) {
-            KillTimer(s_MessageWindow, id);
-            
-            // Remove from JS side
-            duk_get_global_string(ctx, "novadesk");
-            if (duk_get_prop_string(ctx, -1, "__timers")) {
-                duk_push_int(ctx, (int)id);
-                duk_del_prop(ctx, -2);
-            }
-            duk_pop_2(ctx);
-
-            s_Timers.erase(it);
+        int id = duk_get_int(ctx, 0);
+        
+        TimerManager::Clear(id);
+ 
+        // Remove from JS side
+        duk_get_global_string(ctx, "novadesk");
+        if (duk_get_prop_string(ctx, -1, "__timers")) {
+            duk_push_int(ctx, id);
+            duk_del_prop(ctx, -2);
         }
+        duk_pop_2(ctx);
+ 
         return 0;
     }
 
     // JS API: novadesk.setImmediate(cb) / process.nextTick(cb)
     duk_ret_t js_set_immediate(duk_context* ctx) {
         if (!duk_is_function(ctx, 0)) return DUK_RET_TYPE_ERROR;
-
-        UINT_PTR id = s_NextTimerId++;
-        
+ 
+        int tempId = s_NextImmId++;
+ 
         // Same storage logic
         duk_get_global_string(ctx, "novadesk");
         if (!duk_get_prop_string(ctx, -1, "__timers")) {
@@ -171,15 +160,14 @@ namespace JSApi {
             duk_get_prop_string(ctx, -1, "__timers");
         }
         
-        duk_push_int(ctx, (int)id);
+        duk_push_int(ctx, tempId);
         duk_dup(ctx, 0);
         duk_put_prop(ctx, -3);
         duk_pop_2(ctx);
-
-        s_Timers[id] = { false, (int)id };
-        PostMessage(s_MessageWindow, WM_NOVADESK_ACTION, id, 0);
-
-        duk_push_int(ctx, (int)id);
+ 
+        int id = TimerManager::PushImmediate(tempId);
+ 
+        duk_push_int(ctx, id);
         return 1;
     }
 
@@ -1257,11 +1245,15 @@ namespace JSApi {
         duk_put_prop_string(ctx, -2, "include");
         duk_push_c_function(ctx, js_on_ready, 1);
         duk_put_prop_string(ctx, -2, "onReady");
-
-        // Set Hotkey Manager callback
+ 
+        // Register Managers
         HotkeyManager::SetCallbackHandler([](int idx) {
             CallHotkeyCallback(idx);
         });
+        TimerManager::SetCallbackHandler([](int idx) {
+            CallStoredCallback(idx);
+        });
+ 
         duk_push_c_function(ctx, js_get_exe_path, 0);
         duk_put_prop_string(ctx, -2, "getExePath");
         duk_push_c_function(ctx, js_get_env, 1);
@@ -1444,69 +1436,39 @@ namespace JSApi {
         
         // Unregister all hotkeys to prevent leaks and double hooks
         HotkeyManager::UnregisterAll();
+        // Clear all timers
+        TimerManager::ClearAll();
+ 
         // Destroy all existing widgets
         for (auto w : widgets) {
             delete w;
         }
         widgets.clear();
 
-        // Clear hotkey callbacks
+        // Clear internal callbacks
         duk_get_global_string(ctx, "novadesk");
         duk_del_prop_string(ctx, -1, "__hotkeys");
+        duk_del_prop_string(ctx, -1, "__timers");
         duk_pop(ctx);
+ 
         s_NextTempId = 1;
+        s_NextTimerId = 1;
+        s_NextImmId = 1;
 
         // Reload and execute script
         LoadAndExecuteScript(ctx);
     }
 
     void OnTimer(UINT_PTR id) {
-        auto it = s_Timers.find(id);
-        if (it != s_Timers.end()) {
-            Timer t = it->second;
-            if (!t.repeating) {
-                KillTimer(s_MessageWindow, id);
-                s_Timers.erase(it);
-                
-                // Note: We don't remove from JS object here, we do it in CallStoredCallback
-                // or just leave it for potential memory leak... actually let's do it right.
-                CallStoredCallback(t.callbackIndex);
-                
-                // Cleanup JS storage after execution
-                duk_get_global_string(s_JsContext, "novadesk");
-                if (duk_get_prop_string(s_JsContext, -1, "__timers")) {
-                    duk_push_int(s_JsContext, t.callbackIndex);
-                    duk_del_prop(s_JsContext, -2);
-                }
-                duk_pop_2(s_JsContext);
-            } else {
-                CallStoredCallback(t.callbackIndex);
-            }
-        }
+        TimerManager::HandleTimer(id);
     }
-
+ 
     void OnMessage(UINT message, WPARAM wParam, LPARAM lParam) {
-        if (message == WM_NOVADESK_ACTION) {
-            UINT_PTR id = (UINT_PTR)wParam;
-            auto it = s_Timers.find(id);
-            if (it != s_Timers.end()) {
-                Timer t = it->second;
-                s_Timers.erase(it);
-                CallStoredCallback(t.callbackIndex);
-                
-                // Cleanup JS storage
-                duk_get_global_string(s_JsContext, "novadesk");
-                if (duk_get_prop_string(s_JsContext, -1, "__timers")) {
-                    duk_push_int(s_JsContext, t.callbackIndex);
-                    duk_del_prop(s_JsContext, -2);
-                }
-                duk_pop_2(s_JsContext);
-            }
-        }
+        TimerManager::HandleMessage(message, wParam, lParam);
     }
-
+ 
     void SetMessageWindow(HWND hWnd) {
-        s_MessageWindow = hWnd;
+        TimerManager::Initialize(hWnd);
     }
 
 }
