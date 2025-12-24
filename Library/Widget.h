@@ -138,7 +138,8 @@ public:
                   bool grayscale = false,
                   const std::vector<float>& colorMatrix = {},
                   bool tile = false,
-                  float imageRotate = 0.0f);
+                  float rotate = 0.0f,
+                  const std::vector<float>& transformMatrix = {});
 
     /*
     ** Add a text content item to the widget.

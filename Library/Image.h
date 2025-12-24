@@ -49,7 +49,15 @@ public:
     }
     
     void SetTile(bool tile) { m_Tile = tile; }
-    void SetImageRotate(float degrees) { m_ImageRotate = degrees; }
+    void SetRotate(float degrees) { m_Rotate = degrees; }
+    void SetTransformMatrix(const float* matrix) {
+        if (matrix) {
+            memcpy(m_TransformMatrix, matrix, sizeof(float) * 6);
+            m_HasTransformMatrix = true;
+        } else {
+            m_HasTransformMatrix = false;
+        }
+    }
 
 private:
     std::wstring m_ImagePath;
@@ -70,7 +78,11 @@ private:
 
     // Newest properties
     bool m_Tile = false;
-    float m_ImageRotate = 0.0f;
+    float m_Rotate = 0.0f;
+    
+    // Transformation matrix (6 elements: m11, m12, m21, m22, dx, dy)
+    bool m_HasTransformMatrix = false;
+    float m_TransformMatrix[6];
 
     void LoadImage();
 };

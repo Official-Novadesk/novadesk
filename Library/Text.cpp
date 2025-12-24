@@ -23,7 +23,10 @@ Text::Text(const std::wstring& id, int x, int y, int w, int h,
 
 void Text::Render(Graphics& graphics)
 {
-    // Draw background first
+    // Draw bevel first (if enabled)
+    RenderBevel(graphics);
+    
+    // Draw background second
     RenderBackground(graphics);
 
     // Create font
@@ -87,9 +90,25 @@ void Text::Render(Graphics& graphics)
         format.SetTrimming(StringTrimmingCharacter);
     }
     
+    // Apply rotation if specified
+    if (m_Rotate != 0.0f)
+    {
+        REAL centerX = m_X + GetWidth() / 2.0f;
+        REAL centerY = m_Y + GetHeight() / 2.0f;
+        graphics.TranslateTransform(centerX, centerY);
+        graphics.RotateTransform(m_Rotate);
+        graphics.TranslateTransform(-centerX, -centerY);
+    }
+    
     // Draw text
     RectF layoutRect((REAL)m_X, (REAL)m_Y, (REAL)GetWidth(), (REAL)GetHeight());
     graphics.DrawString(m_Text.c_str(), -1, &font, layoutRect, &format, &brush);
+    
+    // Reset transform if rotated
+    if (m_Rotate != 0.0f)
+    {
+        graphics.ResetTransform();
+    }
 }
 
 int Text::GetAutoWidth()

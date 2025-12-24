@@ -219,5 +219,51 @@ namespace PropertyParser {
         if (!(val = getStr("onscrollright")).empty()) element->m_OnScrollRight = val;
         if (!(val = getStr("onmouseover")).empty()) element->m_OnMouseOver = val;
         if (!(val = getStr("onmouseleave")).empty()) element->m_OnMouseLeave = val;
+        
+        // Gradient properties
+        std::wstring solidColor2 = getStr("solidcolor2");
+        if (!solidColor2.empty()) {
+            COLORREF color2 = 0;
+            BYTE alpha2 = 0;
+            if (ColorUtil::ParseRGBA(solidColor2, color2, alpha2)) {
+                float angle = 0.0f;
+                if (duk_get_prop_string(ctx, -1, "gradientangle")) {
+                    angle = (float)duk_get_number(ctx, -1);
+                }
+                duk_pop(ctx);
+                element->SetGradient(color2, alpha2, angle);
+            }
+        }
+        
+        // Bevel properties
+        if (duk_get_prop_string(ctx, -1, "beveltype")) {
+            int bevelType = duk_get_int(ctx, -1);
+            int bevelWidth = 2; // Default
+            COLORREF bevelColor1 = RGB(255, 255, 255);
+            BYTE bevelAlpha1 = 200;
+            COLORREF bevelColor2 = RGB(0, 0, 0);
+            BYTE bevelAlpha2 = 150;
+            
+            duk_pop(ctx);
+            
+            if (duk_get_prop_string(ctx, -1, "bevelwidth")) {
+                bevelWidth = duk_get_int(ctx, -1);
+            }
+            duk_pop(ctx);
+            
+            std::wstring bc1 = getStr("bevelcolor1");
+            if (!bc1.empty()) {
+                ColorUtil::ParseRGBA(bc1, bevelColor1, bevelAlpha1);
+            }
+            
+            std::wstring bc2 = getStr("bevelcolor2");
+            if (!bc2.empty()) {
+                ColorUtil::ParseRGBA(bc2, bevelColor2, bevelAlpha2);
+            }
+            
+            element->SetBevel(bevelType, bevelWidth, bevelColor1, bevelAlpha1, bevelColor2, bevelAlpha2);
+        } else {
+            duk_pop(ctx);
+        }
     }
 }

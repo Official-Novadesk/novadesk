@@ -845,9 +845,29 @@ namespace JSApi {
         if (duk_get_prop_string(ctx, 0, "tile")) tile = duk_get_boolean(ctx, -1);
         duk_pop(ctx);
         
-        float imageRotate = 0.0f;
-        if (duk_get_prop_string(ctx, 0, "imagerotate")) imageRotate = (float)duk_get_number(ctx, -1);
+        float rotate = 0.0f;
+        if (duk_get_prop_string(ctx, 0, "rotate")) rotate = (float)duk_get_number(ctx, -1);
         duk_pop(ctx);
+        
+        // Transformation matrix (6 elements)
+        std::vector<float> transformMatrix;
+        if (duk_get_prop_string(ctx, 0, "transformmatrix"))
+        {
+            if (duk_is_array(ctx, -1))
+            {
+                int len = (int)duk_get_length(ctx, -1);
+                if (len == 6) {
+                    transformMatrix.resize(6);
+                    for (int i = 0; i < 6; i++)
+                    {
+                        duk_get_prop_index(ctx, -1, i);
+                        transformMatrix[i] = (float)duk_get_number(ctx, -1);
+                        duk_pop(ctx);
+                    }
+                }
+            }
+            duk_pop(ctx);
+        }
         
         std::vector<float> colorMatrix;
         
@@ -869,7 +889,7 @@ namespace JSApi {
             duk_pop(ctx);
         }
 
-        widget->AddImage(id, x, y, w, h, path, solidColor, solidColorRadius, preserveAspectRatio, imageTint, imageAlpha, grayscale, colorMatrix, tile, imageRotate);
+        widget->AddImage(id, x, y, w, h, path, solidColor, solidColorRadius, preserveAspectRatio, imageTint, imageAlpha, grayscale, colorMatrix, tile, rotate, transformMatrix);
         
         // Parse Mouse Actions
         Element* el = widget->FindElementById(id);
@@ -961,8 +981,19 @@ namespace JSApi {
 
         widget->AddText(id, x, y, w, h, text, fontFamily, fontSize, color, alpha, bold, italic, align, clip, clipW, clipH, solidColor, solidColorRadius);
         
-        // Parse Mouse Actions
+        // Parse Mouse Actions and additional properties
         Element* el = widget->FindElementById(id);
+        if (el && el->GetType() == ELEMENT_TEXT) {
+            Text* textEl = static_cast<Text*>(el);
+            
+            // Parse rotation
+            if (duk_get_prop_string(ctx, 0, "rotate")) {
+                float rotate = (float)duk_get_number(ctx, -1);
+                textEl->SetRotate(rotate);
+            }
+            duk_pop(ctx);
+        }
+        
         ParseElementOptions(ctx, el);
 
         // Return 'this' for chaining

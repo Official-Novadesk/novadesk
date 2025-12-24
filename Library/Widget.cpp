@@ -634,7 +634,8 @@ void Widget::AddImage(const std::wstring& id, int x, int y, int w, int h,
                       bool grayscale,
                       const std::vector<float>& colorMatrix,
                       bool tile,
-                      float imageRotate)
+                      float rotate,
+                      const std::vector<float>& transformMatrix)
 {
     // Remove existing if any
     RemoveContent(id);
@@ -644,8 +645,13 @@ void Widget::AddImage(const std::wstring& id, int x, int y, int w, int h,
     element->SetImageAlpha((BYTE)imageAlpha);
     element->SetGrayscale(grayscale);
     element->SetTile(tile);
-    element->SetImageRotate(imageRotate);
+    element->SetRotate(rotate);
         
+    if (transformMatrix.size() == 6)
+    {
+        element->SetTransformMatrix(transformMatrix.data());
+    }
+    
     if (colorMatrix.size() == 25)
     {
         element->SetColorMatrix(colorMatrix.data());

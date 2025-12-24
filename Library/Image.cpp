@@ -53,7 +53,10 @@ void ImageElement::UpdateImage(const std::wstring& path)
 
 void ImageElement::Render(Graphics& graphics)
 {
-    // Draw background first
+    // Draw bevel first (if enabled)
+    RenderBevel(graphics);
+    
+    // Draw background second
     RenderBackground(graphics);
 
     if (!m_Image) return;
@@ -162,11 +165,28 @@ void ImageElement::Render(Graphics& graphics)
         attr = &imageAttr;
     }
     
-    // Rotation
-    if (m_ImageRotate != 0.0f)
+    // Apply transformation (matrix takes priority over simple rotation)
+    if (m_HasTransformMatrix)
     {
+        // Apply transformation matrix
+        Gdiplus::Matrix matrix(
+            m_TransformMatrix[0], m_TransformMatrix[1],
+            m_TransformMatrix[2], m_TransformMatrix[3],
+            m_TransformMatrix[4], m_TransformMatrix[5]
+        );
+        
+        // Translate to center, apply matrix, translate back
+        REAL centerX = finalX + finalW / 2.0f;
+        REAL centerY = finalY + finalH / 2.0f;
+        graphics.TranslateTransform(centerX, centerY);
+        graphics.MultiplyTransform(&matrix);
+        graphics.TranslateTransform(-centerX, -centerY);
+    }
+    else if (m_Rotate != 0.0f)
+    {
+        // Simple rotation
         graphics.TranslateTransform(finalX + finalW / 2.0f, finalY + finalH / 2.0f);
-        graphics.RotateTransform(m_ImageRotate);
+        graphics.RotateTransform(m_Rotate);
         graphics.TranslateTransform(-(finalX + finalW / 2.0f), -(finalY + finalH / 2.0f));
     }
 
@@ -185,8 +205,8 @@ void ImageElement::Render(Graphics& graphics)
                            UnitPixel, attr);
     }
     
-    // Restore transform if rotated
-    if (m_ImageRotate != 0.0f)
+    // Restore transform if it was applied
+    if (m_HasTransformMatrix || m_Rotate != 0.0f)
     {
         graphics.ResetTransform();
     }
