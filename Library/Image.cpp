@@ -61,43 +61,68 @@ void ImageElement::Render(Graphics& graphics)
 
     if (!m_Image) return;
     
+    // Set antialiasing (interpolation mode for images)
+    if (m_AntiAlias) {
+        graphics.SetInterpolationMode(Gdiplus::InterpolationModeHighQualityBicubic);
+        graphics.SetSmoothingMode(Gdiplus::SmoothingModeAntiAlias);
+    } else {
+        graphics.SetInterpolationMode(Gdiplus::InterpolationModeNearestNeighbor);
+        graphics.SetSmoothingMode(Gdiplus::SmoothingModeNone);
+    }
+    
     int w = GetWidth();
     int h = GetHeight();
     if (w <= 0 || h <= 0) return;
     
-    REAL finalX = (REAL)m_X;
-    REAL finalY = (REAL)m_Y;
-    REAL finalW = (REAL)w;
-    REAL finalH = (REAL)h;
+    // Apply padding
+    int contentX = m_X + m_PaddingLeft;
+    int contentY = m_Y + m_PaddingTop;
+    int contentW = w - m_PaddingLeft - m_PaddingRight;
+    int contentH = h - m_PaddingTop - m_PaddingBottom;
+    
+    Logging::Log(LogLevel::Debug, L"Image Render: W=%d H=%d Pad=[%d,%d,%d,%d] Content=[%d,%d,%d,%d] Preserve=%d", 
+        w, h, m_PaddingLeft, m_PaddingTop, m_PaddingRight, m_PaddingBottom,
+        contentX, contentY, contentW, contentH, m_PreserveAspectRatio);
+    
+    // Ensure positive dimensions
+    if (contentW <= 0 || contentH <= 0) {
+        Logging::Log(LogLevel::Debug, L"Image Render skipped due to zero/negative content dimensions");
+        return;
+    }
+    
+    REAL finalX = (REAL)contentX;
+    REAL finalY = (REAL)contentY;
+    REAL finalW = (REAL)contentW;
+    REAL finalH = (REAL)contentH;
     
     if (m_PreserveAspectRatio == 1) // Preserve (Fit)
     {
         REAL imgW = (REAL)m_Image->GetWidth();
         REAL imgH = (REAL)m_Image->GetHeight();
-        REAL scaleX = (REAL)w / imgW;
-        REAL scaleY = (REAL)h / imgH;
+        REAL scaleX = (REAL)contentW / imgW;
+        REAL scaleY = (REAL)contentH / imgH;
         REAL scale = min(scaleX, scaleY); // Fit inside
         
         finalW = imgW * scale;
         finalH = imgH * scale;
-        finalX = m_X + (w - finalW) / 2.0f;
-        finalY = m_Y + (h - finalH) / 2.0f;
+        finalX = contentX + (contentW - finalW) / 2.0f;
+        finalY = contentY + (contentH - finalH) / 2.0f;
     }
     else if (m_PreserveAspectRatio == 2) // Crop (Fill)
     {
         // For crop, we clip content outside the box
-        graphics.SetClip(RectF((REAL)m_X, (REAL)m_Y, (REAL)w, (REAL)h));
+        graphics.SetClip(RectF((REAL)contentX, (REAL)contentY, (REAL)contentW, (REAL)contentH));
         
         REAL imgW = (REAL)m_Image->GetWidth();
         REAL imgH = (REAL)m_Image->GetHeight();
-        REAL scaleX = (REAL)w / imgW;
-        REAL scaleY = (REAL)h / imgH;
+        REAL scaleX = (REAL)contentW / imgW;
+        REAL scaleY = (REAL)contentH / imgH;
         REAL scale = max(scaleX, scaleY); // Fill the box
         
         finalW = imgW * scale;
         finalH = imgH * scale;
-        finalX = m_X + (w - finalW) / 2.0f;
-        finalY = m_Y + (h - finalH) / 2.0f;
+        finalX = contentX + (contentW - finalW) / 2.0f;
+        finalY = contentY + (contentH - finalH) / 2.0f;
     }
     
     ImageAttributes* attr = nullptr;
@@ -221,13 +246,19 @@ void ImageElement::Render(Graphics& graphics)
 int ImageElement::GetAutoWidth()
 {
     if (!m_Image) return 0;
-    return (int)m_Image->GetWidth();
+    int w = (int)m_Image->GetWidth() + m_PaddingLeft + m_PaddingRight;
+    Logging::Log(LogLevel::Debug, L"Image GetAutoWidth: ImgW=%d PadL=%d PadR=%d Total=%d", 
+        (int)m_Image->GetWidth(), m_PaddingLeft, m_PaddingRight, w);
+    return w;
 }
 
 int ImageElement::GetAutoHeight()
 {
     if (!m_Image) return 0;
-    return (int)m_Image->GetHeight();
+    int h = (int)m_Image->GetHeight() + m_PaddingTop + m_PaddingBottom;
+    Logging::Log(LogLevel::Debug, L"Image GetAutoHeight: ImgH=%d PadT=%d PadB=%d Total=%d", 
+        (int)m_Image->GetHeight(), m_PaddingTop, m_PaddingBottom, h);
+    return h;
 }
 
 bool ImageElement::HitTest(int x, int y)

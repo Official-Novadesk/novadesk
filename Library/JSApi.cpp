@@ -891,9 +891,16 @@ namespace JSApi {
 
         widget->AddImage(id, x, y, w, h, path, solidColor, solidColorRadius, preserveAspectRatio, imageTint, imageAlpha, grayscale, colorMatrix, tile, rotate, transformMatrix);
         
-        // Parse Mouse Actions
+        // Parse Mouse Actions and other options (padding, etc.)
         Element* el = widget->FindElementById(id);
+        
+        // ParseElementOptions expects the options object at the top of the stack
+        duk_dup(ctx, 0); // Copy options object from index 0 to top
         ParseElementOptions(ctx, el);
+        duk_pop(ctx); // Pop the copy
+
+        // Force redraw to apply any layout changes (padding, etc.)
+        widget->Redraw();
 
         // Return 'this' for chaining
         duk_push_this(ctx);
@@ -988,13 +995,20 @@ namespace JSApi {
             
             // Parse rotation
             if (duk_get_prop_string(ctx, 0, "rotate")) {
-                float rotate = (float)duk_get_number(ctx, -1);
-                textEl->SetRotate(rotate);
-            }
-            duk_pop(ctx);
+            float rotate = (float)duk_get_number(ctx, -1);
+            Text* textEl = dynamic_cast<Text*>(el);
+            if (textEl) textEl->SetRotate(rotate);
+        }
+        duk_pop(ctx);
         }
         
+        // ParseElementOptions expects the options object at the top of the stack
+        duk_dup(ctx, 0); // Copy options object from index 0 to top
         ParseElementOptions(ctx, el);
+        duk_pop(ctx); // Pop the copy
+
+        // Force redraw to apply any layout changes
+        widget->Redraw();
 
         // Return 'this' for chaining
         duk_push_this(ctx);

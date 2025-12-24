@@ -265,5 +265,52 @@ namespace PropertyParser {
         } else {
             duk_pop(ctx);
         }
+        
+        // Antialiasing property
+        if (duk_get_prop_string(ctx, -1, "antialias")) {
+            bool antialias = duk_get_boolean(ctx, -1);
+            element->SetAntiAlias(antialias);
+        }
+        duk_pop(ctx);
+        
+        // Padding properties
+        int padLeft = 0, padTop = 0, padRight = 0, padBottom = 0;
+        bool hasPadding = false;
+        
+        if (duk_get_prop_string(ctx, -1, "padding")) {
+            Logging::Log(LogLevel::Debug, L"PropertyParser: Found 'padding' property");
+            if (duk_is_number(ctx, -1)) {
+                // Single value for all sides
+                int pad = duk_get_int(ctx, -1);
+                padLeft = padTop = padRight = padBottom = pad;
+                hasPadding = true;
+                Logging::Log(LogLevel::Debug, L"PropertyParser: Parsed single padding: %d", pad);
+            } else if (duk_is_array(ctx, -1)) {
+                // Array: [left, top, right, bottom] or [horizontal, vertical]
+                int len = (int)duk_get_length(ctx, -1);
+                Logging::Log(LogLevel::Debug, L"PropertyParser: Parsed padding array length: %d", len);
+                if (len == 4) {
+                    duk_get_prop_index(ctx, -1, 0); padLeft = duk_get_int(ctx, -1); duk_pop(ctx);
+                    duk_get_prop_index(ctx, -1, 1); padTop = duk_get_int(ctx, -1); duk_pop(ctx);
+                    duk_get_prop_index(ctx, -1, 2); padRight = duk_get_int(ctx, -1); duk_pop(ctx);
+                    duk_get_prop_index(ctx, -1, 3); padBottom = duk_get_int(ctx, -1); duk_pop(ctx);
+                    hasPadding = true;
+                } else if (len == 2) {
+                    duk_get_prop_index(ctx, -1, 0); padLeft = padRight = duk_get_int(ctx, -1); duk_pop(ctx);
+                    duk_get_prop_index(ctx, -1, 1); padTop = padBottom = duk_get_int(ctx, -1); duk_pop(ctx);
+                    hasPadding = true;
+                }
+            } else {
+                 Logging::Log(LogLevel::Debug, L"PropertyParser: 'padding' is neither number nor array");
+            }
+        } else {
+             Logging::Log(LogLevel::Debug, L"PropertyParser: 'padding' property NOT found");
+        }
+        duk_pop(ctx);
+        
+        if (hasPadding) {
+            Logging::Log(LogLevel::Debug, L"PropertyParser: Setting padding [%d, %d, %d, %d]", padLeft, padTop, padRight, padBottom);
+            element->SetPadding(padLeft, padTop, padRight, padBottom);
+        }
     }
 }

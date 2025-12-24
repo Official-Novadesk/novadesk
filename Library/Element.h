@@ -13,6 +13,7 @@
 #include <gdiplus.h>
 #include <string>
 #include <cmath>
+#include "Logging.h"
 
 // Helper macros for color extraction from COLORREF (0x00BBGGRR)
 #ifndef GetRValue
@@ -126,6 +127,16 @@ public:
         m_BevelAlpha2 = alpha2;
     }
 
+    void SetAntiAlias(bool enable) { m_AntiAlias = enable; }
+    
+    void SetPadding(int left, int top, int right, int bottom) {
+        Logging::Log(LogLevel::Debug, L"Element SetPadding: [%d, %d, %d, %d]", left, top, right, bottom);
+        m_PaddingLeft = left;
+        m_PaddingTop = top;
+        m_PaddingRight = right;
+        m_PaddingBottom = bottom;
+    }
+
     /*
     ** Check if this element should be hit even if it's transparent.
     ** (e.g. for SolidColor in Rainmeter)
@@ -219,6 +230,15 @@ protected:
     BYTE m_BevelAlpha1 = 200;
     COLORREF m_BevelColor2 = RGB(0, 0, 0);  // Shadow
     BYTE m_BevelAlpha2 = 150;
+
+    // Rendering properties
+    bool m_AntiAlias = true;  // Enable antialiasing by default
+    
+    // Padding properties
+    int m_PaddingLeft = 0;
+    int m_PaddingTop = 0;
+    int m_PaddingRight = 0;
+    int m_PaddingBottom = 0;
 
     void RenderBackground(Gdiplus::Graphics& graphics) {
         if (!m_HasSolidColor) return;

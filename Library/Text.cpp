@@ -6,6 +6,7 @@
  * obtain one at <https://www.gnu.org/licenses/gpl-2.0.html>. */
 
 #include "Text.h"
+#include "Logging.h"
 
 using namespace Gdiplus;
 
@@ -28,6 +29,13 @@ void Text::Render(Graphics& graphics)
     
     // Draw background second
     RenderBackground(graphics);
+
+    // Set antialiasing mode
+    if (m_AntiAlias) {
+        graphics.SetTextRenderingHint(Gdiplus::TextRenderingHintAntiAlias);
+    } else {
+        graphics.SetTextRenderingHint(Gdiplus::TextRenderingHintSingleBitPerPixel);
+    }
 
     // Create font
     INT fontStyle = FontStyleRegular;
@@ -100,8 +108,22 @@ void Text::Render(Graphics& graphics)
         graphics.TranslateTransform(-centerX, -centerY);
     }
     
+    // Apply padding to layout rectangle
+    int layoutX = m_X + m_PaddingLeft;
+    int layoutY = m_Y + m_PaddingTop;
+    int layoutW = GetWidth() - m_PaddingLeft - m_PaddingRight;
+    int layoutH = GetHeight() - m_PaddingTop - m_PaddingBottom;
+    
+    Logging::Log(LogLevel::Debug, L"Text Render: W=%d H=%d Pad=[%d,%d,%d,%d] Layout=[%d,%d,%d,%d]", 
+        GetWidth(), GetHeight(), m_PaddingLeft, m_PaddingTop, m_PaddingRight, m_PaddingBottom,
+        layoutX, layoutY, layoutW, layoutH);
+
+    // Ensure positive dimensions
+    if (layoutW < 0) layoutW = 0;
+    if (layoutH < 0) layoutH = 0;
+    
     // Draw text
-    RectF layoutRect((REAL)m_X, (REAL)m_Y, (REAL)GetWidth(), (REAL)GetHeight());
+    RectF layoutRect((REAL)layoutX, (REAL)layoutY, (REAL)layoutW, (REAL)layoutH);
     graphics.DrawString(m_Text.c_str(), -1, &font, layoutRect, &format, &brush);
     
     // Reset transform if rotated
@@ -126,11 +148,13 @@ int Text::GetAutoWidth()
     
     ReleaseDC(NULL, hdc);
     
-    int width = (int)ceil(boundingBox.Width);
+    int width = (int)ceil(boundingBox.Width) + m_PaddingLeft + m_PaddingRight;
     if (!m_WDefined && m_ClipString != CLIP_NONE && m_ClipStringW != -1)
     {
         if (width > m_ClipStringW) return m_ClipStringW;
     }
+    Logging::Log(LogLevel::Debug, L"Text GetAutoWidth: TextW=%f PadL=%d PadR=%d Total=%d", 
+        boundingBox.Width, m_PaddingLeft, m_PaddingRight, width);
     return width;
 }
 
@@ -149,11 +173,13 @@ int Text::GetAutoHeight()
     
     ReleaseDC(NULL, hdc);
     
-    int height = (int)ceil(boundingBox.Height);
+    int height = (int)ceil(boundingBox.Height) + m_PaddingTop + m_PaddingBottom;
     if (!m_HDefined && m_ClipString != CLIP_NONE && m_ClipStringH != -1)
     {
         if (height > m_ClipStringH) return m_ClipStringH;
     }
+    Logging::Log(LogLevel::Debug, L"Text GetAutoHeight: TextH=%f PadT=%d PadB=%d Total=%d", 
+        boundingBox.Height, m_PaddingTop, m_PaddingBottom, height);
     return height;
 }
 
@@ -191,7 +217,12 @@ bool Text::HitTest(int x, int y)
         format.SetLineAlignment(StringAlignmentFar); break;
     }
 
-    RectF layoutRect(0, 0, (REAL)GetWidth(), (REAL)GetHeight());
+    int pW = GetWidth() - m_PaddingLeft - m_PaddingRight;
+    int pH = GetHeight() - m_PaddingTop - m_PaddingBottom;
+    if (pW < 0) pW = 0;
+    if (pH < 0) pH = 0;
+
+    RectF layoutRect((REAL)m_PaddingLeft, (REAL)m_PaddingTop, (REAL)pW, (REAL)pH);
     RectF boundingBox;
     graphics.MeasureString(m_Text.c_str(), -1, &font, layoutRect, &format, &boundingBox);
     
