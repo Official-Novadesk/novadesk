@@ -1,128 +1,65 @@
-/* Copyright (C) 2026 Novadesk Project 
+/* Copyright (C) 2026 Novadesk Project
  *
  * This Source Code Form is subject to the terms of the GNU General Public
  * License; either version 2 of the License, or (at your option) any later
  * version. If a copy of the GPL was not distributed with this file, You can
  * obtain one at <https://www.gnu.org/licenses/gpl-2.0.html>. */
 
-// const { use } = require("react");
-
-// Use novadesk.include to load another script globally
-// novadesk.include("testWidget.js");
-// novadesk.include("timerDemo.js");
-// novadesk.include("systemTest.js");
-
-// function onAppReady() {
-//     novadesk.log("App ready, initializing widgets...");
-//     createContentDemoWindow();
-//     createClockWidget();
-//     createSystemWidget();
-// }
+!logToFile;
 // !enableDebugging;
-// !
-// !logToFile
-var clockWindow;
+var metrics = novadesk.system.getDisplayMetrics();
 
-function createClockWidget() {
-    clockWindow = new widgetWindow({
-        id: "clockWindow",
-        width: 200,
-        height: 100,
-        backgroundcolor: "rgb(255,255,255)"
+var sysWidget = new widgetWindow({
+    id: "sysWidget",
+    width: 450,
+    height: 600,
+    backgroundcolor: "rgba(30, 30, 40, 0.9)",
+    zpos: "ondesktop",
+    draggable: true,
+});
+
+sysWidget.addText({
+    id: "title",
+    text: "Display Metrics",
+    x: 20, y: 20,
+    fontsize: 20,
+    color: "rgb(255, 255, 255)",
+    fontweight: "bold"
+});
+
+var yOffset = 60;
+
+function addMetricText(id, label, value, xOffset) {
+    xOffset = xOffset || 0;
+    sysWidget.addText({
+        id: id,
+        text: label + (value !== "" ? ": " + value : ""),
+        x: 20 + xOffset, y: yOffset,
+        fontsize: 14,
+        color: "rgb(200, 200, 200)"
     });
-
-    clockWindow.addImage({
-        id: "Background Image",
-        path: "assets\\Background.png",
-        width: 200,
-        height: 100,
-        onleftmouseup: "clockWindow.refresh()"
-    });
-
-    clockWindow.addText({
-        id: "hellotext",
-        text: "Hello",
-        fontsize: 25
-    })
-
+    yOffset += 25;
 }
 
-// // Create monitors once and keep them alive
-// var cpu = new novadesk.system.CPU();
-// var mem = new novadesk.system.Memory();
-// var net = new novadesk.system.Network();
-// var mouse = new novadesk.system.Mouse();
-// var disk = new novadesk.system.Disk({ drive: "C:" });  // Single drive
-// var allDisks = new novadesk.system.Disk();              // All drives
+// Show Primary Monitor info
+if (metrics.primary) {
+    addMetricText("primary_label", "Primary Monitor", "", 0);
+    addMetricText("primary_wa", "  Work Area", metrics.primary.workArea.width + "x" + metrics.primary.workArea.height + " @ " + metrics.primary.workArea.x + "," + metrics.primary.workArea.y, 10);
+    addMetricText("primary_sa", "  Screen Area", metrics.primary.screenArea.width + "x" + metrics.primary.screenArea.height + " @ " + metrics.primary.screenArea.x + "," + metrics.primary.screenArea.y, 10);
+    yOffset += 10;
+}
 
-// function testMonitors() {
-//     // Use existing monitors (don't recreate each time)
-//     var usage = cpu.usage();
-//     novadesk.log("CPU Usage: " + usage + "%");
+// Show Virtual Screen info
+addMetricText("vs_label", "Virtual Screen", "", 0);
+addMetricText("vs_dim", "  Dimensions", metrics.virtualScreen.width + "x" + metrics.virtualScreen.height + " @ " + metrics.virtualScreen.x + "," + metrics.virtualScreen.y, 10);
+yOffset += 10;
 
-//     var stats = mem.stats();
-//     novadesk.log("Memory Used: " + stats.used + " / " + stats.total + " (" + stats.percent + "%)");
-
-//     var netStats = net.stats();
-//     novadesk.log("Network In: " + (netStats.netIn / 1024).toFixed(2) + " KB/s, Out: " + (netStats.netOut / 1024).toFixed(2) + " KB/s");
-
-//     var mousePos = mouse.position();
-//     novadesk.log("Mouse Position: X=" + mousePos.x + ", Y=" + mousePos.y);
-
-//     // Single drive
-//     var diskStats = disk.stats();
-//     novadesk.log("Disk " + diskStats.drive + " " + (diskStats.used / (1024 * 1024 * 1024)).toFixed(2) + " GB / " + (diskStats.total / (1024 * 1024 * 1024)).toFixed(2) + " GB (" + diskStats.percent + "%)");
-
-//     // All drives (returns array)
-//     var allDiskStats = allDisks.stats();
-//     for (var i = 0; i < allDiskStats.length; i++) {
-//         var d = allDiskStats[i];
-//         novadesk.log("Drive " + d.drive + " " + (d.used / (1024 * 1024 * 1024)).toFixed(2) + " GB / " + (d.total / (1024 * 1024 * 1024)).toFixed(2) + " GB (" + d.percent + "%)");
-//     }
-// }
-
-novadesk.onReady(function () {
-    // Log executable path info
-    // var exePath = novadesk.getExePath();
-    // novadesk.log("Executable: " + exePath.fullPath);
-    // novadesk.log("Directory: " + exePath.directory);
-    // novadesk.log("Filename: " + exePath.filename);
-
-    // // Test environment variables
-    // novadesk.log("Username: " + novadesk.getEnv("USERNAME"));
-    // novadesk.log("Temp: " + novadesk.getEnv("TEMP"));
-    // novadesk.log("User Profile: " + novadesk.getEnv("USERPROFILE"));
-
-    // // Test getting all environment variables
-    // var allEnv = novadesk.getAllEnv();
-    // novadesk.log("Total environment variables: " + Object.keys(allEnv).length);
-
-    // Test Hotkeys
-    // 1. Simple registration (triggers on KeyDown)
-    novadesk.registerHotkey("Ctrl+Alt+R", function () {
-        novadesk.log("Global Refresh Triggered!");
-        novadesk.refresh();
-    });
-
-    // 2. Advanced registration (KeyDown/KeyUp)
-    novadesk.registerHotkey("Space", {
-        onKeyDown: function () {
-            novadesk.log("SPACE DOWN (Global)");
-        },
-        onKeyUp: function () {
-            novadesk.log("SPACE UP (Global)");
-        }
-    });
-
-    // 3. Win key combination
-    novadesk.registerHotkey("Win+Z", function () {
-        novadesk.log("Win+Z pressed - toggling something...");
-    });
-
-    createClockWidget();
-
-    // // Call every second - monitors stay alive and track changes
-    // setInterval(function () {
-    //     testMonitors();
-    // }, 1000);
+// Show All Monitors
+addMetricText("monitors_label", "All Monitors (" + metrics.monitors.length + ")", "", 0);
+metrics.monitors.forEach(function (m) {
+    addMetricText("m" + m.id + "_label", "  Monitor " + m.id, "", 10);
+    addMetricText("m" + m.id + "_wa", "    Work Area", m.workArea.width + "x" + m.workArea.height, 20);
+    addMetricText("m" + m.id + "_sa", "    Screen Area", m.screenArea.width + "x" + m.screenArea.height, 20);
 });
+
+novadesk.error("System Metrics displayed and in JSON: " + JSON.stringify(metrics));

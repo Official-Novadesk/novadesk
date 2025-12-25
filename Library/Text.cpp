@@ -114,9 +114,9 @@ void Text::Render(Graphics& graphics)
     int layoutW = GetWidth() - m_PaddingLeft - m_PaddingRight;
     int layoutH = GetHeight() - m_PaddingTop - m_PaddingBottom;
     
-    Logging::Log(LogLevel::Debug, L"Text Render: W=%d H=%d Pad=[%d,%d,%d,%d] Layout=[%d,%d,%d,%d]", 
-        GetWidth(), GetHeight(), m_PaddingLeft, m_PaddingTop, m_PaddingRight, m_PaddingBottom,
-        layoutX, layoutY, layoutW, layoutH);
+    // Logging::Log(LogLevel::Debug, L"Text Render: W=%d H=%d Pad=[%d,%d,%d,%d] Layout=[%d,%d,%d,%d]", 
+    //     GetWidth(), GetHeight(), m_PaddingLeft, m_PaddingTop, m_PaddingRight, m_PaddingBottom,
+    //     layoutX, layoutY, layoutW, layoutH);
 
     // Ensure positive dimensions
     if (layoutW < 0) layoutW = 0;
@@ -153,8 +153,8 @@ int Text::GetAutoWidth()
     {
         if (width > m_ClipStringW) return m_ClipStringW;
     }
-    Logging::Log(LogLevel::Debug, L"Text GetAutoWidth: TextW=%f PadL=%d PadR=%d Total=%d", 
-        boundingBox.Width, m_PaddingLeft, m_PaddingRight, width);
+   // Logging::Log(LogLevel::Debug, L"Text GetAutoWidth: TextW=%f PadL=%d PadR=%d Total=%d", 
+   //     boundingBox.Width, m_PaddingLeft, m_PaddingRight, width);
     return width;
 }
 
@@ -178,8 +178,8 @@ int Text::GetAutoHeight()
     {
         if (height > m_ClipStringH) return m_ClipStringH;
     }
-    Logging::Log(LogLevel::Debug, L"Text GetAutoHeight: TextH=%f PadT=%d PadB=%d Total=%d", 
-        boundingBox.Height, m_PaddingTop, m_PaddingBottom, height);
+   // Logging::Log(LogLevel::Debug, L"Text GetAutoHeight: TextH=%f PadT=%d PadB=%d Total=%d", 
+     //   boundingBox.Height, m_PaddingTop, m_PaddingBottom, height);
     return height;
 }
 

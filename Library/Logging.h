@@ -13,9 +13,9 @@
 
 enum class LogLevel
 {
-    Info,
-    Error,
-    Debug
+    Debug = 0,
+    Info = 1,
+    Error = 2
 };
 
 class Logging

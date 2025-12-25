@@ -247,8 +247,8 @@ int ImageElement::GetAutoWidth()
 {
     if (!m_Image) return 0;
     int w = (int)m_Image->GetWidth() + m_PaddingLeft + m_PaddingRight;
-    Logging::Log(LogLevel::Debug, L"Image GetAutoWidth: ImgW=%d PadL=%d PadR=%d Total=%d", 
-        (int)m_Image->GetWidth(), m_PaddingLeft, m_PaddingRight, w);
+    //Logging::Log(LogLevel::Debug, L"Image GetAutoWidth: ImgW=%d PadL=%d PadR=%d Total=%d", 
+    //    (int)m_Image->GetWidth(), m_PaddingLeft, m_PaddingRight, w);
     return w;
 }
 
@@ -256,8 +256,8 @@ int ImageElement::GetAutoHeight()
 {
     if (!m_Image) return 0;
     int h = (int)m_Image->GetHeight() + m_PaddingTop + m_PaddingBottom;
-    Logging::Log(LogLevel::Debug, L"Image GetAutoHeight: ImgH=%d PadT=%d PadB=%d Total=%d", 
-        (int)m_Image->GetHeight(), m_PaddingTop, m_PaddingBottom, h);
+    //Logging::Log(LogLevel::Debug, L"Image GetAutoHeight: ImgH=%d PadT=%d PadB=%d Total=%d", 
+    //    (int)m_Image->GetHeight(), m_PaddingTop, m_PaddingBottom, h);
     return h;
 }
 
