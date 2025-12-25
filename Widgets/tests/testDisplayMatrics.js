@@ -15,8 +15,6 @@ var sysWidget = new widgetWindow({
   width: 450,
   height: 600,
   backgroundcolor: "rgba(30, 30, 40, 0.9)",
-  zpos: "ondesktop",
-  draggable: true,
 });
 
 sysWidget.addText({
