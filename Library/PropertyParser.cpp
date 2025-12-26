@@ -299,11 +299,14 @@ namespace PropertyParser {
 
         std::wstring alignStr;
         if (reader.GetString("textalign", alignStr)) {
+            // Convert to lowercase for comparison
+            std::transform(alignStr.begin(), alignStr.end(), alignStr.begin(), ::towlower);
+
             if (alignStr == L"left" || alignStr == L"lefttop") options.textAlign = TEXT_ALIGN_LEFT_TOP;
-            else if (alignStr == L"centertop") options.textAlign = TEXT_ALIGN_CENTER_TOP;
-            else if (alignStr == L"righttop") options.textAlign = TEXT_ALIGN_RIGHT_TOP;
+            else if (alignStr == L"center" || alignStr == L"centertop") options.textAlign = TEXT_ALIGN_CENTER_TOP;
+            else if (alignStr == L"right" || alignStr == L"righttop") options.textAlign = TEXT_ALIGN_RIGHT_TOP;
             else if (alignStr == L"leftcenter") options.textAlign = TEXT_ALIGN_LEFT_CENTER;
-            else if (alignStr == L"centercenter") options.textAlign = TEXT_ALIGN_CENTER_CENTER;
+            else if (alignStr == L"centercenter" || alignStr == L"middlecenter" || alignStr == L"middle") options.textAlign = TEXT_ALIGN_CENTER_CENTER;
             else if (alignStr == L"rightcenter") options.textAlign = TEXT_ALIGN_RIGHT_CENTER;
             else if (alignStr == L"leftbottom") options.textAlign = TEXT_ALIGN_LEFT_BOTTOM;
             else if (alignStr == L"centerbottom") options.textAlign = TEXT_ALIGN_CENTER_BOTTOM;
@@ -514,6 +517,7 @@ namespace PropertyParser {
                 case TEXT_ALIGN_RIGHT_BOTTOM: alStr = "rightbottom"; break;
             }
             duk_push_string(ctx, alStr); duk_put_prop_string(ctx, -2, "textalign");
+            duk_push_string(ctx, alStr); duk_put_prop_string(ctx, -2, "align");
             duk_push_int(ctx, (int)t->GetClipString()); duk_put_prop_string(ctx, -2, "clipstring");
             duk_push_int(ctx, t->GetClipW()); duk_put_prop_string(ctx, -2, "clipstringw");
             duk_push_int(ctx, t->GetClipH()); duk_put_prop_string(ctx, -2, "clipstringh");
