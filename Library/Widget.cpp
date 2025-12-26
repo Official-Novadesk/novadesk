@@ -823,6 +823,7 @@ void Widget::UpdateLayeredWindowContent()
     {
         Graphics graphics(hdcMem);
         graphics.SetSmoothingMode(SmoothingModeAntiAlias);
+        graphics.SetPixelOffsetMode(PixelOffsetModeHalf);
         graphics.SetTextRenderingHint(TextRenderingHintAntiAlias);
         graphics.SetCompositingMode(CompositingModeSourceOver);
 

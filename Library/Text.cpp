@@ -24,11 +24,11 @@ Text::Text(const std::wstring& id, int x, int y, int w, int h,
 
 void Text::Render(Graphics& graphics)
 {
-    // Draw bevel first (if enabled)
-    RenderBevel(graphics);
-    
-    // Draw background second
+    // Draw background first
     RenderBackground(graphics);
+
+    // Draw bevel second
+    RenderBevel(graphics);
 
     // Set antialiasing mode
     if (m_AntiAlias) {

@@ -251,24 +251,56 @@ protected:
 
         int w = GetWidth();
         int h = GetHeight();
+        if (w <= 0 || h <= 0) return;
         
         Gdiplus::Brush* brush = nullptr;
         Gdiplus::GraphicsPath* path = nullptr;
 
         // Create gradient or solid brush
         if (m_HasGradient) {
-            // Calculate gradient direction from angle
-            float radians = m_GradientAngle * 3.14159265f / 180.0f;
-            float dx = std::cos(radians) * w;
-            float dy = std::sin(radians) * h;
+            // Calculate gradient direction from angle to match Rainmeter/GDI+
+            // Rainmeter uses a special algorithm to find the edge points of the gradient
+            // that touches the bounding rectangle.
             
-            Gdiplus::PointF p1((Gdiplus::REAL)m_X, (Gdiplus::REAL)m_Y);
-            Gdiplus::PointF p2((Gdiplus::REAL)(m_X + dx), (Gdiplus::REAL)(m_Y + dy));
+            auto FindEdgePoint = [&](float angle, float left, float top, float width, float height) -> Gdiplus::PointF {
+                float base_angle = angle;
+                while (base_angle < 0.0f) base_angle += 360.0f;
+                base_angle = fmodf(base_angle, 360.0f);
+
+                const float M_PI_F = 3.14159265f;
+                const float base_radians = base_angle * (M_PI_F / 180.0f);
+                const float rectangle_tangent = atan2f(height, width);
+                const int quadrant = (int)fmodf(base_angle / 90.0f, 4.0f) + 1;
+
+                const float axis_angle = [&]() -> float {
+                    switch (quadrant) {
+                        default:
+                        case 1: return base_radians - M_PI_F * 0.0f;
+                        case 2: return M_PI_F * 1.0f - base_radians;
+                        case 3: return base_radians - M_PI_F * 1.0f;
+                        case 4: return M_PI_F * 2.0f - base_radians;
+                    }
+                }();
+
+                const float half_area = sqrtf(powf(width, 2.0f) + powf(height, 2.0f)) / 2.0f;
+                const float cos_axis = cosf(fabsf(axis_angle - rectangle_tangent));
+
+                return Gdiplus::PointF(
+                    left + (width / 2.0f) + (half_area * cos_axis * cosf(base_radians)),
+                    top + (height / 2.0f) + (half_area * cos_axis * sinf(base_radians))
+                );
+            };
+
+            // Rainmeter swaps start/end points (angle + 180) to mimic GDI+ for their SolidColor2
+            Gdiplus::PointF p1 = FindEdgePoint(m_GradientAngle + 180.0f, (float)m_X, (float)m_Y, (float)w, (float)h);
+            Gdiplus::PointF p2 = FindEdgePoint(m_GradientAngle, (float)m_X, (float)m_Y, (float)w, (float)h);
             
             Gdiplus::Color color1(m_SolidAlpha, GetRValue(m_SolidColor), GetGValue(m_SolidColor), GetBValue(m_SolidColor));
             Gdiplus::Color color2(m_SolidAlpha2, GetRValue(m_SolidColor2), GetGValue(m_SolidColor2), GetBValue(m_SolidColor2));
             
-            brush = new Gdiplus::LinearGradientBrush(p1, p2, color1, color2);
+            Gdiplus::LinearGradientBrush* lgBrush = new Gdiplus::LinearGradientBrush(p1, p2, color1, color2);
+            lgBrush->SetWrapMode(Gdiplus::WrapModeClamp);
+            brush = lgBrush;
         } else {
             Gdiplus::Color backColor(m_SolidAlpha, GetRValue(m_SolidColor), GetGValue(m_SolidColor), GetBValue(m_SolidColor));
             brush = new Gdiplus::SolidBrush(backColor);
@@ -293,7 +325,7 @@ protected:
             graphics.FillPath(brush, path);
             delete path;
         } else {
-            graphics.FillRectangle(brush, m_X, m_Y, w, h);
+            graphics.FillRectangle(brush, (Gdiplus::REAL)m_X, (Gdiplus::REAL)m_Y, (Gdiplus::REAL)w, (Gdiplus::REAL)h);
         }
         
         delete brush;

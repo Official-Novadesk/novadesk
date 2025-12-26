@@ -53,11 +53,11 @@ void ImageElement::UpdateImage(const std::wstring& path)
 
 void ImageElement::Render(Graphics& graphics)
 {
-    // Draw bevel first (if enabled)
-    RenderBevel(graphics);
-    
-    // Draw background second
+    // Draw background first
     RenderBackground(graphics);
+
+    // Draw bevel second
+    RenderBevel(graphics);
 
     if (!m_Image) return;
     
