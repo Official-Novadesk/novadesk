@@ -47,9 +47,9 @@ public:
     virtual void Render(Gdiplus::Graphics& graphics) override;
 
     void SetText(const std::wstring& text) { m_Text = text; }
-    void SetFontFamily(const std::wstring& font) { m_FontFamily = font; }
+    void SetFontFace(const std::wstring& font) { m_FontFace = font; }
     void SetFontSize(int size) { m_FontSize = size; }
-    void SetColor(COLORREF color, BYTE alpha) { m_Color = color; m_Alpha = alpha; }
+    void SetFontColor(COLORREF color, BYTE alpha) { m_FontColor = color; m_Alpha = alpha; }
 
     virtual int GetAutoWidth() override;
     virtual int GetAutoHeight() override;
@@ -57,13 +57,13 @@ public:
 
 private:
     std::wstring m_Text;
-    std::wstring m_FontFamily;
+    std::wstring m_FontFace;
     int m_FontSize;
-    COLORREF m_Color;
+    COLORREF m_FontColor;
     BYTE m_Alpha;
     bool m_Bold;
     bool m_Italic;
-    Alignment m_Align;
+    Alignment m_TextAlign;
     ClipString m_ClipString;
     int m_ClipStringW;
     int m_ClipStringH;

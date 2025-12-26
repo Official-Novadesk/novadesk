@@ -693,8 +693,8 @@ void Widget::AddText(const PropertyParser::TextOptions& options)
     RemoveContent(options.id);
 
     Text* element = new Text(options.id, options.x, options.y, options.width, options.height, 
-                             options.text, options.fontFamily, options.fontSize, options.color, options.alpha,
-                             options.bold, options.italic, options.align, options.clip, options.clipW, options.clipH);
+                             options.text, options.fontFace, options.fontSize, options.fontColor, options.alpha,
+                             options.bold, options.italic, options.textAlign, options.clip, options.clipW, options.clipH);
                              
     PropertyParser::ApplyElementOptions(element, options);
 

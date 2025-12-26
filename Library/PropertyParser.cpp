@@ -286,10 +286,10 @@ namespace PropertyParser {
         PropertyReader reader(ctx);
 
         reader.GetString("text", options.text);
-        reader.GetString("fontfamily", options.fontFamily);
+        reader.GetString("fontface", options.fontFace);
         reader.GetInt("fontsize", options.fontSize);
         
-        reader.GetColor("color", options.color, options.alpha);
+        reader.GetColor("fontcolor", options.fontColor, options.alpha);
         
         std::wstring weight;
         if (reader.GetString("fontweight", weight) && weight == L"bold") options.bold = true;
@@ -298,16 +298,16 @@ namespace PropertyParser {
         if (reader.GetString("fontstyle", style) && style == L"italic") options.italic = true;
 
         std::wstring alignStr;
-        if (reader.GetString("align", alignStr)) {
-            if (alignStr == L"left" || alignStr == L"lefttop") options.align = ALIGN_LEFT_TOP;
-            else if (alignStr == L"center" || alignStr == L"centertop") options.align = ALIGN_CENTER_TOP;
-            else if (alignStr == L"right" || alignStr == L"righttop") options.align = ALIGN_RIGHT_TOP;
-            else if (alignStr == L"leftcenter") options.align = ALIGN_LEFT_CENTER;
-            else if (alignStr == L"centercenter") options.align = ALIGN_CENTER_CENTER;
-            else if (alignStr == L"rightcenter") options.align = ALIGN_RIGHT_CENTER;
-            else if (alignStr == L"leftbottom") options.align = ALIGN_LEFT_BOTTOM;
-            else if (alignStr == L"centerbottom") options.align = ALIGN_CENTER_BOTTOM;
-            else if (alignStr == L"rightbottom") options.align = ALIGN_RIGHT_BOTTOM;
+        if (reader.GetString("textalign", alignStr)) {
+            if (alignStr == L"left" || alignStr == L"lefttop") options.textAlign = ALIGN_LEFT_TOP;
+            else if (alignStr == L"center" || alignStr == L"centertop") options.textAlign = ALIGN_CENTER_TOP;
+            else if (alignStr == L"right" || alignStr == L"righttop") options.textAlign = ALIGN_RIGHT_TOP;
+            else if (alignStr == L"leftcenter") options.textAlign = ALIGN_LEFT_CENTER;
+            else if (alignStr == L"centercenter") options.textAlign = ALIGN_CENTER_CENTER;
+            else if (alignStr == L"rightcenter") options.textAlign = ALIGN_RIGHT_CENTER;
+            else if (alignStr == L"leftbottom") options.textAlign = ALIGN_LEFT_BOTTOM;
+            else if (alignStr == L"centerbottom") options.textAlign = ALIGN_CENTER_BOTTOM;
+            else if (alignStr == L"rightbottom") options.textAlign = ALIGN_RIGHT_BOTTOM;
         }
         
         int clipVal = 0;

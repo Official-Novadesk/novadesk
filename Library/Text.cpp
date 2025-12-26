@@ -11,14 +11,14 @@
 using namespace Gdiplus;
 
 Text::Text(const std::wstring& id, int x, int y, int w, int h,
-     const std::wstring& text, const std::wstring& fontFamily,
-     int fontSize, COLORREF color, BYTE alpha,
-     bool bold, bool italic, Alignment align,
+     const std::wstring& text, const std::wstring& fontFace,
+     int fontSize, COLORREF fontColor, BYTE alpha,
+     bool bold, bool italic, Alignment textAlign,
      ClipString clip, int clipW, int clipH)
     : Element(ELEMENT_TEXT, id, x, y, w, h),
-      m_Text(text), m_FontFamily(fontFamily), m_FontSize(fontSize),
-      m_Color(color), m_Alpha(alpha), m_Bold(bold), m_Italic(italic),
-      m_Align(align), m_ClipString(clip), m_ClipStringW(clipW), m_ClipStringH(clipH)
+      m_Text(text), m_FontFace(fontFace), m_FontSize(fontSize),
+      m_FontColor(fontColor), m_Alpha(alpha), m_Bold(bold), m_Italic(italic),
+      m_TextAlign(textAlign), m_ClipString(clip), m_ClipStringW(clipW), m_ClipStringH(clipH)
 {
 }
 
@@ -42,15 +42,15 @@ void Text::Render(Graphics& graphics)
     if (m_Bold) fontStyle |= FontStyleBold;
     if (m_Italic) fontStyle |= FontStyleItalic;
     
-    Font font(m_FontFamily.c_str(), (REAL)m_FontSize, fontStyle, UnitPixel);
+    Font font(m_FontFace.c_str(), (REAL)m_FontSize, fontStyle, UnitPixel);
     
     // Create brush with color and alpha
-    Color textColor(m_Alpha, GetRValue(m_Color), GetGValue(m_Color), GetBValue(m_Color));
+    Color textColor(m_Alpha, GetRValue(m_FontColor), GetGValue(m_FontColor), GetBValue(m_FontColor));
     SolidBrush brush(textColor);
     
     // Set up string format for alignment
     StringFormat format;
-    switch (m_Align)
+    switch (m_TextAlign)
     {
     case ALIGN_LEFT_TOP:
     case ALIGN_LEFT_CENTER:
@@ -69,7 +69,7 @@ void Text::Render(Graphics& graphics)
         break;
     }
 
-    switch (m_Align)
+    switch (m_TextAlign)
     {
     case ALIGN_LEFT_TOP:
     case ALIGN_CENTER_TOP:
@@ -141,7 +141,7 @@ int Text::GetAutoWidth()
     INT fontStyle = FontStyleRegular;
     if (m_Bold) fontStyle |= FontStyleBold;
     if (m_Italic) fontStyle |= FontStyleItalic;
-    Font font(m_FontFamily.c_str(), (REAL)m_FontSize, fontStyle, UnitPixel);
+    Font font(m_FontFace.c_str(), (REAL)m_FontSize, fontStyle, UnitPixel);
 
     RectF boundingBox;
     graphics.MeasureString(m_Text.c_str(), -1, &font, PointF(0, 0), &boundingBox);
@@ -166,7 +166,7 @@ int Text::GetAutoHeight()
     INT fontStyle = FontStyleRegular;
     if (m_Bold) fontStyle |= FontStyleBold;
     if (m_Italic) fontStyle |= FontStyleItalic;
-    Font font(m_FontFamily.c_str(), (REAL)m_FontSize, fontStyle, UnitPixel);
+    Font font(m_FontFace.c_str(), (REAL)m_FontSize, fontStyle, UnitPixel);
 
     RectF boundingBox;
     graphics.MeasureString(m_Text.c_str(), -1, &font, PointF(0, 0), &boundingBox);
@@ -196,11 +196,11 @@ bool Text::HitTest(int x, int y)
     INT fontStyle = FontStyleRegular;
     if (m_Bold) fontStyle |= FontStyleBold;
     if (m_Italic) fontStyle |= FontStyleItalic;
-    Font font(m_FontFamily.c_str(), (REAL)m_FontSize, fontStyle, UnitPixel);
+    Font font(m_FontFace.c_str(), (REAL)m_FontSize, fontStyle, UnitPixel);
 
     StringFormat format;
     // (Same alignment logic as in Render)
-    switch (m_Align) {
+    switch (m_TextAlign) {
     case ALIGN_LEFT_TOP: case ALIGN_LEFT_CENTER: case ALIGN_LEFT_BOTTOM:
         format.SetAlignment(StringAlignmentNear); break;
     case ALIGN_CENTER_TOP: case ALIGN_CENTER_CENTER: case ALIGN_CENTER_BOTTOM:
@@ -208,7 +208,7 @@ bool Text::HitTest(int x, int y)
     case ALIGN_RIGHT_TOP: case ALIGN_RIGHT_CENTER: case ALIGN_RIGHT_BOTTOM:
         format.SetAlignment(StringAlignmentFar); break;
     }
-    switch (m_Align) {
+    switch (m_TextAlign) {
     case ALIGN_LEFT_TOP: case ALIGN_CENTER_TOP: case ALIGN_RIGHT_TOP:
         format.SetLineAlignment(StringAlignmentNear); break;
     case ALIGN_LEFT_CENTER: case ALIGN_CENTER_CENTER: case ALIGN_RIGHT_CENTER:

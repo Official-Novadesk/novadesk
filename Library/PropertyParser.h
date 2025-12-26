@@ -105,13 +105,13 @@ namespace PropertyParser
     */
     struct TextOptions : public ElementOptions {
         std::wstring text;
-        std::wstring fontFamily = L"Arial";
+        std::wstring fontFace = L"Arial";
         int fontSize = 12;
-        COLORREF color = RGB(0, 0, 0);
+        COLORREF fontColor = RGB(0, 0, 0);
         BYTE alpha = 255;
         bool bold = false;
         bool italic = false;
-        Alignment align = ALIGN_LEFT_TOP;
+        Alignment textAlign = ALIGN_LEFT_TOP;
         ClipString clip = CLIP_NONE;
         int clipW = -1;
         int clipH = -1;
