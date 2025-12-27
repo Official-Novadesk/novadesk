@@ -475,7 +475,7 @@ namespace JSApi {
     }
 
     duk_ret_t js_get_env(duk_context* ctx) {
-        if (duk_get_top(ctx) == 0) {
+        if (duk_get_top(ctx) == 0 || duk_is_null_or_undefined(ctx, 0)) {
             // No arguments - return all environment variables
             LPWCH envStrings = GetEnvironmentStringsW();
             if (!envStrings) {
@@ -1032,7 +1032,7 @@ namespace JSApi {
         // Register system object
         duk_push_object(ctx);
 
-        duk_push_c_function(ctx, js_get_env, 1);
+        duk_push_c_function(ctx, js_get_env, DUK_VARARGS);
         duk_put_prop_string(ctx, -2, "getEnv");
         duk_push_c_function(ctx, js_register_hotkey, 2);
         duk_put_prop_string(ctx, -2, "registerHotkey");

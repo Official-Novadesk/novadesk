@@ -1,15 +1,26 @@
 !logToFile;
 
-novadesk.log("--- Starting Log Fix Verification ---");
+novadesk.log("--- Starting Environment Variable Fix Verification ---");
 
-// Get the PATH environment variable (usually very long)
-var path = system.getEnv("PATH");
-novadesk.log("Current PATH length: " + (path ? path.length : 0));
-novadesk.log("Current PATH: " + path);
+// Get all environment variables as an object
+var allEnv = system.getEnv();
+if (allEnv) {
+    novadesk.log("Total environment variables: " + Object.keys(allEnv).length);
 
-// Generate an even longer string to be sure
-var longStr = "A".repeat(5000);
-novadesk.log("Long string length: " + longStr.length);
-novadesk.log("Long string: " + longStr);
+    // Iterate through all environment variables
+    var count = 0;
+    for (var key in allEnv) {
+        if (allEnv.hasOwnProperty(key)) {
+            novadesk.log(key + " = " + allEnv[key]);
+            count++;
+            if (count > 20) {
+                novadesk.log("... and more (truncated for test)");
+                break;
+            }
+        }
+    }
+} else {
+    novadesk.log("Error: system.getEnv() returned nothing!");
+}
 
 novadesk.log("--- Verification Finished ---");
