@@ -167,10 +167,27 @@ public:
     void Redraw();
 
     /*
+    ** Update widget options without recreating the window.
+    ** This is used during refresh to update properties smoothly.
+    */
+    void UpdateOptions(const WidgetOptions& options);
+
+    /*
     ** Find a content element by its ID.
     ** Returns pointer to the element or nullptr if not found.
     */
     Element* FindElementById(const std::wstring& id);
+
+    /*
+    ** Mark this widget as seen during script reload.
+    ** Used for flicker-free refresh to track which widgets should be kept.
+    */
+    void SetSeen(bool seen) { m_Seen = seen; }
+
+    /*
+    ** Check if this widget was seen during script reload.
+    */
+    bool IsSeen() const { return m_Seen; }
 
 private:
     /*
@@ -212,6 +229,9 @@ private:
     bool m_DragThresholdMet = false;
     POINT m_DragStartCursor = { 0, 0 };
     POINT m_DragStartWindow = { 0, 0 };
+
+    // Refresh tracking
+    bool m_Seen = false;
 
     static const UINT_PTR TIMER_TOPMOST = 2;
 };

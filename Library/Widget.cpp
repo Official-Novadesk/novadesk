@@ -809,6 +809,80 @@ void Widget::Redraw()
     UpdateLayeredWindowContent();
 }
 
+void Widget::UpdateOptions(const WidgetOptions& options)
+{
+    bool needsRedraw = false;
+    bool needsResize = false;
+    
+    // Update position if changed
+    if (options.x != m_Options.x || options.y != m_Options.y ||
+        options.width != m_Options.width || options.height != m_Options.height ||
+        options.m_WDefined != m_Options.m_WDefined || options.m_HDefined != m_Options.m_HDefined)
+    {
+        m_Options.x = options.x;
+        m_Options.y = options.y;
+        m_Options.width = options.width;
+        m_Options.height = options.height;
+        m_Options.m_WDefined = options.m_WDefined;
+        m_Options.m_HDefined = options.m_HDefined;
+        needsResize = true;
+    }
+    
+    // Update visual properties
+    if (options.backgroundColor != m_Options.backgroundColor ||
+        options.color != m_Options.color ||
+        options.bgAlpha != m_Options.bgAlpha)
+    {
+        m_Options.backgroundColor = options.backgroundColor;
+        m_Options.color = options.color;
+        m_Options.bgAlpha = options.bgAlpha;
+        needsRedraw = true;
+    }
+    
+    if (options.windowOpacity != m_Options.windowOpacity)
+    {
+        m_Options.windowOpacity = options.windowOpacity;
+        needsRedraw = true;
+    }
+    
+    // Update behavior flags
+    if (options.clickThrough != m_Options.clickThrough)
+    {
+        m_Options.clickThrough = options.clickThrough;
+        LONG exStyle = GetWindowLong(m_hWnd, GWL_EXSTYLE);
+        if (options.clickThrough)
+            exStyle |= WS_EX_TRANSPARENT;
+        else
+            exStyle &= ~WS_EX_TRANSPARENT;
+        SetWindowLong(m_hWnd, GWL_EXSTYLE, exStyle);
+    }
+    
+    m_Options.draggable = options.draggable;
+    m_Options.keepOnScreen = options.keepOnScreen;
+    m_Options.snapEdges = options.snapEdges;
+    
+    // Update z-position if changed
+    if (options.zPos != m_Options.zPos)
+    {
+        ChangeZPos(options.zPos);
+    }
+    
+    // Apply position/size changes
+    if (needsResize)
+    {
+        SetWindowPos(m_hWnd, NULL, m_Options.x, m_Options.y, m_Options.width, m_Options.height, 
+                     SWP_NOZORDER | SWP_NOACTIVATE);
+        needsRedraw = true;
+    }
+    
+    // Single redraw at the end to avoid multiple redraws
+    if (needsRedraw)
+    {
+        Redraw();
+    }
+}
+
+
 void Widget::UpdateLayeredWindowContent()
 {
     if (!m_hWnd) return;

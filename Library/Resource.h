@@ -16,8 +16,6 @@
 
 // Tray menu items
 #define ID_TRAY_EXIT			201
-#define ID_TRAY_REFRESH         202
-#define ID_WIDGET_REFRESH_ALL   203
 // Next default values for new objects
 //
 #ifdef APSTUDIO_INVOKED

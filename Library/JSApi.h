@@ -84,7 +84,7 @@ namespace JSApi {
     void OnTimer(UINT_PTR id);
     void OnMessage(UINT message, WPARAM wParam, LPARAM lParam);
     void SetMessageWindow(HWND hWnd);
-    void TriggerFullRefreshInternal();
+
     duk_ret_t js_register_hotkey(duk_context* ctx);
     duk_ret_t js_unregister_hotkey(duk_context* ctx);
 }

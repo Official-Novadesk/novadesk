@@ -62,14 +62,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
             if (hExisting)
             {
-                if (cmd.find(L"/refresh") != std::wstring::npos || 
-                    cmd.find(L"-refresh") != std::wstring::npos ||
-                    cmd.find(L"--refresh") != std::wstring::npos)
-                {
-                    SendMessage(hExisting, WM_COMMAND, ID_TRAY_REFRESH, 0);
-                    return 0;
-                }
-                else if (cmd.find(L"/exit") != std::wstring::npos || 
+                if (cmd.find(L"/exit") != std::wstring::npos || 
                          cmd.find(L"-exit") != std::wstring::npos ||
                          cmd.find(L"--exit") != std::wstring::npos)
                 {
@@ -122,10 +115,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
             {
                 DestroyWindow(hWnd);
             }
-            else if (wmId == ID_TRAY_REFRESH)
-            {
-                JSApi::TriggerFullRefreshInternal();
-            }
+
         }
         break;
         case WM_DESTROY:
@@ -230,8 +220,7 @@ void ShowTrayMenu(HWND hWnd)
     GetCursorPos(&pt);
 
     HMENU hMenu = CreatePopupMenu();
-    AppendMenu(hMenu, MF_STRING, ID_TRAY_REFRESH, L"Refresh all");
-    AppendMenu(hMenu, MF_SEPARATOR, 0, NULL);
+
     AppendMenu(hMenu, MF_STRING, ID_TRAY_EXIT, L"Exit");
 
     SetForegroundWindow(hWnd);

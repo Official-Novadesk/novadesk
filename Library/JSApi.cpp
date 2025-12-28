@@ -718,55 +718,77 @@ namespace JSApi {
  
         PropertyParser::ParseWidgetOptions(ctx, options);
  
-        Widget* widget = new Widget(options);
-        if (widget->Create()) {
-            widget->Show();
-            widgets.push_back(widget);
-            Logging::Log(LogLevel::Info, L"Widget created and shown. HWND: 0x%p", widget->GetWindow());
-            
-            // Create JavaScript object to represent the widget
-            duk_push_object(ctx);
-            
-            // Store widget pointer
-            duk_push_pointer(ctx, widget);
-            duk_put_prop_string(ctx, -2, "\xFF" "widgetPtr");
-            
-            // Add methods to the widget object
-            duk_push_c_function(ctx, js_widget_add_image, 1);
-            duk_put_prop_string(ctx, -2, "addImage");
-            
-            duk_push_c_function(ctx, js_widget_add_text, 1);
-            duk_put_prop_string(ctx, -2, "addText");
-            
-            duk_push_c_function(ctx, js_widget_set_element_properties, 2);
-            duk_put_prop_string(ctx, -2, "setElementProperties");
-            
-            duk_push_c_function(ctx, js_widget_remove_elements, 1);
-            duk_put_prop_string(ctx, -2, "removeElements");
-            
-            duk_push_c_function(ctx, js_widget_get_element_properties, 1);
-            duk_put_prop_string(ctx, -2, "getElementProperties");
-
-            duk_push_c_function(ctx, js_widget_set_properties, 1);
-            duk_put_prop_string(ctx, -2, "setProperties");
-
-            duk_push_c_function(ctx, js_widget_get_properties, 0);
-            duk_put_prop_string(ctx, -2, "getProperties");
-
-            duk_push_c_function(ctx, js_widget_close, 0);
-            duk_put_prop_string(ctx, -2, "close");
-
-            duk_push_c_function(ctx, js_novadesk_refresh, 0); // Full reload like Rainmeter
-            duk_put_prop_string(ctx, -2, "refresh");
-            
-            return 1; // Return the object
+        // Check if a widget with this ID already exists (for flicker-free refresh)
+        Widget* widget = nullptr;
+        for (auto w : widgets) {
+            if (w->GetOptions().id == options.id) {
+                widget = w;
+                Logging::Log(LogLevel::Info, L"Reusing existing widget: %s", options.id.c_str());
+                
+                // Clear existing elements first (before updating options)
+                widget->RemoveElements();
+                
+                // Update all widget properties in one call (prevents multiple redraws)
+                widget->UpdateOptions(options);
+                
+                // Mark as seen
+                widget->SetSeen(true);
+                break;
+            }
         }
-        else {
-            Logging::Log(LogLevel::Error, L"Failed to create widget.");
-            delete widget;
+        
+        // If no existing widget found, create a new one
+        if (!widget) {
+            widget = new Widget(options);
+            if (widget->Create()) {
+                widget->Show();
+                widgets.push_back(widget);
+                widget->SetSeen(true);
+                Logging::Log(LogLevel::Info, L"Widget created and shown. HWND: 0x%p", widget->GetWindow());
+            }
+            else {
+                Logging::Log(LogLevel::Error, L"Failed to create widget.");
+                delete widget;
+                return 0;
+            }
         }
+        
+        // Create JavaScript object to represent the widget
+        duk_push_object(ctx);
+        
+        // Store widget pointer
+        duk_push_pointer(ctx, widget);
+        duk_put_prop_string(ctx, -2, "\xFF" "widgetPtr");
+        
+        // Add methods to the widget object
+        duk_push_c_function(ctx, js_widget_add_image, 1);
+        duk_put_prop_string(ctx, -2, "addImage");
+        
+        duk_push_c_function(ctx, js_widget_add_text, 1);
+        duk_put_prop_string(ctx, -2, "addText");
+        
+        duk_push_c_function(ctx, js_widget_set_element_properties, 2);
+        duk_put_prop_string(ctx, -2, "setElementProperties");
+        
+        duk_push_c_function(ctx, js_widget_remove_elements, 1);
+        duk_put_prop_string(ctx, -2, "removeElements");
+        
+        duk_push_c_function(ctx, js_widget_get_element_properties, 1);
+        duk_put_prop_string(ctx, -2, "getElementProperties");
 
-        return 0;
+        duk_push_c_function(ctx, js_widget_set_properties, 1);
+        duk_put_prop_string(ctx, -2, "setProperties");
+
+        duk_push_c_function(ctx, js_widget_get_properties, 0);
+        duk_put_prop_string(ctx, -2, "getProperties");
+
+        duk_push_c_function(ctx, js_widget_close, 0);
+        duk_put_prop_string(ctx, -2, "close");
+
+        duk_push_c_function(ctx, js_novadesk_refresh, 0); // Full reload like Rainmeter
+        duk_put_prop_string(ctx, -2, "refresh");
+        
+        return 1; // Return the object
     }
 
     void ParseElementOptions(duk_context* ctx, Element* element) {
@@ -941,11 +963,7 @@ namespace JSApi {
         duk_pop(s_JsContext); // pop result/error
     }
 
-    void TriggerFullRefreshInternal() {
-        if (s_JsContext) {
-            ReloadScripts(s_JsContext);
-        }
-    }
+
 
     std::string ParseConfigDirectives(const std::string& script) {
         std::string result;
@@ -1114,11 +1132,7 @@ namespace JSApi {
         duk_put_global_string(ctx, "setImmediate");
 
 
-        // Add refresh method to novadesk
-        duk_get_global_string(ctx, "novadesk");
-        duk_push_c_function(ctx, js_novadesk_refresh, 0);
-        duk_put_prop_string(ctx, -2, "refresh");
-        duk_pop(ctx);
+
 
         // Register widgetWindow constructor
         duk_push_c_function(ctx, js_create_widget_window, 1);
@@ -1204,11 +1218,10 @@ namespace JSApi {
         // Clear all timers
         TimerManager::ClearAll();
  
-        // Destroy all existing widgets
+        // Mark all existing widgets as not seen
         for (auto w : widgets) {
-            delete w;
+            w->SetSeen(false);
         }
-        widgets.clear();
 
         // Clear internal callbacks
         duk_get_global_string(ctx, "novadesk");
@@ -1220,8 +1233,20 @@ namespace JSApi {
         s_NextTimerId = 1;
         s_NextImmId = 1;
 
-        // Reload and execute script
+        // Reload and execute script (this will mark reused widgets as seen)
         LoadAndExecuteScript(ctx, L"");
+        
+        // Delete widgets that were not seen (not recreated in the script)
+        auto it = widgets.begin();
+        while (it != widgets.end()) {
+            if (!(*it)->IsSeen()) {
+                Logging::Log(LogLevel::Info, L"Removing widget that was not recreated: %s", (*it)->GetOptions().id.c_str());
+                delete *it;
+                it = widgets.erase(it);
+            } else {
+                ++it;
+            }
+        }
     }
 
     void OnTimer(UINT_PTR id) {
