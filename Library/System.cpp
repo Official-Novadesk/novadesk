@@ -5,6 +5,11 @@
  * version. If a copy of the GPL was not distributed with this file, You can
  * obtain one at <https://www.gnu.org/licenses/gpl-2.0.html>. */
 
+
+/*
+** Most of the Code taken from Rainmeter (https://github.com/rainmeter/rainmeter/blob/master/Library/System.cpp)
+*/
+
 #include "System.h"
 #include "Widget.h"
 #include <algorithm>
@@ -134,14 +139,16 @@ HWND System::GetDefaultShellWindow()
     return GetShellWindow();
 }
 
-
 /*
 ** Determine if the shell window should be used as the desktop icons host.
 */
 
 bool System::ShouldUseShellWindowAsDesktopIconsHost()
 {
-    return true;
+    // Check for the existence of GetCurrentMonitorTopologyId, which should be present only
+    // on Windows 11 build 10.0.26100.2454.
+    static bool result = GetProcAddress(GetModuleHandle(L"user32"), "GetCurrentMonitorTopologyId") != nullptr;
+    return result;
 }
 
 /*
