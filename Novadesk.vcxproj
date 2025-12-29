@@ -147,6 +147,13 @@
     <ClInclude Include="Library\ColorUtil.h" />
     <ClInclude Include="Library\Logging.h" />
     <ClInclude Include="Library\JSApi.h" />
+    <ClInclude Include="Library\JSApi\JSCommon.h" />
+    <ClInclude Include="Library\JSApi\JSUtils.h" />
+    <ClInclude Include="Library\JSApi\JSSystem.h" />
+    <ClInclude Include="Library\JSApi\JSWidget.h" />
+    <ClInclude Include="Library\JSApi\JSElement.h" />
+    <ClInclude Include="Library\JSApi\JSContextMenu.h" />
+    <ClInclude Include="Library\JSApi\JSEvents.h" />
     <ClInclude Include="Library\Utils.h" />
     <ClInclude Include="Library\CPUMonitor.h" />
     <ClInclude Include="Library\MemoryMonitor.h" />
@@ -173,6 +180,13 @@
     <ClCompile Include="Library\TextElement.cpp" />
     <ClCompile Include="Library\Widget.cpp" />
     <ClCompile Include="Library\JSApi.cpp" />
+    <ClCompile Include="Library\JSApi\JSCommon.cpp" />
+    <ClCompile Include="Library\JSApi\JSUtils.cpp" />
+    <ClCompile Include="Library\JSApi\JSSystem.cpp" />
+    <ClCompile Include="Library\JSApi\JSWidget.cpp" />
+    <ClCompile Include="Library\JSApi\JSElement.cpp" />
+    <ClCompile Include="Library\JSApi\JSContextMenu.cpp" />
+    <ClCompile Include="Library\JSApi\JSEvents.cpp" />
     <ClCompile Include="Library\Settings.cpp" />
     <ClCompile Include="Library\Utils.cpp" />
     <ClCompile Include="Library\CPUMonitor.cpp" />
