@@ -15,6 +15,7 @@ namespace JSApi {
     void InitializeJavaScriptAPI(duk_context* ctx);
     bool LoadAndExecuteScript(duk_context* ctx, const std::wstring& scriptPath = L"");
     void ReloadScripts(duk_context* ctx);
+    void Reload();
 
     duk_ret_t js_log(duk_context* ctx);
     duk_ret_t js_error(duk_context* ctx);
@@ -23,6 +24,9 @@ namespace JSApi {
     duk_ret_t js_create_widget_window(duk_context* ctx);
     duk_ret_t js_widget_add_image(duk_context* ctx);
     duk_ret_t js_widget_add_text(duk_context* ctx);
+    duk_ret_t js_widget_add_context_menu_item(duk_context* ctx);
+    duk_ret_t js_widget_clear_context_menu(duk_context* ctx);
+    duk_ret_t js_widget_show_default_context_menu_items(duk_context* ctx);
     duk_ret_t js_widget_update_image(duk_context* ctx);
     duk_ret_t js_widget_update_text(duk_context* ctx);
     duk_ret_t js_widget_remove_content(duk_context* ctx);

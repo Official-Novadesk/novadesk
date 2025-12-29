@@ -33,6 +33,9 @@ namespace JSApi {
     // Forward declarations
     duk_ret_t js_widget_add_image(duk_context* ctx);
     duk_ret_t js_widget_add_text(duk_context* ctx);
+    duk_ret_t js_widget_add_context_menu_item(duk_context* ctx);
+    duk_ret_t js_widget_clear_context_menu(duk_context* ctx);
+    duk_ret_t js_widget_show_default_context_menu_items(duk_context* ctx);
     duk_ret_t js_widget_set_element_properties(duk_context* ctx);
     duk_ret_t js_widget_remove_elements(duk_context* ctx);
     duk_ret_t js_widget_get_element_properties(duk_context* ctx);
@@ -740,39 +743,19 @@ namespace JSApi {
  
         PropertyParser::ParseWidgetOptions(ctx, options);
  
-        // Check if a widget with this ID already exists (for flicker-free refresh)
-        Widget* widget = nullptr;
-        for (auto w : widgets) {
-            if (w->GetOptions().id == options.id) {
-                widget = w;
-                Logging::Log(LogLevel::Info, L"Reusing existing widget: %s", options.id.c_str());
-                
-                // Clear existing elements first (before updating options)
-                widget->RemoveElements();
-                
-                // Update all widget properties in one call (prevents multiple redraws)
-                widget->UpdateOptions(options);
-                
-                // Mark as seen
-                widget->SetSeen(true);
-                break;
-            }
+        PropertyParser::ParseWidgetOptions(ctx, options);
+ 
+        // Create new widget
+        Widget* widget = new Widget(options);
+        if (widget->Create()) {
+            widget->Show();
+            widgets.push_back(widget);
+            Logging::Log(LogLevel::Info, L"Widget created and shown. HWND: 0x%p", widget->GetWindow());
         }
-        
-        // If no existing widget found, create a new one
-        if (!widget) {
-            widget = new Widget(options);
-            if (widget->Create()) {
-                widget->Show();
-                widgets.push_back(widget);
-                widget->SetSeen(true);
-                Logging::Log(LogLevel::Info, L"Widget created and shown. HWND: 0x%p", widget->GetWindow());
-            }
-            else {
-                Logging::Log(LogLevel::Error, L"Failed to create widget.");
-                delete widget;
-                return 0;
-            }
+        else {
+            Logging::Log(LogLevel::Error, L"Failed to create widget.");
+            delete widget;
+            return 0;
         }
         
         // Create JavaScript object to represent the widget
@@ -788,6 +771,15 @@ namespace JSApi {
         
         duk_push_c_function(ctx, js_widget_add_text, 1);
         duk_put_prop_string(ctx, -2, "addText");
+
+        duk_push_c_function(ctx, js_widget_add_context_menu_item, 2);
+        duk_put_prop_string(ctx, -2, "addContextMenuItem");
+
+        duk_push_c_function(ctx, js_widget_clear_context_menu, 0);
+        duk_put_prop_string(ctx, -2, "clearContextMenu");
+        
+        duk_push_c_function(ctx, js_widget_show_default_context_menu_items, 1);
+        duk_put_prop_string(ctx, -2, "showDefaultContextMenuItems");
         
         duk_push_c_function(ctx, js_widget_set_element_properties, 2);
         duk_put_prop_string(ctx, -2, "setElementProperties");
@@ -853,6 +845,58 @@ namespace JSApi {
         widget->AddText(options);
 
         // Return 'this' for chaining
+        duk_push_this(ctx);
+        return 1;
+    }
+
+
+    duk_ret_t js_widget_add_context_menu_item(duk_context* ctx) {
+        duk_push_this(ctx);
+        duk_get_prop_string(ctx, -1, "\xFF" "widgetPtr");
+        Widget* widget = (Widget*)duk_get_pointer(ctx, -1);
+        duk_pop_2(ctx);
+
+        if (!widget) return DUK_RET_ERROR;
+
+        if (duk_get_top(ctx) < 2) return DUK_RET_TYPE_ERROR;
+        
+        std::wstring label = Utils::ToWString(duk_safe_to_string(ctx, 0));
+        std::wstring action = Utils::ToWString(duk_safe_to_string(ctx, 1));
+
+        widget->AddContextMenuItem(label, action);
+
+        duk_push_this(ctx);
+        return 1;
+    }
+
+    duk_ret_t js_widget_clear_context_menu(duk_context* ctx) {
+        duk_push_this(ctx);
+        duk_get_prop_string(ctx, -1, "\xFF" "widgetPtr");
+        Widget* widget = (Widget*)duk_get_pointer(ctx, -1);
+        duk_pop_2(ctx);
+
+        if (!widget) return DUK_RET_ERROR;
+
+        widget->ClearContextMenuItems();
+
+        duk_push_this(ctx);
+        return 1;
+    }
+
+    duk_ret_t js_widget_show_default_context_menu_items(duk_context* ctx) {
+        duk_push_this(ctx);
+        duk_get_prop_string(ctx, -1, "\xFF" "widgetPtr");
+        Widget* widget = (Widget*)duk_get_pointer(ctx, -1);
+        duk_pop_2(ctx);
+
+        if (!widget) return DUK_RET_ERROR;
+
+        if (duk_get_top(ctx) > 0)
+        {
+            bool show = duk_get_boolean(ctx, 0);
+            widget->SetShowDefaultContextMenuItems(show);
+        }
+
         duk_push_this(ctx);
         return 1;
     }
@@ -1266,10 +1310,11 @@ namespace JSApi {
         // Clear all timers
         TimerManager::ClearAll();
  
-        // Mark all existing widgets as not seen
+        // Delete ALL existing widgets
         for (auto w : widgets) {
-            w->SetSeen(false);
+            delete w;
         }
+        widgets.clear();
 
         // Clear internal callbacks
         duk_get_global_string(ctx, "novadesk");
@@ -1281,19 +1326,13 @@ namespace JSApi {
         s_NextTimerId = 1;
         s_NextImmId = 1;
 
-        // Reload and execute script (this will mark reused widgets as seen)
+        // Reload and execute script
         LoadAndExecuteScript(ctx, L"");
-        
-        // Delete widgets that were not seen (not recreated in the script)
-        auto it = widgets.begin();
-        while (it != widgets.end()) {
-            if (!(*it)->IsSeen()) {
-                Logging::Log(LogLevel::Info, L"Removing widget that was not recreated: %s", (*it)->GetOptions().id.c_str());
-                delete *it;
-                it = widgets.erase(it);
-            } else {
-                ++it;
-            }
+    }
+
+    void Reload() {
+        if (s_JsContext) {
+            ReloadScripts(s_JsContext);
         }
     }
 

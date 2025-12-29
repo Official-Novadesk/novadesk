@@ -24,6 +24,11 @@ namespace PropertyParser {
     struct TextOptions;
 }
 
+struct ContextMenuItem {
+    std::wstring label;
+    std::wstring action;
+};
+
 struct WidgetOptions
 {
     std::wstring id;
@@ -162,32 +167,30 @@ public:
     void RemoveElements(const std::vector<std::wstring>& ids);
 
     /*
+    ** Add a custom item to the context menu.
+    */
+    void AddContextMenuItem(const std::wstring& label, const std::wstring& action);
+
+    /*
+    ** Clear all custom context menu items.
+    */
+    void ClearContextMenuItems();
+
+    /*
+    ** Set whether to show default context menu items (Refresh, Exit, etc).
+    */
+    void SetShowDefaultContextMenuItems(bool show) { m_ShowDefaultContextMenuItems = show; }
+
+    /*
     ** Redraw the widget window to reflect content changes.
     */
     void Redraw();
-
-    /*
-    ** Update widget options without recreating the window.
-    ** This is used during refresh to update properties smoothly.
-    */
-    void UpdateOptions(const WidgetOptions& options);
 
     /*
     ** Find a content element by its ID.
     ** Returns pointer to the element or nullptr if not found.
     */
     Element* FindElementById(const std::wstring& id);
-
-    /*
-    ** Mark this widget as seen during script reload.
-    ** Used for flicker-free refresh to track which widgets should be kept.
-    */
-    void SetSeen(bool seen) { m_Seen = seen; }
-
-    /*
-    ** Check if this widget was seen during script reload.
-    */
-    bool IsSeen() const { return m_Seen; }
 
 private:
     /*
@@ -228,6 +231,11 @@ private:
     WidgetOptions m_Options;
     ZPOSITION m_WindowZPosition;
     std::vector<Element*> m_Elements;
+    
+    // Context Menu
+    std::vector<ContextMenuItem> m_ContextMenuItems;
+    bool m_ShowDefaultContextMenuItems = true;
+
     Element* m_MouseOverElement = nullptr;
 
     // Dragging State
@@ -235,9 +243,6 @@ private:
     bool m_DragThresholdMet = false;
     POINT m_DragStartCursor = { 0, 0 };
     POINT m_DragStartWindow = { 0, 0 };
-
-    // Refresh tracking
-    bool m_Seen = false;
 
     static const UINT_PTR TIMER_TOPMOST = 2;
 };

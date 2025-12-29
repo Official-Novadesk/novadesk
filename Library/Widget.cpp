@@ -822,83 +822,21 @@ void Widget::RemoveElements(const std::vector<std::wstring>& ids)
     if (changed) Redraw();
 }
 
+void Widget::AddContextMenuItem(const std::wstring& label, const std::wstring& action)
+{
+    m_ContextMenuItems.push_back({ label, action });
+}
+
+void Widget::ClearContextMenuItems()
+{
+    m_ContextMenuItems.clear();
+}
+
 void Widget::Redraw()
 {
     UpdateLayeredWindowContent();
 }
 
-void Widget::UpdateOptions(const WidgetOptions& options)
-{
-    bool needsRedraw = false;
-    bool needsResize = false;
-    
-    // Update position if changed
-    if (options.x != m_Options.x || options.y != m_Options.y ||
-        options.width != m_Options.width || options.height != m_Options.height ||
-        options.m_WDefined != m_Options.m_WDefined || options.m_HDefined != m_Options.m_HDefined)
-    {
-        m_Options.x = options.x;
-        m_Options.y = options.y;
-        m_Options.width = options.width;
-        m_Options.height = options.height;
-        m_Options.m_WDefined = options.m_WDefined;
-        m_Options.m_HDefined = options.m_HDefined;
-        needsResize = true;
-    }
-    
-    // Update visual properties
-    if (options.backgroundColor != m_Options.backgroundColor ||
-        options.color != m_Options.color ||
-        options.bgAlpha != m_Options.bgAlpha)
-    {
-        m_Options.backgroundColor = options.backgroundColor;
-        m_Options.color = options.color;
-        m_Options.bgAlpha = options.bgAlpha;
-        needsRedraw = true;
-    }
-    
-    if (options.windowOpacity != m_Options.windowOpacity)
-    {
-        m_Options.windowOpacity = options.windowOpacity;
-        needsRedraw = true;
-    }
-    
-    // Update behavior flags
-    if (options.clickThrough != m_Options.clickThrough)
-    {
-        m_Options.clickThrough = options.clickThrough;
-        LONG exStyle = GetWindowLong(m_hWnd, GWL_EXSTYLE);
-        if (options.clickThrough)
-            exStyle |= WS_EX_TRANSPARENT;
-        else
-            exStyle &= ~WS_EX_TRANSPARENT;
-        SetWindowLong(m_hWnd, GWL_EXSTYLE, exStyle);
-    }
-    
-    m_Options.draggable = options.draggable;
-    m_Options.keepOnScreen = options.keepOnScreen;
-    m_Options.snapEdges = options.snapEdges;
-    
-    // Update z-position if changed
-    if (options.zPos != m_Options.zPos)
-    {
-        ChangeZPos(options.zPos);
-    }
-    
-    // Apply position/size changes
-    if (needsResize)
-    {
-        SetWindowPos(m_hWnd, NULL, m_Options.x, m_Options.y, m_Options.width, m_Options.height, 
-                     SWP_NOZORDER | SWP_NOACTIVATE);
-        needsRedraw = true;
-    }
-    
-    // Single redraw at the end to avoid multiple redraws
-    if (needsRedraw)
-    {
-        Redraw();
-    }
-}
 
 
 void Widget::UpdateLayeredWindowContent()
@@ -1169,19 +1107,42 @@ void Widget::OnContextMenu()
     GetCursorPos(&pt);
 
     HMENU hMenu = CreatePopupMenu();
-    // 1001: Refresh, 1002: Exit Widget, 1003: Exit App
-    AppendMenu(hMenu, MF_STRING, 1001, L"Refresh Widget");
-    AppendMenu(hMenu, MF_SEPARATOR, 0, nullptr);
-    AppendMenu(hMenu, MF_STRING, 1002, L"Exit Widget");
-    AppendMenu(hMenu, MF_STRING, 1003, L"Exit App");
+    
+    // Custom Items (IDs 2000+)
+    int customIdStart = 2000;
+    for (size_t i = 0; i < m_ContextMenuItems.size(); ++i)
+    {
+        AppendMenu(hMenu, MF_STRING, customIdStart + i, m_ContextMenuItems[i].label.c_str());
+    }
+
+    if (m_ShowDefaultContextMenuItems)
+    {
+        if (!m_ContextMenuItems.empty())
+        {
+            AppendMenu(hMenu, MF_SEPARATOR, 0, nullptr);
+        }
+        // 1001: Refresh, 1002: Exit Widget, 1003: Exit App
+        AppendMenu(hMenu, MF_STRING, 1001, L"Refresh Widget");
+        AppendMenu(hMenu, MF_SEPARATOR, 0, nullptr);
+        AppendMenu(hMenu, MF_STRING, 1002, L"Exit Widget");
+        AppendMenu(hMenu, MF_STRING, 1003, L"Exit App");
+    }
 
     SetForegroundWindow(m_hWnd);
     int cmd = TrackPopupMenu(hMenu, TPM_RETURNCMD | TPM_NONOTIFY | TPM_BOTTOMALIGN | TPM_LEFTALIGN, pt.x, pt.y, 0, m_hWnd, NULL);
     DestroyMenu(hMenu);
 
-    if (cmd == 1001)
+    if (cmd >= 2000)
     {
-        Redraw();
+        size_t index = cmd - 2000;
+        if (index < m_ContextMenuItems.size())
+        {
+            JSApi::ExecuteScript(m_ContextMenuItems[index].action);
+        }
+    }
+    else if (cmd == 1001)
+    {
+        JSApi::Reload();
     }
     else if (cmd == 1002)
     {
