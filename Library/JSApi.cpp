@@ -746,6 +746,19 @@ namespace JSApi {
  
         PropertyParser::ParseWidgetOptions(ctx, options);
  
+        if (options.id.empty()) {
+            Logging::Log(LogLevel::Error, L"Widget creation failed: ID must be provided.");
+            return 0;
+        }
+
+        // Check for duplicate ID
+        for (auto w : widgets) {
+            if (w->GetOptions().id == options.id) {
+                Logging::Log(LogLevel::Error, L"Widget creation failed: Duplicate ID '%s'.", options.id.c_str());
+                return 0;
+            }
+        }
+ 
         // Create new widget
         Widget* widget = new Widget(options);
         if (widget->Create()) {

@@ -101,7 +101,7 @@ bool Widget::Create()
     m_hWnd = CreateWindowExW(
         dwExStyle,
         WIDGET_CLASS_NAME,
-        L"Novadesk Widget",
+        m_Options.id.c_str(),
         WS_POPUP,
         m_Options.x, m_Options.y, m_Options.width, m_Options.height,
         nullptr, nullptr, hInstance, this);
@@ -725,8 +725,15 @@ LRESULT CALLBACK Widget::WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
 */
 void Widget::AddImage(const PropertyParser::ImageOptions& options)
 {
-    // Remove existing if any
-    RemoveElements(options.id);
+    if (options.id.empty()) {
+        Logging::Log(LogLevel::Error, L"AddImage failed: Element ID cannot be empty.");
+        return;
+    }
+
+    if (FindElementById(options.id)) {
+        Logging::Log(LogLevel::Error, L"AddImage failed: Element with ID '%s' already exists.", options.id.c_str());
+        return;
+    }
 
     ImageElement* element = new ImageElement(options.id, options.x, options.y, options.width, options.height, options.path);
     element->SetPreserveAspectRatio(options.preserveAspectRatio);
@@ -762,8 +769,15 @@ void Widget::AddImage(const PropertyParser::ImageOptions& options)
 */
 void Widget::AddText(const PropertyParser::TextOptions& options)
 {
-    // Remove existing if any
-    RemoveElements(options.id);
+    if (options.id.empty()) {
+        Logging::Log(LogLevel::Error, L"AddText failed: Element ID cannot be empty.");
+        return;
+    }
+
+    if (FindElementById(options.id)) {
+        Logging::Log(LogLevel::Error, L"AddText failed: Element with ID '%s' already exists.", options.id.c_str());
+        return;
+    }
 
     TextElement* element = new TextElement(options.id, options.x, options.y, options.width, options.height, 
                              options.text, options.fontFace, options.fontSize, options.fontColor, options.alpha,
