@@ -1107,55 +1107,7 @@ namespace JSApi {
         }
     }
 
-    std::string ParseConfigDirectives(const std::string& script) {
-        std::string result;
-        std::istringstream stream(script);
-        std::string line;
 
-        while (std::getline(stream, line)) {
-            // Trim whitespace
-            size_t start = line.find_first_not_of(" \t\r");
-            if (start == std::string::npos) {
-                result += line + "\n";
-                continue;
-            }
-
-            std::string trimmed = line.substr(start);
-
-            // Check if line starts with !
-            if (trimmed[0] == '!') {
-                std::string directive = trimmed.substr(1);
-                // Remove trailing semicolon if present
-                if (!directive.empty() && directive.back() == ';') {
-                    directive.pop_back();
-                }
-
-                // Process directives
-                if (directive == "enableDebugging") {
-                    js_novadesk_enableDebugging_internal(true);
-                }
-                else if (directive == "disableLogging") {
-                    js_novadesk_disableLogging_internal(true);
-                }
-                else if (directive == "saveLogToFile") {
-                    js_novadesk_saveLogToFile_internal(true);
-                }
-                else if (directive == "hideTrayIcon") {
-                    js_novadesk_hideTrayIcon_internal(true);
-                }
-                else {
-                    Logging::Log(LogLevel::Error, L"Unknown directive: !%S", directive.c_str());
-                }
-
-                // Skip this line (don't add to result)
-                continue;
-            }
-
-            result += line + "\n";
-        }
-
-        return result;
-    }
 
     duk_ret_t js_novadesk_saveLogToFile(duk_context* ctx) {
         if (duk_get_top(ctx) == 0) return DUK_RET_TYPE_ERROR;
@@ -1367,11 +1319,8 @@ namespace JSApi {
         }
         Logging::Log(LogLevel::Info, L"Script loaded, size: %zu", content.size());
 
-        // Parse and apply configuration directives
-        std::string processedScript = ParseConfigDirectives(content);
-
-        // Execute the processed script
-        if (duk_peval_string(ctx, processedScript.c_str()) != 0) {
+        // Execute the script
+        if (duk_peval_string(ctx, content.c_str()) != 0) {
             Logging::Log(LogLevel::Error, L"Script execution failed: %S", duk_safe_to_string(ctx, -1));
             duk_pop(ctx);
             return false;
