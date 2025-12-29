@@ -11,60 +11,16 @@
 #include "Hotkey.h"
 
 namespace JSApi {
-    /*
-    ** Initialize the JavaScript API and register all global functions.
-    ** Registers the 'novadesk' object with log, error, and debug methods.
-    ** Registers the 'widgetWindow' constructor for creating widget windows.
-    */
+
     void InitializeJavaScriptAPI(duk_context* ctx);
-
-    /*
-    ** Load and execute the main JavaScript file.
-    ** If scriptPath is empty, uses default Widgets\index.js.
-    ** If scriptPath is provided, uses that path (supports relative and absolute).
-    ** Calls onAppReady() function if defined in the script.
-    ** Returns true on success, false on failure.
-    */
     bool LoadAndExecuteScript(duk_context* ctx, const std::wstring& scriptPath = L"");
-
-    /*
-    ** Reload all JavaScript scripts.
-    ** Destroys all existing widgets and reloads the script.
-    ** Uses the same script path that was initially loaded.
-    ** Useful for development and testing without restarting the application.
-    */
     void ReloadScripts(duk_context* ctx);
 
-    /*
-    ** JavaScript API: novadesk.log(...)
-    ** Logs informational messages to the debug output.
-    ** Accepts variable number of arguments that are converted to strings.
-    */
     duk_ret_t js_log(duk_context* ctx);
-
-    /*
-    ** JavaScript API: novadesk.error(...)
-    ** Logs error messages to the debug output.
-    ** Accepts variable number of arguments that are converted to strings.
-    */
     duk_ret_t js_error(duk_context* ctx);
-
-    /*
-    ** JavaScript API: novadesk.debug(...)
-    ** Logs debug messages to the debug output.
-    ** Accepts variable number of arguments that are converted to strings.
-    */
     duk_ret_t js_debug(duk_context* ctx);
 
-    /*
-    ** JavaScript API: new widgetWindow(options)
-    ** Creates a new widget window with the specified options.
-    ** Options include: width, height, backgroundColor, zPos, draggable,
-    ** clickThrough, keepOnScreen, and snapEdges.
-    */
     duk_ret_t js_create_widget_window(duk_context* ctx);
-
-    // Widget content methods
     duk_ret_t js_widget_add_image(duk_context* ctx);
     duk_ret_t js_widget_add_text(duk_context* ctx);
     duk_ret_t js_widget_update_image(duk_context* ctx);
@@ -74,10 +30,6 @@ namespace JSApi {
     duk_ret_t js_widget_set_properties(duk_context* ctx);
     duk_ret_t js_widget_get_properties(duk_context* ctx);
 
-    /*
-    ** Execute a JavaScript string explicitly.
-    ** Used for handling event callbacks.
-    */
     void ExecuteScript(const std::wstring& script);
 
     // Event handlers for the main message loop

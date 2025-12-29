@@ -42,22 +42,9 @@ struct MultiMonitorInfo
 class System
 {
 public:
-	/*
-	** Initialize the System module.
-	** Sets up helper windows and initializes multi-monitor information.
-	*/
 	static void Initialize(HINSTANCE instance);
-
-	/*
-	** Finalize the System module.
-	** Cleans up resources and destroys helper windows.
-	*/
 	static void Finalize();
 
-	/*
-	** Get the backmost top-level window.
-	** Used for z-order management of desktop widgets.
-	*/
 	static HWND GetBackmostTopWindow();
 
 	/*
@@ -71,16 +58,7 @@ public:
 	*/
 	static HWND GetWindow() { return c_Window; }
 
-	/*
-	** Prepare the helper window for desktop icon management.
-	** Can optionally specify a custom desktop icons host window.
-	*/
 	static void PrepareHelperWindow(HWND desktopIconsHostWindow = nullptr);
-
-	/*
-	** Get the window that hosts desktop icons.
-	** This is typically the shell window or WorkerW window.
-	*/
 	static HWND GetDesktopIconsHostWindow();
 
 	/*
@@ -93,16 +71,8 @@ public:
 	*/
 	static void SetShowDesktop(bool show) { c_ShowDesktop = show; }
 
-	/*
-	** Check if the desktop is currently being shown.
-	** Updates internal state based on desktop icons host window visibility.
-	*/
-	static bool CheckDesktopState(HWND desktopIconsHostWindow);
 
-	/*
-	** Change z-order positions for all widgets in the correct order.
-	** Ensures widgets maintain their relative z-order positions.
-	*/
+	static bool CheckDesktopState(HWND desktopIconsHostWindow);
 	static void ChangeZPosInOrder();
 
 	/*
@@ -115,26 +85,12 @@ public:
 	*/
 	static size_t GetMonitorCount() { return c_Monitors.monitors.size(); }
 
-	/*
-	** Window procedure for the system helper window.
-	*/
+
 	static LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
 private:
-	/*
-	** Callback for enumerating monitors.
-	** Used to populate multi-monitor information.
-	*/
 	static BOOL CALLBACK MonitorEnumProc(HMONITOR hMonitor, HDC hdcMonitor, LPRECT lprcMonitor, LPARAM dwData);
-
-	/*
-	** Get the default shell window.
-	*/
 	static HWND GetDefaultShellWindow();
-
-	/*
-	** Determine if the shell window should be used as the desktop icons host.
-	*/
 	static bool ShouldUseShellWindowAsDesktopIconsHost();
 	
 	static HWND c_Window;

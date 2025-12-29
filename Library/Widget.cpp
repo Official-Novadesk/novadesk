@@ -404,9 +404,27 @@ LRESULT CALLBACK Widget::WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
         }
         return 0;
 
+    case WM_RBUTTONUP:
+        if (widget)
+        {
+             // If not handled by an element, let DefWindowProc handle it (generates WM_CONTEXTMENU)
+             if (!widget->HandleMouseMessage(message, wParam, lParam))
+             {
+                 return DefWindowProc(hWnd, message, wParam, lParam);
+             }
+        }
+        return 0;
+
+    case WM_CONTEXTMENU:
+        if (widget)
+        {
+            widget->OnContextMenu();
+        }
+        return 0;
+
     case WM_LBUTTONDBLCLK:
     case WM_RBUTTONDOWN:
-    case WM_RBUTTONUP:
+    // case WM_RBUTTONUP: // Handled above
     case WM_RBUTTONDBLCLK:
     case WM_MBUTTONDOWN:
     case WM_MBUTTONUP:
@@ -1000,8 +1018,9 @@ Element* Widget::FindElementById(const std::wstring& id)
     return nullptr;
 }
 
-void Widget::HandleMouseMessage(UINT message, WPARAM wParam, LPARAM lParam)
+bool Widget::HandleMouseMessage(UINT message, WPARAM wParam, LPARAM lParam)
 {
+    bool handled = false;
     int x = GET_X_LPARAM(lParam);
     int y = GET_Y_LPARAM(lParam);
 
@@ -1052,7 +1071,7 @@ void Widget::HandleMouseMessage(UINT message, WPARAM wParam, LPARAM lParam)
                 // If ExecuteScript cleared the elements, m_MouseOverElement is now invalid
                 if (m_Elements.empty()) {
                     m_MouseOverElement = nullptr;
-                    return; 
+                    return true; // Technically handled or compromised
                 }
             }
 
@@ -1066,7 +1085,7 @@ void Widget::HandleMouseMessage(UINT message, WPARAM wParam, LPARAM lParam)
                 // If ExecuteScript cleared the elements, hitElement is now invalid
                 if (m_Elements.empty()) {
                     m_MouseOverElement = nullptr;
-                    return;
+                    return true;
                 }
             }
             m_MouseOverElement = hitElement;
@@ -1078,6 +1097,10 @@ void Widget::HandleMouseMessage(UINT message, WPARAM wParam, LPARAM lParam)
         tme.dwFlags = TME_LEAVE;
         tme.hwndTrack = m_hWnd;
         TrackMouseEvent(&tme);
+        
+        handled = true; // Mouse move is generally considered handled if we process hovers? 
+                        // Actually for context menu, only RBUTTONUP handling implies consumption.
+                        // But for function signature satisfaction, we return true if we did logic.
     }
     else if (message == WM_MOUSELEAVE)
     {
@@ -1089,6 +1112,7 @@ void Widget::HandleMouseMessage(UINT message, WPARAM wParam, LPARAM lParam)
                  JSApi::ExecuteScript(leaveAction);
              m_MouseOverElement = nullptr;
         }
+        handled = true;
     }
 
     // Dispatch Actions
@@ -1132,7 +1156,46 @@ void Widget::HandleMouseMessage(UINT message, WPARAM wParam, LPARAM lParam)
         {
             // ExecuteScript might clear elements, so we must use our local copy of the action string
             JSApi::ExecuteScript(action);
+            handled = true;
         }
+    }
+    
+    return handled;
+}
+
+void Widget::OnContextMenu()
+{
+    POINT pt;
+    GetCursorPos(&pt);
+
+    HMENU hMenu = CreatePopupMenu();
+    // 1001: Refresh, 1002: Exit Widget, 1003: Exit App
+    AppendMenu(hMenu, MF_STRING, 1001, L"Refresh Widget");
+    AppendMenu(hMenu, MF_SEPARATOR, 0, nullptr);
+    AppendMenu(hMenu, MF_STRING, 1002, L"Exit Widget");
+    AppendMenu(hMenu, MF_STRING, 1003, L"Exit App");
+
+    SetForegroundWindow(m_hWnd);
+    int cmd = TrackPopupMenu(hMenu, TPM_RETURNCMD | TPM_NONOTIFY | TPM_BOTTOMALIGN | TPM_LEFTALIGN, pt.x, pt.y, 0, m_hWnd, NULL);
+    DestroyMenu(hMenu);
+
+    if (cmd == 1001)
+    {
+        Redraw();
+    }
+    else if (cmd == 1002)
+    {
+        // Safe deletion from system
+        auto it = std::find(widgets.begin(), widgets.end(), this);
+        if (it != widgets.end())
+        {
+            widgets.erase(it);
+        }
+        delete this; // Calls DestroyWindow
+    }
+    else if (cmd == 1003)
+    {
+        PostQuitMessage(0);
     }
 }
 

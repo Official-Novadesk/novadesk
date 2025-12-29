@@ -10,6 +10,12 @@
 #include <sstream>
 
 namespace FileUtils {
+
+    /*
+    ** Read the entire content of a file into a string.
+    ** Supports UTF-16 file paths (std::wstring).
+    ** Returns an empty string if the file cannot be opened.
+    */
     std::string ReadFileContent(const std::wstring& path) {
         std::ifstream t(path);
         if (!t.is_open()) return "";

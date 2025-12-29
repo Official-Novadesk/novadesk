@@ -25,32 +25,20 @@
 #define GetBValue(rgb)      (LOBYTE((rgb) >> 16))
 #endif
 
-/*
-** Content type enumeration.
-*/
 enum ElementType
 {
     ELEMENT_IMAGE,
     ELEMENT_TEXT
 };
 
-/*
-** Base class for all widget elements (Text, Image, etc.)
-*/
 class Element
 {
 public:
     Element(ElementType type, const std::wstring& id, int x, int y, int width, int height);
     virtual ~Element() {}
 
-    /*
-    ** Render the element to the GDI+ Graphics context.
-    */
     virtual void Render(Gdiplus::Graphics& graphics) = 0;
 
-    /*
-    ** Getters
-    */
     ElementType GetType() const { return m_Type; }
     const std::wstring& GetId() const { return m_Id; }
     int GetX() const { return m_X; }
@@ -59,9 +47,6 @@ public:
     int GetWidth();
     int GetHeight();
 
-    /*
-    ** Setters
-    */
     void SetPosition(int x, int y) { m_X = x; m_Y = y; }
     void SetSize(int w, int h) { 
         m_Width = w; 
@@ -70,15 +55,9 @@ public:
         m_HDefined = (h > 0);
     }
 
-    /*
-    ** Auto-size calculation (to be overriden by subclasses)
-    */
     virtual int GetAutoWidth() { return 0; }
     virtual int GetAutoHeight() { return 0; }
 
-    /*
-    ** Check if a point is within the element's bounds.
-    */
     virtual bool HitTest(int x, int y);
 
     void SetSolidColor(COLORREF color, BYTE alpha) { 
@@ -138,14 +117,8 @@ public:
 
     bool GetAntiAlias() const { return m_AntiAlias; }
 
-    /*
-    ** Check if this element should be hit even if it's transparent.
-    */
     virtual bool IsTransparentHit() const { return false; }
 
-    /*
-    ** Check if the element has an action associated with a specific mouse message.
-    */
     bool HasAction(UINT message, WPARAM wParam) const;
 
     // Mouse Actions

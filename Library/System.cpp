@@ -28,6 +28,11 @@ static Widget* FindWidget(HWND hWnd)
     return nullptr;
 }
 
+/*
+** Initialize the System module.
+** Sets up helper windows and initializes multi-monitor information.
+*/
+
 void System::Initialize(HINSTANCE instance)
 {
     // Initialize monitors
@@ -61,6 +66,11 @@ void System::Initialize(HINSTANCE instance)
     SetTimer(c_Window, TIMER_SHOWDESKTOP, INTERVAL_SHOWDESKTOP, nullptr);
 }
 
+/*
+** Finalize the System module.
+** Cleans up resources and destroys helper windows.
+*/
+
 void System::Finalize()
 {
     if (c_HelperWindow)
@@ -74,6 +84,11 @@ void System::Finalize()
         c_Window = nullptr;
     }
 }
+
+/*
+** Callback for enumerating monitors.
+** Used to populate multi-monitor information.
+*/
 
 BOOL CALLBACK System::MonitorEnumProc(HMONITOR hMonitor, HDC hdcMonitor, LPRECT lprcMonitor, LPARAM dwData)
 {
@@ -110,15 +125,29 @@ BOOL CALLBACK System::MonitorEnumProc(HMONITOR hMonitor, HDC hdcMonitor, LPRECT 
     return TRUE;
 }
 
+/*
+** Get the default shell window.
+*/
+
 HWND System::GetDefaultShellWindow()
 {
     return GetShellWindow();
 }
 
+
+/*
+** Determine if the shell window should be used as the desktop icons host.
+*/
+
 bool System::ShouldUseShellWindowAsDesktopIconsHost()
 {
     return true;
 }
+
+/*
+** Get the window that hosts desktop icons.
+** This is typically the shell window or WorkerW window.
+*/
 
 HWND System::GetDesktopIconsHostWindow()
 {
@@ -146,6 +175,11 @@ HWND System::GetDesktopIconsHostWindow()
 
     return (defView != nullptr) ? workerW : nullptr;
 }
+
+/*
+** Prepare the helper window for desktop icon management.
+** Can optionally specify a custom desktop icons host window.
+*/
 
 void System::PrepareHelperWindow(HWND desktopIconsHostWindow)
 {
@@ -176,6 +210,10 @@ void System::PrepareHelperWindow(HWND desktopIconsHostWindow)
         SetWindowPos(c_HelperWindow, HWND_BOTTOM, 0, 0, 0, 0, ZPOS_FLAGS);
     }
 }
+
+/*
+** Check if the desktop is currently being shown.
+*/
 
 bool System::CheckDesktopState(HWND desktopIconsHostWindow)
 {
@@ -212,6 +250,11 @@ static BOOL CALLBACK EnumWidgetsProc(HWND hwnd, LPARAM lParam)
     return TRUE;
 }
 
+/*
+** Change z-order positions for all widgets in the correct order.
+** Ensures widgets maintain their relative z-order positions.
+*/
+
 void System::ChangeZPosInOrder()
 {
     std::vector<Widget*> windowsInZOrder;
@@ -226,6 +269,10 @@ void System::ChangeZPosInOrder()
     }
 }
 
+/*
+** Window procedure for the system helper window.
+*/
+
 LRESULT CALLBACK System::WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
     switch (uMsg)
@@ -239,6 +286,11 @@ LRESULT CALLBACK System::WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
     }
     return DefWindowProc(hWnd, uMsg, wParam, lParam);
 }
+
+/*
+** Get the backmost top-level window.
+** Used for z-order management of desktop widgets.
+*/
 
 HWND System::GetBackmostTopWindow()
 {

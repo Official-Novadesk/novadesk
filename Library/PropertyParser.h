@@ -119,54 +119,16 @@ namespace PropertyParser
         int clipH = -1;
     };
 
-    /*
-    ** Parse WidgetOptions from a Duktape object at the top of the stack.
-    ** Optionally loads settings if an 'id' is present.
-    */
     void ParseWidgetOptions(duk_context* ctx, WidgetOptions& options);
-
-    /*
-    ** Parse ImageOptions from a Duktape object at the top of the stack.
-    */
     void ParseImageOptions(duk_context* ctx, ImageOptions& options);
-
-    /*
-    ** Parse TextOptions from a Duktape object at the top of the stack.
-    */
     void ParseTextOptions(duk_context* ctx, TextOptions& options);
-
-    /*
-    ** Apply properties from a Duktape object to an existing Widget instance.
-    */
     void ApplyWidgetProperties(duk_context* ctx, Widget* widget);
 
-    /*
-    ** Push a Widget's current properties as a JavaScript object onto the stack.
-    */
     void PushWidgetProperties(duk_context* ctx, Widget* widget);
-
-    /*
-    ** Parse element options and apply them to an Element.
-    */
     void ParseElementOptions(duk_context* ctx, Element* element);
-
-    /*
-    ** Push an Element's current properties as a JavaScript object onto the stack.
-    */
     void PushElementProperties(duk_context* ctx, Element* element);
-    
-    /*
-    ** Apply properties from an ElementOptions struct to an Element instance.
-    */
     void ApplyElementOptions(Element* element, const ElementOptions& options);
 
-    /*
-    ** Apply properties from an ImageOptions struct to an ImageElement instance.
-    */
     void ApplyImageOptions(ImageElement* element, const ImageOptions& options);
-
-    /*
-    ** Apply properties from a TextOptions struct to a TextElement instance.
-    */
     void ApplyTextOptions(TextElement* element, const TextOptions& options);
 }

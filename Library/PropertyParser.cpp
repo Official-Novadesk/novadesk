@@ -97,6 +97,11 @@ namespace PropertyParser {
         duk_context* m_Ctx;
     };
 
+    /*
+    ** Parse WidgetOptions from a Duktape object at the top of the stack.
+    ** Optionally loads settings if an 'id' is present.
+    */
+
     void ParseWidgetOptions(duk_context* ctx, WidgetOptions& options) {
         if (!duk_is_object(ctx, -1)) return;
         PropertyReader reader(ctx);
@@ -243,6 +248,10 @@ namespace PropertyParser {
         reader.GetBool("antialias", options.antialias);
     }
 
+    /*
+    ** Parse ElementOptions from a Duktape object at the top of the stack.
+    */
+
     void ParseImageOptions(duk_context* ctx, ImageOptions& options) {
         if (!duk_is_object(ctx, -1)) return;
         
@@ -278,6 +287,9 @@ namespace PropertyParser {
         }
     }
 
+    /*
+    ** Parse TextOptions from a Duktape object at the top of the stack.
+    */
     void ParseTextOptions(duk_context* ctx, TextOptions& options) {
         if (!duk_is_object(ctx, -1)) return;
 
@@ -319,7 +331,9 @@ namespace PropertyParser {
         reader.GetInt("clipstringh", options.clipH);
     }
 
-
+    /*
+    ** Apply properties from a Duktape object to a Widget.
+    */
     void ApplyWidgetProperties(duk_context* ctx, Widget* widget) {
         if (!widget || !duk_is_object(ctx, -1)) return;
         PropertyReader reader(ctx);
@@ -389,6 +403,10 @@ namespace PropertyParser {
         if (reader.GetBool("snapedges", snapEdges)) widget->SetSnapEdges(snapEdges);
     }
 
+    /*
+    ** Push a Widget's current properties as a JavaScript object onto the stack.
+    */
+
     void PushWidgetProperties(duk_context* ctx, Widget* widget) {
         if (!widget) return;
         const WidgetOptions& opt = widget->GetOptions();
@@ -415,6 +433,10 @@ namespace PropertyParser {
         duk_push_boolean(ctx, opt.snapEdges); duk_put_prop_string(ctx, -2, "snapedges");
         duk_push_string(ctx, Utils::ToString(opt.backgroundColor).c_str()); duk_put_prop_string(ctx, -2, "backgroundcolor");
     }
+
+    /*
+    ** Push an Element's current properties as a JavaScript object onto the stack.
+    */
 
     void PushElementProperties(duk_context* ctx, Element* element) {
         if (!element) return;
@@ -549,6 +571,10 @@ namespace PropertyParser {
         ApplyElementOptions(element, options);
     }
 
+    /*
+    ** Apply properties from an ElementOptions struct to an Element instance.
+    */
+
     void ApplyElementOptions(Element* element, const ElementOptions& options) {
         if (!element) return;
 
@@ -604,6 +630,10 @@ namespace PropertyParser {
         element->SetAntiAlias(options.antialias);
     }
 
+    /*
+    ** Apply properties from an ImageOptions struct to an ImageElement instance.
+    */
+
     void ApplyImageOptions(ImageElement* element, const ImageOptions& options) {
         if (!element) return;
         ApplyElementOptions(element, options);
@@ -623,6 +653,10 @@ namespace PropertyParser {
         }
     }
 
+    /*
+    ** Apply properties from a TextOptions struct to a TextElement instance.
+    */
+    
     void ApplyTextOptions(TextElement* element, const TextOptions& options) {
         if (!element) return;
         ApplyElementOptions(element, options);

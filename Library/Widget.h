@@ -215,8 +215,14 @@ private:
 
     /*
     ** Handle mouse messages and dispatch to elements.
+    ** Returns true if the message was handled by an element, false otherwise.
     */
-    void HandleMouseMessage(UINT message, WPARAM wParam, LPARAM lParam);
+    bool HandleMouseMessage(UINT message, WPARAM wParam, LPARAM lParam);
+
+    /*
+    ** Show the context menu for the widget.
+    */
+    void OnContextMenu();
 
     HWND m_hWnd;
     WidgetOptions m_Options;

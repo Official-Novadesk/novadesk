@@ -649,7 +649,11 @@ namespace JSApi {
         return 0;
     }
 
-    // JS API: novadesk.log(...)
+    /*
+    ** JavaScript API: novadesk.log(...)
+    ** Logs informational messages to the debug output.
+    ** Accepts variable number of arguments that are converted to strings.
+    */
     duk_ret_t js_log(duk_context* ctx) {
         duk_idx_t n = duk_get_top(ctx);
         std::wstring msg;
@@ -661,7 +665,11 @@ namespace JSApi {
         return 0;
     }
 
-    // JS API: novadesk.error(...)
+    /*
+    ** JavaScript API: novadesk.error(...)
+    ** Logs error messages to the debug output.
+    ** Accepts variable number of arguments that are converted to strings.
+    */
     duk_ret_t js_error(duk_context* ctx) {
         duk_idx_t n = duk_get_top(ctx);
         std::wstring msg;
@@ -673,7 +681,11 @@ namespace JSApi {
         return 0;
     }
 
-    // JS API: novadesk.debug(...)
+    /*
+    ** JavaScript API: novadesk.debug(...)
+    ** Logs debug messages to the debug output.
+    ** Accepts variable number of arguments that are converted to strings.
+    */
     duk_ret_t js_debug(duk_context* ctx) {
         for (int i = 0; i < duk_get_top(ctx); i++) {
             Logging::Log(LogLevel::Debug, L"%S", duk_safe_to_string(ctx, i));
@@ -681,6 +693,11 @@ namespace JSApi {
         return 0;
     }
 
+    /*
+    ** JavaScript API: novadesk.onReady(callback)
+    ** Registers a callback function to be called when the app is ready.
+    ** The callback function should be a function that accepts no arguments.
+    */
     duk_ret_t js_on_ready(duk_context* ctx) {
         if (!duk_is_function(ctx, 0)) {
             return DUK_RET_TYPE_ERROR;
@@ -695,7 +712,12 @@ namespace JSApi {
         return 0;
     }
 
-    // JS API: new widgetWindow(options)
+    /*
+    ** JavaScript API: new widgetWindow(options)
+    ** Creates a new widget window with the specified options.
+    ** Options is an object that can contain various properties to customize the widget.
+    ** Returns an object representing the created widget window.
+    */
     duk_ret_t js_create_widget_window(duk_context* ctx) {
         if (!duk_is_object(ctx, 0)) return DUK_RET_TYPE_ERROR;
 
@@ -950,6 +972,12 @@ namespace JSApi {
         return 0;
     }
 
+    
+    /*
+    ** Execute a JavaScript string explicitly.
+    ** Used for handling event callbacks.
+    */
+    
     void ExecuteScript(const std::wstring& script) {
         if (!s_JsContext) {
             Logging::Log(LogLevel::Error, L"ExecuteScript: Context not set");
@@ -1020,6 +1048,11 @@ namespace JSApi {
         return result;
     }
 
+    /*
+    ** Initialize the JavaScript API and register all global functions.
+    ** Registers the 'novadesk' object with log, error, and debug methods.
+    ** Registers the 'widgetWindow' constructor for creating widget windows.
+    */
     void InitializeJavaScriptAPI(duk_context* ctx) {
         s_JsContext = ctx; // Store context for callbacks
 
@@ -1141,6 +1174,14 @@ namespace JSApi {
         Logging::Log(LogLevel::Info, L"JavaScript API initialized");
     }
 
+    /*
+    ** Load and execute the main JavaScript file.
+    ** If scriptPath is empty, uses default Widgets\index.js.
+    ** If scriptPath is provided, uses that path (supports relative and absolute).
+    ** Calls onAppReady() function if defined in the script.
+    ** Returns true on success, false on failure.
+    */
+
     bool LoadAndExecuteScript(duk_context* ctx, const std::wstring& scriptPath) {
         // Reset logging state to defaults before each load
         Logging::SetConsoleLogging(true);
@@ -1209,6 +1250,13 @@ namespace JSApi {
 
         return true;
     }
+
+    /*
+    ** Reload all JavaScript scripts.
+    ** Destroys all existing widgets and reloads the script.
+    ** Uses the same script path that was initially loaded.
+    ** Useful for development and testing without restarting the application.
+    */
 
     void ReloadScripts(duk_context* ctx) {
         Logging::Log(LogLevel::Info, L"Reloading scripts...");

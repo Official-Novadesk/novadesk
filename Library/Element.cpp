@@ -18,22 +18,34 @@ Element::Element(ElementType type, const std::wstring& id, int x, int y, int wid
     m_HDefined = (height > 0);
 }
 
+/*
+** Get the width of the element.
+*/
 int Element::GetWidth() { 
     if (m_WDefined) return m_Width;
     return GetAutoWidth();
 }
 
+/*
+** Get the height of the element.
+*/
 int Element::GetHeight() { 
     if (m_HDefined) return m_Height;
     return GetAutoHeight();
 }
 
+/*
+** Check if a point is within the element's bounds.
+*/
 bool Element::HitTest(int x, int y) {
     int w = GetWidth();
     int h = GetHeight();
     return (x >= m_X && x < m_X + w && y >= m_Y && y < m_Y + h);
 }
 
+/*
+** Check if the element has an action associated with it.
+*/
 bool Element::HasAction(UINT message, WPARAM wParam) const {
     switch (message)
     {
@@ -67,6 +79,9 @@ bool Element::HasAction(UINT message, WPARAM wParam) const {
     return false;
 }
 
+/*
+** Set the padding for the element.
+*/
 void Element::SetPadding(int left, int top, int right, int bottom) {
     Logging::Log(LogLevel::Debug, L"Element SetPadding: [%d, %d, %d, %d]", left, top, right, bottom);
     m_PaddingLeft = left;
@@ -75,6 +90,9 @@ void Element::SetPadding(int left, int top, int right, int bottom) {
     m_PaddingBottom = bottom;
 }
 
+/*
+** Render the background of the element.
+*/
 void Element::RenderBackground(Gdiplus::Graphics& graphics) {
     if (!m_HasSolidColor) return;
 
@@ -153,6 +171,9 @@ void Element::RenderBackground(Gdiplus::Graphics& graphics) {
     delete brush;
 }
 
+/*
+** Render the bevel of the element.
+*/
 void Element::RenderBevel(Gdiplus::Graphics& graphics) {
     if (m_BevelType == 0 || m_BevelWidth <= 0) return;
 

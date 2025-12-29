@@ -9,6 +9,13 @@
 #include <Windows.h>
 
 namespace Utils {
+
+    /*
+    ** Convert a UTF-8 encoded std::string to a wide character std::wstring.
+    ** Returns an empty wstring if the input string is empty.
+    ** Uses Windows MultiByteToWideChar for conversion.
+    */
+
     std::wstring ToWString(const std::string& str) {
         if (str.empty()) return std::wstring();
         int size_needed = MultiByteToWideChar(CP_UTF8, 0, &str[0], (int)str.size(), NULL, 0);
@@ -16,6 +23,11 @@ namespace Utils {
         MultiByteToWideChar(CP_UTF8, 0, &str[0], (int)str.size(), &wstrTo[0], size_needed);
         return wstrTo;
     }
+
+    /*
+    ** Convert a wide character std::wstring to a UTF-8 encoded std::string.
+    ** Returns an empty string if the input wstring is empty.
+    */
 
     std::string ToString(const std::wstring& wstr) {
         if (wstr.empty()) return std::string();

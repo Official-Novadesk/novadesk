@@ -19,6 +19,12 @@ bool Logging::s_FileEnabled = false;
 std::wstring Logging::s_LogFilePath = L"";
 LogLevel Logging::s_MinLevel = LogLevel::Info;
 
+/*
+** Log a message to the debug output and/or file.
+** Supports formatted output similar to printf.
+** Messages are prefixed with [INFO], [ERROR], or [DEBUG] based on level.
+*/
+
 void Logging::Log(LogLevel level, const wchar_t* format, ...)
 {
     // Check if this log level should be displayed
@@ -84,11 +90,19 @@ void Logging::Log(LogLevel level, const wchar_t* format, ...)
     }
 }
 
+/*
+** Enable or disable console (debug output) logging.
+*/
+
 void Logging::SetConsoleLogging(bool enable)
 {
     s_ConsoleEnabled = enable;
 }
 
+/*
+** Enable or disable file logging with an option to clear the file.
+** If filePath is empty, file logging is disabled.
+*/
 void Logging::SetFileLogging(const std::wstring& filePath, bool clearFile)
 {
     s_LogFilePath = filePath;
@@ -105,6 +119,10 @@ void Logging::SetFileLogging(const std::wstring& filePath, bool clearFile)
     }
 }
 
+/*
+** Set the minimum log level for output.
+** Messages below this level will be ignored.
+*/
 void Logging::SetLogLevel(LogLevel minLevel)
 {
     s_MinLevel = minLevel;
