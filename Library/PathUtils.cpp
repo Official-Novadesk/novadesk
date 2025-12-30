@@ -11,6 +11,8 @@
 
 #pragma comment(lib, "shlwapi.lib")
 
+#include <vector>
+
 namespace PathUtils {
 
     /*
@@ -36,22 +38,64 @@ namespace PathUtils {
     }
 
     /*
-    ** Normalize a path by converting slashes and collapsing redundant ones.
+    ** Check if a path is relative.
+    */
+    bool IsPathRelative(const std::wstring& path) {
+        return PathIsRelativeW(path.c_str()) != FALSE;
+    }
+
+    /*
+    ** Normalize a path by converting slashes and resolving . and .. segments.
     */
     std::wstring NormalizePath(const std::wstring& path) {
         if (path.empty()) return L"";
+        
         std::wstring res = path;
         for (auto& c : res) if (c == L'/') c = L'\\';
-        
-        // Collapse redundant backslashes, but keep leading \\ for UNC
-        size_t start = (res.length() >= 2 && res[0] == L'\\' && res[1] == L'\\') ? 2 : 1;
-        for (size_t i = start; i < res.length(); ++i) {
-            if (res[i] == L'\\' && res[i - 1] == L'\\') {
-                res.erase(i, 1);
-                --i;
+
+        // Check if absolute and what type of root it has
+        bool isAbsolute = !IsPathRelative(res);
+        std::wstring root;
+        if (isAbsolute) {
+            if (res.length() >= 2 && res[1] == L':') {
+                root = res.substr(0, 3);
+                if (root.back() != L'\\') root += L'\\';
+            } else if (res.front() == L'\\') {
+                root = L"\\";
             }
         }
-        return res;
+
+        // Split by backslash
+        std::vector<std::wstring> segments;
+        size_t start = root.length(), end;
+        while ((end = res.find(L'\\', start)) != std::wstring::npos) {
+            segments.push_back(res.substr(start, end - start));
+            start = end + 1;
+        }
+        segments.push_back(res.substr(start));
+
+        std::vector<std::wstring> resolved;
+        for (const auto& s : segments) {
+            if (s.empty() || s == L".") continue;
+            if (s == L"..") {
+                if (!resolved.empty() && resolved.back() != L"..") {
+                    resolved.pop_back();
+                } else if (!isAbsolute) {
+                    resolved.push_back(L"..");
+                }
+            } else {
+                resolved.push_back(s);
+            }
+        }
+
+        std::wstring result = root;
+        for (size_t i = 0; i < resolved.size(); ++i) {
+            if (!result.empty() && result.back() != L'\\') result += L'\\';
+            result += resolved[i];
+        }
+        
+        if (result.empty()) return L".";
+        return result;
     }
 
     /*
@@ -82,39 +126,28 @@ namespace PathUtils {
     }
 
     /*
-    ** Check if a path is relative.
-    */
-    bool IsPathRelative(const std::wstring& path) {
-        return PathIsRelativeW(path.c_str()) != FALSE;
-    }
-
-    /*
     ** Resolve a path to an absolute path.
     */
     std::wstring ResolvePath(const std::wstring& path, const std::wstring& baseDir) {
         if (path.empty()) return L"";
         
-        std::wstring normPath = NormalizePath(path);
+        std::wstring res = path;
+        for (auto& c : res) if (c == L'/') c = L'\\';
 
-        if (!IsPathRelative(normPath)) {
-            return normPath;
+        if (!IsPathRelative(res)) {
+            return NormalizePath(res);
         }
 
         std::wstring finalBase = baseDir.empty() ? GetExeDir() : baseDir;
-        std::wstring normBase = NormalizePath(finalBase);
+        if (!finalBase.empty() && finalBase.back() != L'\\') finalBase += L'\\';
+
+        std::wstring combined = finalBase + res;
         
-        // Ensure normBase ends with a single backslash
-        if (!normBase.empty() && normBase.back() != L'\\') {
-            normBase += L'\\';
-        }
-
-        std::wstring combined = normBase + normPath;
-
         wchar_t fullPath[MAX_PATH];
         if (GetFullPathNameW(combined.c_str(), MAX_PATH, fullPath, NULL)) {
             return std::wstring(fullPath);
         }
 
-        return combined;
+        return NormalizePath(combined);
     }
 }

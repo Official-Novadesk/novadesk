@@ -78,6 +78,11 @@ namespace JSApi {
         duk_pop(s_JsContext); // Pop stash
 
         PropertyParser::PushWidgetProperties(s_JsContext, widget);
+        
+        // Add internal pointers for C++ identification
+        duk_push_pointer(s_JsContext, widget);
+        duk_put_prop_string(s_JsContext, -2, "\xFF" "widgetPtr");
+        
         std::string idStr = Utils::ToString(widget->GetOptions().id);
         duk_push_string(s_JsContext, idStr.c_str());
         duk_put_prop_string(s_JsContext, -2, "\xFF" "id");
