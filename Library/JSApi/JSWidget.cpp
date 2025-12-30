@@ -9,10 +9,37 @@
 #include "../Widget.h"
 #include "../PropertyParser.h"
 #include "../Logging.h"
+#include "../Utils.h"
+#include "JSApi.h"
 
 extern std::vector<Widget*> widgets;
 
 namespace JSApi {
+    
+    Widget* GetWidgetFromContext(duk_context* ctx) {
+        duk_push_this(ctx);
+        
+        // Try Windows Method (Direct Pointer)
+        if (duk_get_prop_string(ctx, -1, "\xFF" "widgetPtr")) {
+            Widget* widget = (Widget*)duk_get_pointer(ctx, -1);
+            duk_pop_2(ctx);
+            return widget;
+        }
+        duk_pop(ctx);
+
+        // Try IPC Method (ID-based)
+        if (duk_get_prop_string(ctx, -1, "\xFF" "id")) {
+            std::wstring id = Utils::ToWString(duk_get_string(ctx, -1));
+            duk_pop_2(ctx);
+            for (auto w : widgets) {
+                if (w->GetOptions().id == id) return w;
+            }
+        } else {
+            duk_pop(ctx);
+        }
+
+        return nullptr;
+    }
 
     duk_ret_t js_create_widget_window(duk_context* ctx) {
         if (!duk_is_object(ctx, 0)) return DUK_RET_TYPE_ERROR;
@@ -61,6 +88,9 @@ namespace JSApi {
         duk_push_object(ctx);
         duk_push_pointer(ctx, widget);
         duk_put_prop_string(ctx, -2, "\xFF" "widgetPtr");
+        std::string idStr = Utils::ToString(options.id);
+        duk_push_string(ctx, idStr.c_str());
+        duk_put_prop_string(ctx, -2, "\xFF" "id");
         
         BindWidgetControlMethods(ctx);
 
@@ -72,11 +102,7 @@ namespace JSApi {
     }
 
     duk_ret_t js_widget_set_properties(duk_context* ctx) {
-        duk_push_this(ctx);
-        duk_get_prop_string(ctx, -1, "\xFF" "widgetPtr");
-        Widget* widget = (Widget*)duk_get_pointer(ctx, -1);
-        duk_pop_2(ctx);
-
+        Widget* widget = GetWidgetFromContext(ctx);
         if (!widget || !duk_is_object(ctx, 0)) return DUK_RET_TYPE_ERROR;
         PropertyParser::ApplyWidgetProperties(ctx, widget);
         duk_push_this(ctx);
@@ -84,36 +110,25 @@ namespace JSApi {
     }
 
     duk_ret_t js_widget_get_properties(duk_context* ctx) {
-        duk_push_this(ctx);
-        duk_get_prop_string(ctx, -1, "\xFF" "widgetPtr");
-        Widget* widget = (Widget*)duk_get_pointer(ctx, -1);
-        duk_pop_2(ctx);
-
+        Widget* widget = GetWidgetFromContext(ctx);
         if (!widget) return DUK_RET_TYPE_ERROR;
         PropertyParser::PushWidgetProperties(ctx, widget);
         return 1;
     }
 
     duk_ret_t js_widget_close(duk_context* ctx) {
-        duk_push_this(ctx);
-        duk_get_prop_string(ctx, -1, "\xFF" "widgetPtr");
-        Widget* widget = (Widget*)duk_get_pointer(ctx, -1);
-        duk_pop_2(ctx);
-
+        Widget* widget = GetWidgetFromContext(ctx);
         if (!widget) return DUK_RET_TYPE_ERROR;
         delete widget;
         duk_push_this(ctx);
         duk_del_prop_string(ctx, -1, "\xFF" "widgetPtr");
+        duk_del_prop_string(ctx, -1, "\xFF" "id");
         duk_pop(ctx);
         return 0;
     }
 
     duk_ret_t js_widget_refresh(duk_context* ctx) {
-        duk_push_this(ctx);
-        duk_get_prop_string(ctx, -1, "\xFF" "widgetPtr");
-        Widget* widget = (Widget*)duk_get_pointer(ctx, -1);
-        duk_pop_2(ctx);
-
+        Widget* widget = GetWidgetFromContext(ctx);
         if (widget) widget->Refresh();
         return 0;
     }

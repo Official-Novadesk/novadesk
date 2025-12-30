@@ -13,6 +13,9 @@
 #include "../Utils.h"
 #include "JSWidget.h"
 #include "JSElement.h"
+#include "JSSystem.h"
+#include "JSUtils.h"
+#include "JSIPC.h"
 
 namespace JSApi {
     void ExecuteScript(const std::wstring& script) {
@@ -49,18 +52,45 @@ namespace JSApi {
         }
 
         duk_push_global_stash(s_JsContext);
-        duk_get_global_string(s_JsContext, "widgetWindow");
-        duk_put_prop_string(s_JsContext, -2, "original_widgetWindow");
-        duk_pop(s_JsContext);
+        duk_get_global_string(s_JsContext, "win");
+        duk_put_prop_string(s_JsContext, -2, "original_win");
+        duk_get_global_string(s_JsContext, "system");
+        duk_put_prop_string(s_JsContext, -2, "original_system");
+        duk_get_global_string(s_JsContext, "novadesk");
+        duk_put_prop_string(s_JsContext, -2, "original_novadesk");
+
+        // Save and remove timers and constructors
+        const char* forbidden[] = { 
+            "setInterval", "setTimeout", "clearInterval", "clearTimeout", "setImmediate",
+            "widgetWindow"
+        };
+        for (const char* f : forbidden) {
+            duk_get_global_string(s_JsContext, f);
+            duk_put_prop_string(s_JsContext, -2, f); // Save to stash
+            duk_push_global_object(s_JsContext);
+            duk_del_prop_string(s_JsContext, -1, f);
+            duk_pop(s_JsContext);
+        }
+
+        duk_pop(s_JsContext); // Pop stash
 
         PropertyParser::PushWidgetProperties(s_JsContext, widget);
-        duk_push_pointer(s_JsContext, widget);
-        duk_put_prop_string(s_JsContext, -2, "\xFF" "widgetPtr");
+        std::string idStr = Utils::ToString(widget->GetOptions().id);
+        duk_push_string(s_JsContext, idStr.c_str());
+        duk_put_prop_string(s_JsContext, -2, "\xFF" "id");
 
-        BindWidgetControlMethods(s_JsContext);
         BindWidgetUIMethods(s_JsContext);
-        
-        duk_put_global_string(s_JsContext, "widgetWindow");
+        duk_put_global_string(s_JsContext, "win");
+
+        duk_push_object(s_JsContext);
+        BindSystemBaseMethods(s_JsContext);
+        duk_put_global_string(s_JsContext, "system");
+
+        duk_push_object(s_JsContext);
+        BindNovadeskBaseMethods(s_JsContext);
+        duk_put_global_string(s_JsContext, "novadesk");
+
+        BindIPCMethods(s_JsContext);
 
         if (duk_peval_string(s_JsContext, content.c_str()) != 0) {
             Logging::Log(LogLevel::Error, L"Widget Script Error (%s): %S", widget->GetOptions().id.c_str(), duk_safe_to_string(s_JsContext, -1));
@@ -68,8 +98,20 @@ namespace JSApi {
         duk_pop(s_JsContext);
 
         duk_push_global_stash(s_JsContext);
-        duk_get_prop_string(s_JsContext, -1, "original_widgetWindow");
-        duk_put_global_string(s_JsContext, "widgetWindow");
+        duk_get_prop_string(s_JsContext, -1, "original_win");
+        duk_put_global_string(s_JsContext, "win");
+        duk_get_prop_string(s_JsContext, -1, "original_system");
+        duk_put_global_string(s_JsContext, "system");
+        duk_get_prop_string(s_JsContext, -1, "original_novadesk");
+        duk_put_global_string(s_JsContext, "novadesk");
+
+        // Restore timers and constructors
+        for (const char* f : forbidden) {
+            duk_get_prop_string(s_JsContext, -1, f);
+            duk_put_global_string(s_JsContext, f);
+            duk_del_prop_string(s_JsContext, -1, f); // Clean up stash
+        }
+
         duk_pop(s_JsContext);
     }
 

@@ -6,6 +6,7 @@
  * obtain one at <https://www.gnu.org/licenses/gpl-2.0.html>. */
 
 #include "JSUtils.h"
+#include "JSEvents.h"
 #include "../Logging.h"
 #include "../Utils.h"
 #include "../TimerManager.h"
@@ -172,5 +173,31 @@ namespace JSApi {
     duk_ret_t js_novadesk_refresh(duk_context* ctx) {
         ReloadScripts(ctx);
         return 0;
+    }
+
+    void BindNovadeskBaseMethods(duk_context* ctx) {
+        duk_push_c_function(ctx, js_log, DUK_VARARGS);
+        duk_put_prop_string(ctx, -2, "log");
+        duk_push_c_function(ctx, js_error, DUK_VARARGS);
+        duk_put_prop_string(ctx, -2, "error");
+        duk_push_c_function(ctx, js_debug, DUK_VARARGS);
+        duk_put_prop_string(ctx, -2, "debug");
+        duk_push_c_function(ctx, js_include, 1);
+        duk_put_prop_string(ctx, -2, "include");
+        duk_push_c_function(ctx, js_on_ready, 1);
+        duk_put_prop_string(ctx, -2, "onReady");
+    }
+
+    void BindNovadeskAppMethods(duk_context* ctx) {
+        duk_push_c_function(ctx, js_novadesk_saveLogToFile, 1);
+        duk_put_prop_string(ctx, -2, "saveLogToFile");
+        duk_push_c_function(ctx, js_novadesk_enableDebugging, 1);
+        duk_put_prop_string(ctx, -2, "enableDebugging");
+        duk_push_c_function(ctx, js_novadesk_disableLogging, 1);
+        duk_put_prop_string(ctx, -2, "disableLogging");
+        duk_push_c_function(ctx, js_novadesk_hideTrayIcon, 1);
+        duk_put_prop_string(ctx, -2, "hideTrayIcon");
+        duk_push_c_function(ctx, js_novadesk_refresh, 0);
+        duk_put_prop_string(ctx, -2, "refresh");
     }
 }

@@ -27,9 +27,6 @@
     <ClInclude Include="Library\Novadesk.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Library\duktape\duktape.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="Library\System.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -40,9 +37,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Library\Logging.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Library\JSApi.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Library\JSApi\JSCommon.h">
@@ -114,21 +108,24 @@
     <ClInclude Include="Library\PropertyParser.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Library\JSApi\JSApi.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Library\JSApi\duktape\duktape.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Library\JSApi\JSIPC.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Library\Novadesk.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Library\duktape\duktape.c">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Library\System.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Library\Widget.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Library\JSApi.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Library\JSApi\JSCommon.cpp">
@@ -198,6 +195,15 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Library\Element.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Library\JSApi\JSApi.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Library\JSApi\duktape\duktape.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Library\JSApi\JSIPC.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

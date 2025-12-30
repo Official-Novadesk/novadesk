@@ -13,6 +13,7 @@
 #include "JSElement.h"
 #include "JSContextMenu.h"
 #include "JSEvents.h"
+#include "JSIPC.h"
 
 #include "../Widget.h"
 #include "../Settings.h"
@@ -34,28 +35,8 @@ namespace JSApi {
 
         // Register novadesk object and methods
         duk_push_object(ctx);
-        duk_push_c_function(ctx, js_log, DUK_VARARGS);
-        duk_put_prop_string(ctx, -2, "log");
-        duk_push_c_function(ctx, js_error, DUK_VARARGS);
-        duk_put_prop_string(ctx, -2, "error");
-        duk_push_c_function(ctx, js_debug, DUK_VARARGS);
-        duk_put_prop_string(ctx, -2, "debug");
-        duk_push_c_function(ctx, js_include, 1);
-        duk_put_prop_string(ctx, -2, "include");
-        duk_push_c_function(ctx, js_on_ready, 1);
-        duk_put_prop_string(ctx, -2, "onReady");
-
-        duk_push_c_function(ctx, js_novadesk_saveLogToFile, 1);
-        duk_put_prop_string(ctx, -2, "saveLogToFile");
-        duk_push_c_function(ctx, js_novadesk_enableDebugging, 1);
-        duk_put_prop_string(ctx, -2, "enableDebugging");
-        duk_push_c_function(ctx, js_novadesk_disableLogging, 1);
-        duk_put_prop_string(ctx, -2, "disableLogging");
-        duk_push_c_function(ctx, js_novadesk_hideTrayIcon, 1);
-        duk_put_prop_string(ctx, -2, "hideTrayIcon");
-        duk_push_c_function(ctx, js_novadesk_refresh, 0);
-        duk_put_prop_string(ctx, -2, "refresh");
-
+        BindNovadeskBaseMethods(ctx);
+        BindNovadeskAppMethods(ctx);
         duk_put_global_string(ctx, "novadesk");
 
         // Register Managers
@@ -68,67 +49,8 @@ namespace JSApi {
 
         // Register system object
         duk_push_object(ctx);
-        duk_push_c_function(ctx, js_get_env, DUK_VARARGS);
-        duk_put_prop_string(ctx, -2, "getEnv");
-        duk_push_c_function(ctx, js_register_hotkey, 2);
-        duk_put_prop_string(ctx, -2, "registerHotkey");
-        duk_push_c_function(ctx, js_unregister_hotkey, 1);
-        duk_put_prop_string(ctx, -2, "unregisterHotkey");
-        duk_push_c_function(ctx, js_get_exe_path, 0);
-        duk_put_prop_string(ctx, -2, "getExePath");
-        duk_push_c_function(ctx, js_system_get_display_metrics, 0);
-        duk_put_prop_string(ctx, -2, "getDisplayMetrics");
-
-        // CPU Class
-        duk_push_c_function(ctx, js_cpu_constructor, 1);
-        duk_push_object(ctx);
-        duk_push_c_function(ctx, js_cpu_usage, 0); duk_put_prop_string(ctx, -2, "usage");
-        duk_push_c_function(ctx, js_cpu_destroy, 0); duk_put_prop_string(ctx, -2, "destroy");
-        duk_put_prop_string(ctx, -2, "prototype");
-        duk_push_c_function(ctx, js_cpu_finalizer, 1);
-        duk_set_finalizer(ctx, -2);
-        duk_put_prop_string(ctx, -2, "cpu");
-
-        // Memory Class
-        duk_push_c_function(ctx, js_memory_constructor, 0);
-        duk_push_object(ctx);
-        duk_push_c_function(ctx, js_memory_stats, 0); duk_put_prop_string(ctx, -2, "stats");
-        duk_push_c_function(ctx, js_memory_destroy, 0); duk_put_prop_string(ctx, -2, "destroy");
-        duk_put_prop_string(ctx, -2, "prototype");
-        duk_push_c_function(ctx, js_memory_finalizer, 1);
-        duk_set_finalizer(ctx, -2);
-        duk_put_prop_string(ctx, -2, "memory");
-
-        // Network Class
-        duk_push_c_function(ctx, js_network_constructor, 0);
-        duk_push_object(ctx);
-        duk_push_c_function(ctx, js_network_stats, 0); duk_put_prop_string(ctx, -2, "stats");
-        duk_push_c_function(ctx, js_network_destroy, 0); duk_put_prop_string(ctx, -2, "destroy");
-        duk_put_prop_string(ctx, -2, "prototype");
-        duk_push_c_function(ctx, js_network_finalizer, 1);
-        duk_set_finalizer(ctx, -2);
-        duk_put_prop_string(ctx, -2, "network");
-
-        // Mouse Class
-        duk_push_c_function(ctx, js_mouse_constructor, 0);
-        duk_push_object(ctx);
-        duk_push_c_function(ctx, js_mouse_position, 0); duk_put_prop_string(ctx, -2, "position");
-        duk_push_c_function(ctx, js_mouse_destroy, 0); duk_put_prop_string(ctx, -2, "destroy");
-        duk_put_prop_string(ctx, -2, "prototype");
-        duk_push_c_function(ctx, js_mouse_finalizer, 1);
-        duk_set_finalizer(ctx, -2);
-        duk_put_prop_string(ctx, -2, "mouse");
-
-        // Disk Class
-        duk_push_c_function(ctx, js_disk_constructor, 1);
-        duk_push_object(ctx);
-        duk_push_c_function(ctx, js_disk_stats, 0); duk_put_prop_string(ctx, -2, "stats");
-        duk_push_c_function(ctx, js_disk_destroy, 0); duk_put_prop_string(ctx, -2, "destroy");
-        duk_put_prop_string(ctx, -2, "prototype");
-        duk_push_c_function(ctx, js_disk_finalizer, 1);
-        duk_set_finalizer(ctx, -2);
-        duk_put_prop_string(ctx, -2, "disk");
-
+        BindSystemBaseMethods(ctx);
+        BindSystemMonitors(ctx);
         duk_put_global_string(ctx, "system");
 
         // Register timers
@@ -148,6 +70,9 @@ namespace JSApi {
         // Register widgetWindow
         duk_push_c_function(ctx, js_create_widget_window, 1);
         duk_put_global_string(ctx, "widgetWindow");
+
+        // Register global IPC
+        BindIPCMethods(ctx);
 
         Logging::Log(LogLevel::Info, L"JavaScript API initialized");
     }

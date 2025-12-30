@@ -45,4 +45,8 @@ namespace JSApi {
     duk_ret_t js_disk_stats(duk_context* ctx);
     duk_ret_t js_disk_destroy(duk_context* ctx);
     duk_ret_t js_disk_finalizer(duk_context* ctx);
+
+    // Binding functions
+    void BindSystemBaseMethods(duk_context* ctx);
+    void BindSystemMonitors(duk_context* ctx);
 }

@@ -26,4 +26,8 @@ namespace JSApi {
     duk_ret_t js_novadesk_disableLogging(duk_context* ctx);
     duk_ret_t js_novadesk_hideTrayIcon(duk_context* ctx);
     duk_ret_t js_novadesk_refresh(duk_context* ctx);
+
+    // Binding functions
+    void BindNovadeskBaseMethods(duk_context* ctx);
+    void BindNovadeskAppMethods(duk_context* ctx);
 }
