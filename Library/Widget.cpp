@@ -826,6 +826,30 @@ void Widget::AddText(const PropertyParser::TextOptions& options)
 }
 
 /*
+** Add a bar content item to the widget.
+*/
+void Widget::AddBar(const PropertyParser::BarOptions& options)
+{
+    if (options.id.empty()) {
+        Logging::Log(LogLevel::Error, L"AddBar failed: Element ID cannot be empty.");
+        return;
+    }
+
+    if (FindElementById(options.id)) {
+        Logging::Log(LogLevel::Error, L"AddBar failed: Element with ID '%s' already exists.", options.id.c_str());
+        return;
+    }
+
+    BarElement* element = new BarElement(options.id, options.x, options.y, options.width, options.height, options.value, options.orientation);
+    
+    PropertyParser::ApplyBarOptions(element, options);
+
+    m_Elements.push_back(element);
+    
+    Redraw();
+}
+
+/*
 ** Update properties of an existing element.
 */
 void Widget::SetElementProperties(const std::wstring& id, duk_context* ctx)
@@ -879,6 +903,23 @@ void Widget::SetElementProperties(const std::wstring& id, duk_context* ctx)
 
         PropertyParser::ParseImageOptions(ctx, options);
         PropertyParser::ApplyImageOptions(img, options);
+    }
+ else if (element->GetType() == ELEMENT_BAR) {
+        PropertyParser::BarOptions options;
+        options.id = element->GetId();
+        options.x = element->GetX();
+        options.y = element->GetY();
+        options.width = element->GetWidth();
+        options.height = element->GetHeight();
+        options.rotate = element->GetRotate();
+        options.antialias = element->GetAntiAlias();
+
+        BarElement* bar = static_cast<BarElement*>(element);
+        options.value = bar->GetValue();
+        options.orientation = bar->GetOrientation();
+
+        PropertyParser::ParseBarOptions(ctx, options);
+        PropertyParser::ApplyBarOptions(bar, options);
     }
 
     Redraw();

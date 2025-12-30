@@ -28,7 +28,8 @@
 enum ElementType
 {
     ELEMENT_IMAGE,
-    ELEMENT_TEXT
+    ELEMENT_TEXT,
+    ELEMENT_BAR
 };
 
 class Element

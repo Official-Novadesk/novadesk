@@ -377,6 +377,46 @@ namespace PropertyParser {
     }
 
     /*
+    ** Parse BarOptions from a Duktape object at the top of the stack.
+    */
+    void ParseBarOptions(duk_context* ctx, BarOptions& options, const std::wstring& baseDir) {
+        if (!duk_is_object(ctx, -1)) return;
+
+        // Parse base options first
+        ParseElementOptionsInternal(ctx, options);
+        PropertyReader reader(ctx);
+
+        reader.GetFloat("value", options.value);
+        
+        std::wstring orientationStr;
+        if (reader.GetString("orientation", orientationStr)) {
+            if (orientationStr == L"horizontal") options.orientation = BAR_HORIZONTAL;
+            else if (orientationStr == L"vertical") options.orientation = BAR_VERTICAL;
+        } else {
+            // Fallback to int for backward compatibility if needed, though we just implemented it
+            int orient = 0;
+            if (reader.GetInt("orientation", orient)) options.orientation = (BarOrientation)orient;
+        }
+
+        reader.GetInt("barcornerradius", options.barCornerRadius);
+
+        std::wstring barColorStr;
+        if (reader.GetString("barcolor", barColorStr)) {
+            if (ColorUtil::ParseRGBA(barColorStr, options.barColor, options.barAlpha)) {
+                options.hasBarColor = true;
+            }
+        }
+
+        std::wstring barColor2Str;
+        if (reader.GetString("barcolor2", barColor2Str)) {
+            if (ColorUtil::ParseRGBA(barColor2Str, options.barColor2, options.barAlpha2)) {
+                options.hasBarGradient = true;
+            }
+        }
+        reader.GetFloat("bargradientangle", options.barGradientAngle);
+    }
+
+    /*
     ** Apply properties from a Duktape object to a Widget.
     */
     void ApplyWidgetProperties(duk_context* ctx, Widget* widget, const std::wstring& baseDir) {
@@ -601,6 +641,15 @@ namespace PropertyParser {
                 std::wstring itStr = ColorUtil::ToRGBAString(img->GetImageTint(), img->GetImageTintAlpha());
                 duk_push_string(ctx, Utils::ToString(itStr).c_str()); duk_put_prop_string(ctx, -2, "imagetint");
             }
+        } else if (element->GetType() == ELEMENT_BAR) {
+            BarElement* bar = static_cast<BarElement*>(element);
+            duk_push_number(ctx, bar->GetValue()); duk_put_prop_string(ctx, -2, "value");
+            
+            const char* orientStr = (bar->GetOrientation() == BAR_VERTICAL) ? "vertical" : "horizontal";
+            duk_push_string(ctx, orientStr); duk_put_prop_string(ctx, -2, "orientation");
+            
+            duk_push_int(ctx, bar->GetBarCornerRadius()); duk_put_prop_string(ctx, -2, "barcornerradius");
+            duk_push_number(ctx, bar->GetBarGradientAngle()); duk_put_prop_string(ctx, -2, "bargradientangle");
         }
     }
 
@@ -714,5 +763,24 @@ namespace PropertyParser {
         element->SetItalic(options.italic);
         element->SetTextAlign(options.textAlign);
         element->SetClip(options.clip, options.clipW, options.clipH);
+    }
+
+    /*
+    ** Apply properties from a BarOptions struct to a BarElement instance.
+    */
+    void ApplyBarOptions(BarElement* element, const BarOptions& options) {
+        if (!element) return;
+        ApplyElementOptions(element, options);
+
+        element->SetValue(options.value);
+        element->SetOrientation(options.orientation);
+        element->SetBarCornerRadius(options.barCornerRadius);
+
+        if (options.hasBarColor) {
+            element->SetBarColor(options.barColor, options.barAlpha);
+        }
+        if (options.hasBarGradient) {
+            element->SetBarColor2(options.barColor2, options.barAlpha2, options.barGradientAngle);
+        }
     }
 }

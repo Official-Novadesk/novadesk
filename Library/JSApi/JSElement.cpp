@@ -51,6 +51,24 @@ namespace JSApi {
         return 1;
     }
 
+    duk_ret_t js_widget_add_bar(duk_context* ctx) {
+        duk_push_this(ctx);
+        duk_get_prop_string(ctx, -1, "\xFF" "widgetPtr");
+        Widget* widget = (Widget*)duk_get_pointer(ctx, -1);
+        duk_pop_2(ctx);
+
+        if (!widget || !duk_is_object(ctx, 0)) return DUK_RET_TYPE_ERROR;
+        duk_dup(ctx, 0);
+        PropertyParser::BarOptions options;
+        std::wstring baseDir = PathUtils::GetParentDir(widget->GetOptions().scriptPath);
+        PropertyParser::ParseBarOptions(ctx, options, baseDir);
+        duk_pop(ctx);
+
+        widget->AddBar(options);
+        duk_push_this(ctx);
+        return 1;
+    }
+
     duk_ret_t js_widget_set_element_properties(duk_context* ctx) {
         duk_push_this(ctx);
         duk_get_prop_string(ctx, -1, "\xFF" "widgetPtr");
@@ -115,6 +133,8 @@ namespace JSApi {
         duk_put_prop_string(ctx, -2, "addImage");
         duk_push_c_function(ctx, js_widget_add_text, 1);
         duk_put_prop_string(ctx, -2, "addText");
+        duk_push_c_function(ctx, js_widget_add_bar, 1);
+        duk_put_prop_string(ctx, -2, "addBar");
         
         duk_push_c_function(ctx, js_widget_add_context_menu_item, 2);
         duk_put_prop_string(ctx, -2, "addContextMenuItem");

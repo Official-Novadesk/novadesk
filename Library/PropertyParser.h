@@ -11,6 +11,7 @@
 #include "Element.h"
 #include "TextElement.h"
 #include "ImageElement.h"
+#include "BarElement.h"
 
 namespace PropertyParser
 {
@@ -119,9 +120,29 @@ namespace PropertyParser
         int clipH = -1;
     };
 
+    /*
+    ** Options for creating/updating Bar elements
+    */
+    struct BarOptions : public ElementOptions {
+        float value = 0.0f;
+        BarOrientation orientation = BAR_HORIZONTAL;
+        
+        int barCornerRadius = 0;
+
+        bool hasBarColor = false;
+        COLORREF barColor = RGB(0, 255, 0);
+        BYTE barAlpha = 255;
+
+        bool hasBarGradient = false;
+        COLORREF barColor2 = 0;
+        BYTE barAlpha2 = 255;
+        float barGradientAngle = 0.0f;
+    };
+
     void ParseWidgetOptions(duk_context* ctx, WidgetOptions& options, const std::wstring& baseDir = L"");
     void ParseImageOptions(duk_context* ctx, ImageOptions& options, const std::wstring& baseDir = L"");
     void ParseTextOptions(duk_context* ctx, TextOptions& options, const std::wstring& baseDir = L"");
+    void ParseBarOptions(duk_context* ctx, BarOptions& options, const std::wstring& baseDir = L"");
     void ApplyWidgetProperties(duk_context* ctx, Widget* widget, const std::wstring& baseDir = L"");
 
     void PushWidgetProperties(duk_context* ctx, Widget* widget);
@@ -131,4 +152,5 @@ namespace PropertyParser
 
     void ApplyImageOptions(ImageElement* element, const ImageOptions& options);
     void ApplyTextOptions(TextElement* element, const TextOptions& options);
+    void ApplyBarOptions(BarElement* element, const BarOptions& options);
 }

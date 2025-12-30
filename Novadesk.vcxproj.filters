@@ -72,6 +72,9 @@
     <ClInclude Include="Library\ImageElement.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Library\BarElement.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="Library\Element.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -168,6 +171,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Library\ImageElement.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Library\BarElement.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Library\TextElement.cpp">

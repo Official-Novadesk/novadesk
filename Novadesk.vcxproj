@@ -139,6 +139,7 @@
     <ClInclude Include="Library\DiskMonitor.h" />
     <ClInclude Include="Library\Element.h" />
     <ClInclude Include="Library\ImageElement.h" />
+    <ClInclude Include="Library\BarElement.h" />
     <ClInclude Include="Library\JSApi\JSIPC.h" />
     <ClInclude Include="Library\JSApi\JSPath.h" />
     <ClInclude Include="Library\JSApi\JSApp.h" />
@@ -177,6 +178,7 @@
     <ClCompile Include="Library\Hotkey.cpp" />
     <ClCompile Include="Library\DiskMonitor.cpp" />
     <ClCompile Include="Library\ImageElement.cpp" />
+    <ClCompile Include="Library\BarElement.cpp" />
     <ClCompile Include="Library\JSApi\JSIPC.cpp" />
     <ClCompile Include="Library\JSApi\JSPath.cpp" />
     <ClCompile Include="Library\JSApi\JSApp.cpp" />
