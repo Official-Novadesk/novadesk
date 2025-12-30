@@ -146,7 +146,7 @@
     <ClInclude Include="Library\Widget.h" />
     <ClInclude Include="Library\ColorUtil.h" />
     <ClInclude Include="Library\Logging.h" />
-    <ClInclude Include="Library\JSApi.h" />
+    <ClInclude Include="Library\JSApi\JSApi.h" />
     <ClInclude Include="Library\JSApi\JSCommon.h" />
     <ClInclude Include="Library\JSApi\JSUtils.h" />
     <ClInclude Include="Library\JSApi\JSSystem.h" />
@@ -158,7 +158,7 @@
     <ClInclude Include="Library\CPUMonitor.h" />
     <ClInclude Include="Library\MemoryMonitor.h" />
     <ClInclude Include="Library\framework.h" />
-    <ClInclude Include="Library\duktape\duktape.h" />
+    <ClInclude Include="Library\JSApi\duktape\duktape.h" />
     <ClInclude Include="Library\Novadesk.h" />
     <ClInclude Include="Library\Resource.h" />
     <ClInclude Include="Library\targetver.h" />
@@ -179,7 +179,7 @@
     <ClCompile Include="Library\System.cpp" />
     <ClCompile Include="Library\TextElement.cpp" />
     <ClCompile Include="Library\Widget.cpp" />
-    <ClCompile Include="Library\JSApi.cpp" />
+    <ClCompile Include="Library\JSApi\JSApi.cpp" />
     <ClCompile Include="Library\JSApi\JSCommon.cpp" />
     <ClCompile Include="Library\JSApi\JSUtils.cpp" />
     <ClCompile Include="Library\JSApi\JSSystem.cpp" />
@@ -191,7 +191,7 @@
     <ClCompile Include="Library\Utils.cpp" />
     <ClCompile Include="Library\CPUMonitor.cpp" />
     <ClCompile Include="Library\MemoryMonitor.cpp" />
-    <ClCompile Include="Library\duktape\duktape.c" />
+    <ClCompile Include="Library\JSApi\duktape\duktape.c" />
     <ClCompile Include="Library\Novadesk.cpp" />
     <ClCompile Include="Library\PathUtils.cpp" />
     <ClCompile Include="Library\FileUtils.cpp" />

@@ -7,11 +7,11 @@
 
 #include "framework.h"
 #include "Novadesk.h"
-#include "duktape/duktape.h"
+#include "JSApi/duktape/duktape.h"
 #include "Widget.h"
 #include "System.h"
 #include "Logging.h"
-#include "JSApi.h"
+#include "JSApi/JSApi.h"
 #include "Settings.h"
 #include "Resource.h"
 #include <vector>

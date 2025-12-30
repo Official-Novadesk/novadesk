@@ -6,7 +6,7 @@
  * obtain one at <https://www.gnu.org/licenses/gpl-2.0.html>. */
 
 #pragma once
-#include "duktape/duktape.h"
+#include "JSApi/duktape/duktape.h"
 #include "Widget.h"
 #include "Element.h"
 #include "TextElement.h"

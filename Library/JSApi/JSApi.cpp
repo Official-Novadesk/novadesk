@@ -6,22 +6,22 @@
  * obtain one at <https://www.gnu.org/licenses/gpl-2.0.html>. */
 
 #include "JSApi.h"
-#include "JSApi/JSCommon.h"
-#include "JSApi/JSUtils.h"
-#include "JSApi/JSSystem.h"
-#include "JSApi/JSWidget.h"
-#include "JSApi/JSElement.h"
-#include "JSApi/JSContextMenu.h"
-#include "JSApi/JSEvents.h"
+#include "JSCommon.h"
+#include "JSUtils.h"
+#include "JSSystem.h"
+#include "JSWidget.h"
+#include "JSElement.h"
+#include "JSContextMenu.h"
+#include "JSEvents.h"
 
-#include "Widget.h"
-#include "Settings.h"
-#include "Logging.h"
-#include "PathUtils.h"
-#include "FileUtils.h"
-#include "TimerManager.h"
-#include "Hotkey.h"
-#include "Utils.h"
+#include "../Widget.h"
+#include "../Settings.h"
+#include "../Logging.h"
+#include "../PathUtils.h"
+#include "../FileUtils.h"
+#include "../TimerManager.h"
+#include "../Hotkey.h"
+#include "../Utils.h"
 
 #include <vector>
 

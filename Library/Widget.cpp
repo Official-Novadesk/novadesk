@@ -15,7 +15,7 @@
 #include <algorithm>
 #include <gdiplus.h>
 
-#include "JSApi.h"
+#include "JSApi/JSApi.h"
 #include "ColorUtil.h"
 #pragma comment(lib, "gdiplus.lib")
 

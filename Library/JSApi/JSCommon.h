@@ -9,7 +9,7 @@
 #include <string>
 #include <vector>
 #include <Windows.h>
-#include "../duktape/duktape.h"
+#include "duktape/duktape.h"
 
 class Widget;
 class Element;
