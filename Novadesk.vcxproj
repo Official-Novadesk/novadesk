@@ -140,6 +140,8 @@
     <ClInclude Include="Library\Element.h" />
     <ClInclude Include="Library\ImageElement.h" />
     <ClInclude Include="Library\JSApi\JSIPC.h" />
+    <ClInclude Include="Library\JSApi\JSPath.h" />
+    <ClInclude Include="Library\JSApi\JSApp.h" />
     <ClInclude Include="Library\MouseMonitor.h" />
     <ClInclude Include="Library\NetworkMonitor.h" />
     <ClInclude Include="Library\System.h" />
@@ -176,6 +178,8 @@
     <ClCompile Include="Library\DiskMonitor.cpp" />
     <ClCompile Include="Library\ImageElement.cpp" />
     <ClCompile Include="Library\JSApi\JSIPC.cpp" />
+    <ClCompile Include="Library\JSApi\JSPath.cpp" />
+    <ClCompile Include="Library\JSApi\JSApp.cpp" />
     <ClCompile Include="Library\MouseMonitor.cpp" />
     <ClCompile Include="Library\NetworkMonitor.cpp" />
     <ClCompile Include="Library\System.cpp" />

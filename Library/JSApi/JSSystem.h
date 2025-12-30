@@ -10,7 +10,6 @@
 
 namespace JSApi {
     // Environment/Path API
-    duk_ret_t js_get_exe_path(duk_context* ctx);
     duk_ret_t js_get_env(duk_context* ctx);
 
     // Hotkey API

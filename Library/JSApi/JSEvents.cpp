@@ -11,11 +11,14 @@
 #include "../FileUtils.h"
 #include "../PropertyParser.h"
 #include "../Utils.h"
+#include "../PathUtils.h"
 #include "JSWidget.h"
 #include "JSElement.h"
 #include "JSSystem.h"
 #include "JSUtils.h"
 #include "JSIPC.h"
+#include "JSPath.h"
+#include "JSApp.h"
 
 namespace JSApi {
     void ExecuteScript(const std::wstring& script) {
@@ -58,11 +61,21 @@ namespace JSApi {
         duk_put_prop_string(s_JsContext, -2, "original_system");
         duk_get_global_string(s_JsContext, "novadesk");
         duk_put_prop_string(s_JsContext, -2, "original_novadesk");
+        duk_get_global_string(s_JsContext, "path");
+        duk_put_prop_string(s_JsContext, -2, "original_path");
+        duk_get_global_string(s_JsContext, "process");
+        duk_put_prop_string(s_JsContext, -2, "original_process");
+        duk_get_global_string(s_JsContext, "app");
+        duk_put_prop_string(s_JsContext, -2, "original_app");
+        duk_get_global_string(s_JsContext, "__dirname");
+        duk_put_prop_string(s_JsContext, -2, "original_dirname");
+        duk_get_global_string(s_JsContext, "__filename");
+        duk_put_prop_string(s_JsContext, -2, "original_filename");
 
         // Save and remove timers and constructors
         const char* forbidden[] = { 
             "setInterval", "setTimeout", "clearInterval", "clearTimeout", "setImmediate",
-            "widgetWindow"
+            "widgetWindow", "app"
         };
         for (const char* f : forbidden) {
             duk_get_global_string(s_JsContext, f);
@@ -90,7 +103,18 @@ namespace JSApi {
         BindNovadeskBaseMethods(s_JsContext);
         duk_put_global_string(s_JsContext, "novadesk");
 
+        BindPathMethods(s_JsContext);
+        BindProcessMethods(s_JsContext);
         BindIPCMethods(s_JsContext);
+
+        // Provide __dirname and __filename
+        std::string dirname = Utils::ToString(PathUtils::GetParentDir(scriptPath));
+        if (dirname.length() > 3 && dirname.back() == '\\') dirname.pop_back();
+        std::string filename = Utils::ToString(scriptPath);
+        duk_push_string(s_JsContext, dirname.c_str());
+        duk_put_global_string(s_JsContext, "__dirname");
+        duk_push_string(s_JsContext, filename.c_str());
+        duk_put_global_string(s_JsContext, "__filename");
 
         if (duk_peval_string(s_JsContext, content.c_str()) != 0) {
             Logging::Log(LogLevel::Error, L"Widget Script Error (%s): %S", widget->GetOptions().id.c_str(), duk_safe_to_string(s_JsContext, -1));
@@ -104,6 +128,16 @@ namespace JSApi {
         duk_put_global_string(s_JsContext, "system");
         duk_get_prop_string(s_JsContext, -1, "original_novadesk");
         duk_put_global_string(s_JsContext, "novadesk");
+        duk_get_prop_string(s_JsContext, -1, "original_path");
+        duk_put_global_string(s_JsContext, "path");
+        duk_get_prop_string(s_JsContext, -1, "original_process");
+        duk_put_global_string(s_JsContext, "process");
+        duk_get_prop_string(s_JsContext, -1, "original_app");
+        duk_put_global_string(s_JsContext, "app");
+        duk_get_prop_string(s_JsContext, -1, "original_dirname");
+        duk_put_global_string(s_JsContext, "__dirname");
+        duk_get_prop_string(s_JsContext, -1, "original_filename");
+        duk_put_global_string(s_JsContext, "__filename");
 
         // Restore timers and constructors
         for (const char* f : forbidden) {

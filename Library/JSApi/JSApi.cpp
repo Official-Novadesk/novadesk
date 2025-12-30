@@ -14,6 +14,8 @@
 #include "JSContextMenu.h"
 #include "JSEvents.h"
 #include "JSIPC.h"
+#include "JSPath.h"
+#include "JSApp.h"
 
 #include "../Widget.h"
 #include "../Settings.h"
@@ -71,7 +73,10 @@ namespace JSApi {
         duk_push_c_function(ctx, js_create_widget_window, 1);
         duk_put_global_string(ctx, "widgetWindow");
 
-        // Register global IPC
+        // Register global modules
+        BindPathMethods(ctx);
+        BindAppMethods(ctx);
+        BindProcessMethods(ctx);
         BindIPCMethods(ctx);
 
         Logging::Log(LogLevel::Info, L"JavaScript API initialized");
@@ -101,6 +106,15 @@ namespace JSApi {
             Logging::Log(LogLevel::Error, L"Failed to open script at %s", finalScriptPath.c_str());
             return false;
         }
+
+        // Provide __dirname and __filename
+        std::string dirname = Utils::ToString(PathUtils::GetParentDir(finalScriptPath));
+        if (dirname.length() > 3 && dirname.back() == '\\') dirname.pop_back();
+        std::string filename = Utils::ToString(finalScriptPath);
+        duk_push_string(ctx, dirname.c_str());
+        duk_put_global_string(ctx, "__dirname");
+        duk_push_string(ctx, filename.c_str());
+        duk_put_global_string(ctx, "__filename");
 
         if (duk_peval_string(ctx, content.c_str()) != 0) {
             Logging::Log(LogLevel::Error, L"Script execution failed: %S", duk_safe_to_string(ctx, -1));

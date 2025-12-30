@@ -17,5 +17,6 @@ namespace PathUtils {
 
     bool IsPathRelative(const std::wstring& path);
 
+    std::wstring NormalizePath(const std::wstring& path);
     std::wstring ResolvePath(const std::wstring& path, const std::wstring& baseDir = L"");
 }

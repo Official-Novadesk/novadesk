@@ -18,21 +18,6 @@
 
 namespace JSApi {
 
-    duk_ret_t js_get_exe_path(duk_context* ctx) {
-        std::wstring fullPath = PathUtils::GetExePath();
-        std::wstring directory = PathUtils::GetExeDir();
-        size_t lastBackslash = fullPath.find_last_of(L"\\");
-        std::wstring filename = (lastBackslash != std::wstring::npos) ? fullPath.substr(lastBackslash + 1) : fullPath;
-        
-        duk_push_object(ctx);
-        duk_push_string(ctx, Utils::ToString(fullPath).c_str());
-        duk_put_prop_string(ctx, -2, "fullPath");
-        duk_push_string(ctx, Utils::ToString(directory).c_str());
-        duk_put_prop_string(ctx, -2, "directory");
-        duk_push_string(ctx, Utils::ToString(filename).c_str());
-        duk_put_prop_string(ctx, -2, "filename");
-        return 1;
-    }
 
     duk_ret_t js_get_env(duk_context* ctx) {
         if (duk_get_top(ctx) == 0 || duk_is_null_or_undefined(ctx, 0)) {
@@ -385,8 +370,6 @@ namespace JSApi {
         duk_put_prop_string(ctx, -2, "registerHotkey");
         duk_push_c_function(ctx, js_unregister_hotkey, 1);
         duk_put_prop_string(ctx, -2, "unregisterHotkey");
-        duk_push_c_function(ctx, js_get_exe_path, 0);
-        duk_put_prop_string(ctx, -2, "getExePath");
         duk_push_c_function(ctx, js_system_get_display_metrics, 0);
         duk_put_prop_string(ctx, -2, "getDisplayMetrics");
     }
