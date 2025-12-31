@@ -13,6 +13,7 @@
 #include "JSElement.h"
 #include "JSContextMenu.h"
 #include "JSEvents.h"
+#include "JSUnits.h"
 #include "JSIPC.h"
 #include "JSPath.h"
 #include "JSApp.h"
@@ -76,6 +77,7 @@ namespace JSApi {
         // Register global modules
         BindPathMethods(ctx);
         BindAppMethods(ctx);
+        BindUnitsMethods(ctx);
         BindIPCMethods(ctx);
 
         Logging::Log(LogLevel::Info, L"JavaScript API initialized");

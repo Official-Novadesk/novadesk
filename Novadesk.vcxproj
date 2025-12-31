@@ -158,6 +158,7 @@
     <ClInclude Include="Library\JSApi\JSElement.h" />
     <ClInclude Include="Library\JSApi\JSContextMenu.h" />
     <ClInclude Include="Library\JSApi\JSEvents.h" />
+    <ClInclude Include="Library\JSApi\JSUnits.h" />
     <ClInclude Include="Library\Utils.h" />
     <ClInclude Include="Library\CPUMonitor.h" />
     <ClInclude Include="Library\MemoryMonitor.h" />
@@ -195,6 +196,7 @@
     <ClCompile Include="Library\JSApi\JSElement.cpp" />
     <ClCompile Include="Library\JSApi\JSContextMenu.cpp" />
     <ClCompile Include="Library\JSApi\JSEvents.cpp" />
+    <ClCompile Include="Library\JSApi\JSUnits.cpp" />
     <ClCompile Include="Library\Settings.cpp" />
     <ClCompile Include="Library\Utils.cpp" />
     <ClCompile Include="Library\CPUMonitor.cpp" />
