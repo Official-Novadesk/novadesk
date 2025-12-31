@@ -627,7 +627,7 @@ LRESULT CALLBACK Widget::WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
                         GetWindowRect(w->GetWindow(), &otherRect);
                         
                         // Vertical overlap -> Snap horizontally
-                        if (wp->y < otherRect.bottom && wp->y + widget->m_Options.height > otherRect.top)
+                        if (wp->y < otherRect.bottom + SNAP_DISTANCE && wp->y + widget->m_Options.height > otherRect.top - SNAP_DISTANCE)
                         {
                             if (abs(wp->x - otherRect.left) < SNAP_DISTANCE) wp->x = otherRect.left;
                             if (abs(wp->x - otherRect.right) < SNAP_DISTANCE) wp->x = otherRect.right;
@@ -636,7 +636,7 @@ LRESULT CALLBACK Widget::WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
                         }
 
                         // Horizontal overlap -> Snap vertically
-                        if (wp->x < otherRect.right && wp->x + widget->m_Options.width > otherRect.left)
+                        if (wp->x < otherRect.right + SNAP_DISTANCE && wp->x + widget->m_Options.width > otherRect.left - SNAP_DISTANCE)
                         {
                             if (abs(wp->y - otherRect.top) < SNAP_DISTANCE) wp->y = otherRect.top;
                             if (abs(wp->y - otherRect.bottom) < SNAP_DISTANCE) wp->y = otherRect.bottom;
