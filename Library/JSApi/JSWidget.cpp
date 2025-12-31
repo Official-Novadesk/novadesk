@@ -11,6 +11,8 @@
 #include "../Logging.h"
 #include "../Utils.h"
 #include "JSApi.h"
+#include "JSCommon.h"
+#include "../PathUtils.h"
 
 extern std::vector<Widget*> widgets;
 
@@ -61,7 +63,8 @@ namespace JSApi {
         options.keepOnScreen = false;
         options.snapEdges = true;
  
-        PropertyParser::ParseWidgetOptions(ctx, options);
+        std::wstring baseDir = PathUtils::GetParentDir(s_CurrentScriptPath);
+        PropertyParser::ParseWidgetOptions(ctx, options, baseDir);
  
         if (options.id.empty()) {
             Logging::Log(LogLevel::Error, L"Widget creation failed: ID must be provided.");
