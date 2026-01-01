@@ -12,5 +12,6 @@ namespace JSApi {
     duk_ret_t js_ipc_on(duk_context* ctx);
     duk_ret_t js_ipc_send(duk_context* ctx);
 
+    void ClearIPCListeners(duk_context* ctx, const std::string& widgetId);
     void BindIPCMethods(duk_context* ctx);
 }

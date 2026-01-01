@@ -99,6 +99,12 @@ namespace JSApi {
         duk_put_global_string(s_JsContext, "novadesk");
 
         BindPathMethods(s_JsContext);
+        
+        // Clear old IPC listeners for this specific widget before binding new ones
+        // This prevents old handlers from persisting after widget refresh
+        std::string widgetId = Utils::ToString(widget->GetOptions().id);
+        ClearIPCListeners(s_JsContext, widgetId);
+        
         BindIPCMethods(s_JsContext);
 
         // Provide __dirname and __filename
