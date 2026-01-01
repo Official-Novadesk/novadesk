@@ -60,9 +60,6 @@
     <ClInclude Include="Library\JSApi\JSEvents.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Library\JSApi\JSUnits.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="Library\Utils.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -159,9 +156,6 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Library\JSApi\JSEvents.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Library\JSApi\JSUnits.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Library\Utils.cpp">
