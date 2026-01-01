@@ -20,6 +20,7 @@
 #include <gdiplus.h>
 #include <fcntl.h>
 #include <io.h>
+#include "MenuUtils.h"
 
 #pragma comment(lib, "gdiplus.lib")
 
@@ -253,35 +254,8 @@ void RemoveTrayIcon()
     Logging::Log(LogLevel::Info, L"Tray icon removed");
 }
 
-std::vector<TrayMenuItem> g_TrayMenu;
+std::vector<MenuItem> g_TrayMenu;
 bool g_ShowDefaultTrayItems = true;
-
-void BuildMenu(HMENU hMenu, const std::vector<TrayMenuItem>& items)
-{
-    for (const auto& item : items)
-    {
-        if (item.isSeparator)
-        {
-            AppendMenu(hMenu, MF_SEPARATOR, 0, NULL);
-        }
-        else if (!item.children.empty())
-        {
-            HMENU hSubMenu = CreatePopupMenu();
-            BuildMenu(hSubMenu, item.children);
-
-            UINT flags = MF_POPUP | MF_STRING;
-            if (item.checked) flags |= MF_CHECKED;
-
-            AppendMenu(hMenu, flags, (UINT_PTR)hSubMenu, item.text.c_str());
-        }
-        else
-        {
-            UINT flags = MF_STRING;
-            if (item.checked) flags |= MF_CHECKED;
-            AppendMenu(hMenu, flags, item.id, item.text.c_str());
-        }
-    }
-}
 
 void ShowTrayMenu(HWND hWnd)
 {
@@ -290,7 +264,7 @@ void ShowTrayMenu(HWND hWnd)
 
     HMENU hMenu = CreatePopupMenu();
 
-    BuildMenu(hMenu, g_TrayMenu);
+    MenuUtils::BuildMenu(hMenu, g_TrayMenu);
 
     if (g_ShowDefaultTrayItems)
     {
@@ -325,7 +299,7 @@ void HideTrayIconDynamic()
 }
 
 
-void SetTrayMenu(const std::vector<TrayMenuItem>& menu)
+void SetTrayMenu(const std::vector<MenuItem>& menu)
 {
     g_TrayMenu = menu;
 }

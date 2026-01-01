@@ -13,6 +13,7 @@ namespace JSApi {
     duk_ret_t js_novadesk_set_tray_menu(duk_context* ctx);
     duk_ret_t js_novadesk_clear_tray_menu(duk_context* ctx);
     duk_ret_t js_novadesk_show_default_tray_items(duk_context* ctx);
+    duk_ret_t js_novadesk_hide_tray_icon(duk_context* ctx);
     
     void BindNovadeskTrayMethods(duk_context* ctx);
     void OnTrayCommand(int id);

@@ -135,15 +135,6 @@ namespace JSApi {
         duk_put_prop_string(ctx, -2, "addText");
         duk_push_c_function(ctx, js_widget_add_bar, 1);
         duk_put_prop_string(ctx, -2, "addBar");
-        
-        duk_push_c_function(ctx, js_widget_add_context_menu_item, 2);
-        duk_put_prop_string(ctx, -2, "addContextMenuItem");
-        duk_push_c_function(ctx, js_widget_remove_context_menu_item, 1);
-        duk_put_prop_string(ctx, -2, "removeContextMenuItem");
-        duk_push_c_function(ctx, js_widget_clear_context_menu, 0);
-        duk_put_prop_string(ctx, -2, "clearContextMenu");
-        duk_push_c_function(ctx, js_widget_show_default_context_menu_items, 1);
-        duk_put_prop_string(ctx, -2, "showDefaultContextMenuItems");
 
         duk_push_c_function(ctx, js_widget_remove_elements, 1);
         duk_put_prop_string(ctx, -2, "removeElements");

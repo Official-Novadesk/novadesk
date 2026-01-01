@@ -6,16 +6,13 @@
  * obtain one at <https://www.gnu.org/licenses/gpl-2.0.html>. */
 
 #pragma once
+#include <string>
+#include <vector>
 
-#include "Resource.h"
-
-// Tray icon control functions
-void ShowTrayIconDynamic();
-void HideTrayIconDynamic();
-
-#include "MenuItem.h"
-
-void SetTrayMenu(const std::vector<MenuItem>& menu);
-void ClearTrayMenu();
-void SetShowDefaultTrayItems(bool show);
-
+struct MenuItem {
+    std::wstring text;
+    int id;
+    bool isSeparator = false;
+    bool checked = false;
+    std::vector<MenuItem> children;
+};

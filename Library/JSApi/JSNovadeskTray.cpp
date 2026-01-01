@@ -33,12 +33,12 @@ namespace JSApi {
     }
 
     // Helper for recursion
-    static void ParseTrayMenu(duk_context* ctx, int arrIdx, std::vector<TrayMenuItem>& outItems) {
+    static void ParseMenu(duk_context* ctx, int arrIdx, std::vector<MenuItem>& outItems) {
         duk_size_t count = duk_get_length(ctx, arrIdx);
         for (duk_size_t i = 0; i < count; i++) {
             if (duk_get_prop_index(ctx, arrIdx, (duk_uarridx_t)i)) {
                 if (duk_is_object(ctx, -1)) {
-                    TrayMenuItem item;
+                    MenuItem item;
                     item.id = 0;
                     item.isSeparator = false;
                     item.checked = false;
@@ -68,7 +68,7 @@ namespace JSApi {
                             if (duk_is_function(ctx, -1)) {
                                 item.id = 2000 + s_NextTempId++; // Start IDs from 2000 for safety
                                 
-                                // Store callback
+                                // Store callback in novadesk.__trayCallbacks
                                 duk_get_global_string(ctx, "novadesk");
                                 if (!duk_get_prop_string(ctx, -1, "__trayCallbacks")) {
                                     duk_pop(ctx);
@@ -87,7 +87,7 @@ namespace JSApi {
                         // items (subprocess for submenus)
                         if (duk_get_prop_string(ctx, -1, "items")) {
                             if (duk_is_array(ctx, -1)) {
-                                ParseTrayMenu(ctx, duk_get_top_index(ctx), item.children);
+                                ParseMenu(ctx, duk_get_top_index(ctx), item.children);
                             }
                         }
                         duk_pop(ctx);
@@ -109,8 +109,8 @@ namespace JSApi {
         duk_put_prop_string(ctx, -2, "__trayCallbacks");
         duk_pop(ctx);
 
-        std::vector<TrayMenuItem> menu;
-        ParseTrayMenu(ctx, 0, menu);
+        std::vector<MenuItem> menu;
+        ParseMenu(ctx, 0, menu);
         
         SetTrayMenu(menu);
         return 0;
@@ -137,6 +137,16 @@ namespace JSApi {
         return 0;
     }
 
+    duk_ret_t js_novadesk_hide_tray_icon(duk_context* ctx) {
+        bool hide = true;
+        if (duk_get_top(ctx) > 0 && duk_is_boolean(ctx, 0)) {
+            hide = duk_get_boolean(ctx, 0);
+        }
+        if (hide) HideTrayIconDynamic();
+        else ShowTrayIconDynamic();
+        return 0;
+    }
+
     void BindNovadeskTrayMethods(duk_context* ctx) {
         duk_push_c_function(ctx, js_novadesk_set_tray_menu, 1);
         duk_put_prop_string(ctx, -2, "setTrayMenu");
@@ -144,5 +154,7 @@ namespace JSApi {
         duk_put_prop_string(ctx, -2, "clearTrayMenu");
         duk_push_c_function(ctx, js_novadesk_show_default_tray_items, 1);
         duk_put_prop_string(ctx, -2, "showDefaultTrayItems");
+        duk_push_c_function(ctx, js_novadesk_hide_tray_icon, 1);
+        duk_put_prop_string(ctx, -2, "hideTrayIcon");
     }
 }

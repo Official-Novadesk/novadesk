@@ -162,7 +162,9 @@
     <ClInclude Include="Library\JSApi\JSEvents.h" />
     <ClInclude Include="Library\Utils.h" />
     <ClInclude Include="Library\CPUMonitor.h" />
+    <ClInclude Include="Library\MenuItem.h" />
     <ClInclude Include="Library\MemoryMonitor.h" />
+    <ClInclude Include="Library\MenuUtils.h" />
     <ClInclude Include="Library\framework.h" />
     <ClInclude Include="Library\JSApi\duktape\duktape.h" />
     <ClInclude Include="Library\Novadesk.h" />
@@ -203,6 +205,7 @@
     <ClCompile Include="Library\Utils.cpp" />
     <ClCompile Include="Library\CPUMonitor.cpp" />
     <ClCompile Include="Library\MemoryMonitor.cpp" />
+    <ClCompile Include="Library\MenuUtils.cpp" />
     <ClCompile Include="Library\JSApi\duktape\duktape.c" />
     <ClCompile Include="Library\Novadesk.cpp" />
     <ClCompile Include="Library\PathUtils.cpp" />

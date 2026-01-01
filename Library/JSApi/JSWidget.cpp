@@ -11,7 +11,9 @@
 #include "../Logging.h"
 #include "../Utils.h"
 #include "JSApi.h"
-#include "JSCommon.h"
+#include "JSEvents.h"
+#include "JSElement.h"
+#include "JSContextMenu.h"
 #include "../PathUtils.h"
 
 extern std::vector<Widget*> widgets;
@@ -201,5 +203,8 @@ namespace JSApi {
         duk_put_prop_string(ctx, -2, "refresh");
         duk_push_c_function(ctx, js_widget_on, 2);
         duk_put_prop_string(ctx, -2, "on");
+
+        BindWidgetUIMethods(ctx);
+        BindWidgetContextMenuMethods(ctx);
     }
 }

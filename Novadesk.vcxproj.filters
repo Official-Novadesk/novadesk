@@ -66,7 +66,13 @@
     <ClInclude Include="Library\CPUMonitor.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Library\MenuItem.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="Library\MemoryMonitor.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Library\MenuUtils.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Library\ImageElement.h">
@@ -171,6 +177,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Library\MemoryMonitor.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Library\MenuUtils.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Library\Logging.cpp">

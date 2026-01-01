@@ -9,8 +9,11 @@
 #include "JSCommon.h"
 
 namespace JSApi {
-    duk_ret_t js_widget_add_context_menu_item(duk_context* ctx);
-    duk_ret_t js_widget_remove_context_menu_item(duk_context* ctx);
+    duk_ret_t js_widget_set_context_menu(duk_context* ctx);
     duk_ret_t js_widget_clear_context_menu(duk_context* ctx);
+    duk_ret_t js_widget_disable_context_menu(duk_context* ctx);
     duk_ret_t js_widget_show_default_context_menu_items(duk_context* ctx);
+
+    void BindWidgetContextMenuMethods(duk_context* ctx);
+    void OnWidgetContextCommand(const std::wstring& widgetId, int commandId);
 }

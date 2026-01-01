@@ -10,6 +10,8 @@
 #include "Logging.h"
 #include "Settings.h"
 #include "Resource.h"
+#include "MenuUtils.h"
+#include "JSApi/JSContextMenu.h"
 #include <vector>
 #include <windowsx.h>
 #include <algorithm>
@@ -936,33 +938,19 @@ void Widget::RemoveElements(const std::vector<std::wstring>& ids)
 }
 
 /*
-** Add a custom item to the context menu.
+** Set the entire custom context menu.
 */
-void Widget::AddContextMenuItem(const std::wstring& label, const std::wstring& action)
+void Widget::SetContextMenu(const std::vector<MenuItem>& menu)
 {
-    m_ContextMenuItems.push_back({ label, action });
+    m_ContextMenu = menu;
 }
 
 /*
 ** Clear all custom context menu items.
 */
-void Widget::ClearContextMenuItems()
+void Widget::ClearContextMenu()
 {
-    m_ContextMenuItems.clear();
-}
-
-/*
-** Remove a specific context menu item by label.
-*/
-void Widget::RemoveContextMenuItem(const std::wstring& label)
-{
-    auto it = std::remove_if(m_ContextMenuItems.begin(), m_ContextMenuItems.end(),
-        [&](const ContextMenuItem& item) { return item.label == label; });
-
-    if (it != m_ContextMenuItems.end())
-    {
-        m_ContextMenuItems.erase(it, m_ContextMenuItems.end());
-    }
+    m_ContextMenu.clear();
 }
 
 /*
@@ -1257,21 +1245,18 @@ bool Widget::HandleMouseMessage(UINT message, WPARAM wParam, LPARAM lParam)
 */
 void Widget::OnContextMenu()
 {
+    if (m_ContextMenuDisabled) return;
+
     POINT pt;
     GetCursorPos(&pt);
 
     HMENU hMenu = CreatePopupMenu();
     
-    // Custom Items (IDs 2000+)
-    int customIdStart = 2000;
-    for (size_t i = 0; i < m_ContextMenuItems.size(); ++i)
-    {
-        AppendMenu(hMenu, MF_STRING, customIdStart + i, m_ContextMenuItems[i].label.c_str());
-    }
+    MenuUtils::BuildMenu(hMenu, m_ContextMenu);
 
     if (m_ShowDefaultContextMenuItems)
     {
-        if (!m_ContextMenuItems.empty())
+        if (!m_ContextMenu.empty())
         {
             AppendMenu(hMenu, MF_SEPARATOR, 0, nullptr);
         }
@@ -1288,11 +1273,7 @@ void Widget::OnContextMenu()
 
     if (cmd >= 2000)
     {
-        size_t index = cmd - 2000;
-        if (index < m_ContextMenuItems.size())
-        {
-            JSApi::ExecuteScript(m_ContextMenuItems[index].action);
-        }
+        JSApi::OnWidgetContextCommand(m_Options.id, cmd);
     }
     else if (cmd == 1001)
     {
@@ -1300,13 +1281,7 @@ void Widget::OnContextMenu()
     }
     else if (cmd == 1002)
     {
-        // Safe deletion from system
-        auto it = std::find(widgets.begin(), widgets.end(), this);
-        if (it != widgets.end())
-        {
-            widgets.erase(it);
-        }
-        delete this; // Calls DestroyWindow
+        DestroyWindow(m_hWnd);
     }
     else if (cmd == 1003)
     {

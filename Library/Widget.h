@@ -26,10 +26,7 @@ namespace PropertyParser {
     struct BarOptions;
 }
 
-struct ContextMenuItem {
-    std::wstring label;
-    std::wstring action;
-};
+#include "MenuItem.h"
 
 struct WidgetOptions
 {
@@ -86,9 +83,9 @@ public:
     bool RemoveElements(const std::wstring& id = L"");
     void RemoveElements(const std::vector<std::wstring>& ids);
 	// Context Menu
-    void AddContextMenuItem(const std::wstring& label, const std::wstring& action);
-    void ClearContextMenuItems();
-    void RemoveContextMenuItem(const std::wstring& label);
+    void SetContextMenu(const std::vector<MenuItem>& menu);
+    void ClearContextMenu();
+    void SetContextMenuDisabled(bool disabled) { m_ContextMenuDisabled = disabled; }
     void SetShowDefaultContextMenuItems(bool show) { m_ShowDefaultContextMenuItems = show; }
 
     void Redraw();
@@ -114,8 +111,9 @@ private:
     std::vector<Element*> m_Elements;
     
     // Context Menu
-    std::vector<ContextMenuItem> m_ContextMenuItems;
+    std::vector<MenuItem> m_ContextMenu;
     bool m_ShowDefaultContextMenuItems = true;
+    bool m_ContextMenuDisabled = false;
 
     Element* m_MouseOverElement = nullptr;
 
