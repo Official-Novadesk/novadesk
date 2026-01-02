@@ -1278,7 +1278,7 @@ void Widget::OnContextMenu()
     }
     else if (cmd == 1001)
     {
-        Refresh();
+        JSApi::Reload();
     }
     else if (cmd == 1002)
     {
