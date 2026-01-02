@@ -128,6 +128,10 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
             {
                 DestroyWindow(hWnd);
             }
+            else if (wmId == ID_TRAY_REFRESH)
+            {
+                JSApi::Reload();
+            }
             else if (wmId >= 2000)
             {
                 JSApi::OnTrayCommand(wmId);
@@ -272,7 +276,12 @@ void ShowTrayMenu(HWND hWnd)
         {
             AppendMenu(hMenu, MF_SEPARATOR, 0, NULL);
         }
-        AppendMenu(hMenu, MF_STRING, ID_TRAY_EXIT, L"Exit");
+        
+        HMENU hSubMenu = CreatePopupMenu();
+        AppendMenu(hSubMenu, MF_STRING, ID_TRAY_REFRESH, L"Refresh");
+        AppendMenu(hSubMenu, MF_STRING, ID_TRAY_EXIT, L"Exit");
+        
+        AppendMenu(hMenu, MF_POPUP, (UINT_PTR)hSubMenu, L"Novadesk");
     }
 
     SetForegroundWindow(hWnd);

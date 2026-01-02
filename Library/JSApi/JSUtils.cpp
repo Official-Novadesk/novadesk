@@ -175,6 +175,11 @@ namespace JSApi {
         return 0;
     }
 
+    duk_ret_t js_novadesk_exit(duk_context* ctx) {
+        PostQuitMessage(0);
+        return 0;
+    }
+
     void BindNovadeskBaseMethods(duk_context* ctx) {
         duk_push_c_function(ctx, js_log, DUK_VARARGS);
         duk_put_prop_string(ctx, -2, "log");
@@ -197,5 +202,7 @@ namespace JSApi {
         duk_put_prop_string(ctx, -2, "hideTrayIcon");
         duk_push_c_function(ctx, js_novadesk_refresh, 0);
         duk_put_prop_string(ctx, -2, "refresh");
+        duk_push_c_function(ctx, js_novadesk_exit, 0);
+        duk_put_prop_string(ctx, -2, "exit");
     }
 }

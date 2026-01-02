@@ -1260,11 +1260,12 @@ void Widget::OnContextMenu()
         {
             AppendMenu(hMenu, MF_SEPARATOR, 0, nullptr);
         }
-        // 1001: Refresh, 1002: Exit Widget, 1003: Exit App
-        AppendMenu(hMenu, MF_STRING, 1001, L"Refresh Widget");
-        AppendMenu(hMenu, MF_SEPARATOR, 0, nullptr);
-        AppendMenu(hMenu, MF_STRING, 1002, L"Exit Widget");
-        AppendMenu(hMenu, MF_STRING, 1003, L"Exit App");
+        
+        HMENU hSubMenu = CreatePopupMenu();
+        AppendMenu(hSubMenu, MF_STRING, 1001, L"Refresh");
+        AppendMenu(hSubMenu, MF_STRING, 1003, L"Exit");
+        
+        AppendMenu(hMenu, MF_POPUP, (UINT_PTR)hSubMenu, L"Novadesk");
     }
 
     SetForegroundWindow(m_hWnd);
