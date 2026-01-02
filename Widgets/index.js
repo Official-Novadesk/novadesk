@@ -19,13 +19,6 @@ clockWindow.setProperties({
 // Update properties variable after modification to get new position
 clockWindowProperties = clockWindow.getProperties();
 
-setInterval(function () {
-  ipc.send('update_Elements');
-  // Re-fetch properties to log current state
-  var currentClockProps = clockWindow.getProperties();
-  novadesk.log("Clock Window Position: " + currentClockProps.x + ", " + currentClockProps.y);
-}, 1000);
-
 
 // =====================
 // System Widget
@@ -47,15 +40,6 @@ systemWindow.setProperties({
 // Update properties variable after modification to get new position
 systemWindowProperties = systemWindow.getProperties();
 
-setInterval(function () {
-  ipc.send('update_Elements');
-  // Re-fetch properties to log current state
-  var currentSystemProps = systemWindow.getProperties();
-  var currentClockProps = clockWindow.getProperties();
-  novadesk.log("System Window Position: " + currentSystemProps.x + ", " + currentSystemProps.y);
-  novadesk.log("Clock Window Position: " + currentClockProps.x + ", " + currentClockProps.y);
-}, 1000);
-
 // =====================
 // Network Widget
 // =====================
@@ -73,8 +57,31 @@ networkWindow.setProperties({
 var network = new system.network();
 
 
+// =====================
+// Welcome Widget
+// =====================
+var welcomeWindow = new widgetWindow({
+  id: "welcome_Widget",
+  script: "welcome/welcome.js",
+});
+
+// var welcomeProps = welcomeWindow.getProperties();
+// welcomeWindow.setProperties({
+//   x: (metrics.primary.screenArea.width - welcomeProps.width) / 2,
+//   y: (metrics.primary.screenArea.height - welcomeProps.height) / 2
+// });
+
+// // Update properties variable after modification to get new position
+// welcomeProps = welcomeWindow.getProperties();
+
+
+// =====================
+// Global Management Loop
+// =====================
 setInterval(function () {
-  var overallUsage = overallCPU.usage();
+  ipc.send('update_Elements');
+
+  var stats = overallCPU.usage();
   var memStats = memory.stats();
   var netStats = network.stats()
 
@@ -82,8 +89,14 @@ setInterval(function () {
   var netInKB = (netStats.netIn / 1024).toFixed(2);
   var netOutKB = (netStats.netOut / 1024).toFixed(2);
 
-  ipc.send('cpu-usage', overallUsage);
+  ipc.send('cpu-usage', stats);
   ipc.send('memory-usage', memStats.percent);
   ipc.send('net-in', netInKB);
   ipc.send('net-out', netOutKB);
+
 }, 1000);
+
+var hotkeyId = system.registerHotkey("CTRL+S", function () {
+  novadesk.log("CTRL+S pressed");
+  novadesk.refresh();
+});

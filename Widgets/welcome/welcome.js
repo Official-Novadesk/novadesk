@@ -1,0 +1,104 @@
+// =====================
+// CONFIG
+// =====================
+var CONFIG = {
+    background: {
+        width: 400,
+        height: 200,
+        padding: 10,
+        image: "../assets/background.png"
+    },
+    colors: {
+        font: "rgb(255,255,255)",
+        accent: "rgba(74, 81, 183, 1)"
+    },
+    font: {
+        title: 20,
+        text: 12
+    }
+};
+
+// =====================
+// WINDOW & LAYOUT
+// =====================
+var ui = win;
+
+var PAD = CONFIG.background.padding;
+var WIDTH = CONFIG.background.width;
+
+// =====================
+// Welcome Widget UI Script
+// =====================
+
+win.addImage({
+    id: "background_Image",
+    width: WIDTH,
+    height: CONFIG.background.height,
+    path: CONFIG.background.image
+});
+
+win.addImage({
+    id: "logo",
+    path: "../assets/Novadesk.png",
+    x: 1,
+    y: 10,
+    width: 180,
+    height: 180,
+    onleftmousedown: "system.execute('https://novadesk-demo.vercel.app');"
+});
+
+win.addText({
+    id: "title",
+    text: "Welcome to Novadesk",
+    x: 160,
+    y: 25,
+    fontsize: CONFIG.font.title,
+    fontweight: "bold",
+    fontcolor: CONFIG.colors.accent,
+    textalign: "left"
+});
+
+win.addText({
+    id: "description",
+    text: "Novadesk a desktop app for windows.Customize your desktop with widgets.Make widgets for your needs.",
+    x: 160,
+    y: 70,
+    fontsize: CONFIG.font.text,
+    clipstring: 1,
+    width: 220,
+    fontweight: "bold",
+    fontcolor: CONFIG.colors.font,
+    textalign: "left"
+});
+
+win.addText({
+    id: "website-button",
+    text: "Website",
+    x: 210,
+    y: 170,
+    fontsize: CONFIG.font.text,
+    fontweight: "bold",
+    fontcolor: CONFIG.colors.font,
+    width: 100,
+    height: 25,
+    solidcolor: CONFIG.colors.accent,
+    solidcolorradius: 5,
+    textalign: "centercenter",
+    onleftmousedown: "system.execute('https://novadesk-demo.vercel.app');",
+});
+
+win.addText({
+    id: "docs-button",
+    text: "Docs",
+    x: 320,
+    y: 170,
+    fontsize: CONFIG.font.text,
+    fontweight: "bold",
+    fontcolor: CONFIG.colors.font,
+    width: 100,
+    height: 25,
+    solidcolor: CONFIG.colors.accent,
+    solidcolorradius: 5,
+    textalign: "centercenter",
+    onleftmousedown: "system.execute('https://novadesk-demo.vercel.app');"
+});

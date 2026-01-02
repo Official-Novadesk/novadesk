@@ -116,8 +116,9 @@ void Element::SetPadding(int left, int top, int right, int bottom) {
 void Element::RenderBackground(Gdiplus::Graphics& graphics) {
     if (!m_HasSolidColor) return;
 
-    int w = GetWidth();
-    int h = GetHeight();
+    Gdiplus::Rect bounds = GetBounds();
+    int w = bounds.Width;
+    int h = bounds.Height;
     if (w <= 0 || h <= 0) return;
     
     Gdiplus::Brush* brush = nullptr;
@@ -154,9 +155,9 @@ void Element::RenderBackground(Gdiplus::Graphics& graphics) {
             );
         };
 
-        // Rainmeter swaps start/end points (angle + 180) to mimic GDI+ for their SolidColor2
-        Gdiplus::PointF p1 = FindEdgePoint(m_GradientAngle + 180.0f, (float)m_X, (float)m_Y, (float)w, (float)h);
-        Gdiplus::PointF p2 = FindEdgePoint(m_GradientAngle, (float)m_X, (float)m_Y, (float)w, (float)h);
+       
+        Gdiplus::PointF p1 = FindEdgePoint(m_GradientAngle + 180.0f, (float)bounds.X, (float)bounds.Y, (float)w, (float)h);
+        Gdiplus::PointF p2 = FindEdgePoint(m_GradientAngle, (float)bounds.X, (float)bounds.Y, (float)w, (float)h);
         
         Gdiplus::Color color1(m_SolidAlpha, GetRValue(m_SolidColor), GetGValue(m_SolidColor), GetBValue(m_SolidColor));
         Gdiplus::Color color2(m_SolidAlpha2, GetRValue(m_SolidColor2), GetGValue(m_SolidColor2), GetBValue(m_SolidColor2));
@@ -175,17 +176,16 @@ void Element::RenderBackground(Gdiplus::Graphics& graphics) {
         if (d > w) d = w;
         if (d > h) d = h;
 
-        Gdiplus::Rect r(m_X, m_Y, w, h);
-        path->AddArc(r.X, r.Y, d, d, 180, 90);
-        path->AddArc(r.X + r.Width - d, r.Y, d, d, 270, 90);
-        path->AddArc(r.X + r.Width - d, r.Y + r.Height - d, d, d, 0, 90);
-        path->AddArc(r.X, r.Y + r.Height - d, d, d, 90, 90);
+        path->AddArc(bounds.X, bounds.Y, d, d, 180, 90);
+        path->AddArc(bounds.X + bounds.Width - d, bounds.Y, d, d, 270, 90);
+        path->AddArc(bounds.X + bounds.Width - d, bounds.Y + bounds.Height - d, d, d, 0, 90);
+        path->AddArc(bounds.X, bounds.Y + bounds.Height - d, d, d, 90, 90);
         path->CloseFigure();
         
         graphics.FillPath(brush, path);
         delete path;
     } else {
-        graphics.FillRectangle(brush, (Gdiplus::REAL)m_X, (Gdiplus::REAL)m_Y, (Gdiplus::REAL)w, (Gdiplus::REAL)h);
+        graphics.FillRectangle(brush, (Gdiplus::REAL)bounds.X, (Gdiplus::REAL)bounds.Y, (Gdiplus::REAL)w, (Gdiplus::REAL)h);
     }
     
     delete brush;
@@ -197,8 +197,9 @@ void Element::RenderBackground(Gdiplus::Graphics& graphics) {
 void Element::RenderBevel(Gdiplus::Graphics& graphics) {
     if (m_BevelType == 0 || m_BevelWidth <= 0) return;
 
-    int w = GetWidth();
-    int h = GetHeight();
+    Gdiplus::Rect bounds = GetBounds();
+    int w = bounds.Width;
+    int h = bounds.Height;
     
     Gdiplus::Color highlight(m_BevelAlpha1, GetRValue(m_BevelColor1), GetGValue(m_BevelColor1), GetBValue(m_BevelColor1));
     Gdiplus::Color shadow(m_BevelAlpha2, GetRValue(m_BevelColor2), GetGValue(m_BevelColor2), GetBValue(m_BevelColor2));
@@ -210,25 +211,25 @@ void Element::RenderBevel(Gdiplus::Graphics& graphics) {
     
     switch (m_BevelType) {
     case 1: // Raised
-        graphics.DrawLine(&highlightPen, m_X + offset, m_Y + offset, m_X + w - offset, m_Y + offset);
-        graphics.DrawLine(&highlightPen, m_X + offset, m_Y + offset, m_X + offset, m_Y + h - offset);
-        graphics.DrawLine(&shadowPen, m_X + w - offset, m_Y + offset, m_X + w - offset, m_Y + h - offset);
-        graphics.DrawLine(&shadowPen, m_X + offset, m_Y + h - offset, m_X + w - offset, m_Y + h - offset);
+        graphics.DrawLine(&highlightPen, bounds.X + offset, bounds.Y + offset, bounds.X + w - offset, bounds.Y + offset);
+        graphics.DrawLine(&highlightPen, bounds.X + offset, bounds.Y + offset, bounds.X + offset, bounds.Y + h - offset);
+        graphics.DrawLine(&shadowPen, bounds.X + w - offset, bounds.Y + offset, bounds.X + w - offset, bounds.Y + h - offset);
+        graphics.DrawLine(&shadowPen, bounds.X + offset, bounds.Y + h - offset, bounds.X + w - offset, bounds.Y + h - offset);
         break;
         
     case 2: // Sunken
-        graphics.DrawLine(&shadowPen, m_X + offset, m_Y + offset, m_X + w - offset, m_Y + offset);
-        graphics.DrawLine(&shadowPen, m_X + offset, m_Y + offset, m_X + offset, m_Y + h - offset);
-        graphics.DrawLine(&highlightPen, m_X + w - offset, m_Y + offset, m_X + w - offset, m_Y + h - offset);
-        graphics.DrawLine(&highlightPen, m_X + offset, m_Y + h - offset, m_X + w - offset, m_Y + h - offset);
+        graphics.DrawLine(&shadowPen, bounds.X + offset, bounds.Y + offset, bounds.X + w - offset, bounds.Y + offset);
+        graphics.DrawLine(&shadowPen, bounds.X + offset, bounds.Y + offset, bounds.X + offset, bounds.Y + h - offset);
+        graphics.DrawLine(&highlightPen, bounds.X + w - offset, bounds.Y + offset, bounds.X + w - offset, bounds.Y + h - offset);
+        graphics.DrawLine(&highlightPen, bounds.X + offset, bounds.Y + h - offset, bounds.X + w - offset, bounds.Y + h - offset);
         break;
         
     case 3: // Emboss
         {
             Gdiplus::Color midHighlight(m_BevelAlpha1 / 2, GetRValue(m_BevelColor1), GetGValue(m_BevelColor1), GetBValue(m_BevelColor1));
             Gdiplus::Pen midPen(midHighlight, (Gdiplus::REAL)m_BevelWidth);
-            graphics.DrawLine(&highlightPen, m_X + offset, m_Y + offset, m_X + w - offset, m_Y + offset);
-            graphics.DrawLine(&midPen, m_X + offset, m_Y + offset, m_X + offset, m_Y + h - offset);
+            graphics.DrawLine(&highlightPen, bounds.X + offset, bounds.Y + offset, bounds.X + w - offset, bounds.Y + offset);
+            graphics.DrawLine(&midPen, bounds.X + offset, bounds.Y + offset, bounds.X + offset, bounds.Y + h - offset);
         }
         break;
         
@@ -237,7 +238,7 @@ void Element::RenderBevel(Gdiplus::Graphics& graphics) {
             int alpha = (int)(m_BevelAlpha1 * (1.0f - (float)i / m_BevelWidth));
             Gdiplus::Color fadeColor(alpha, GetRValue(m_BevelColor1), GetGValue(m_BevelColor1), GetBValue(m_BevelColor1));
             Gdiplus::Pen fadePen(fadeColor, 1.0f);
-            graphics.DrawRectangle(&fadePen, m_X + i, m_Y + i, w - i * 2, h - i * 2);
+            graphics.DrawRectangle(&fadePen, bounds.X + i, bounds.Y + i, w - i * 2, h - i * 2);
         }
         break;
     }

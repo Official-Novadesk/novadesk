@@ -164,7 +164,34 @@ int TextElement::GetAutoHeight()
     Font font(m_FontFace.c_str(), (REAL)m_FontSize, fontStyle, UnitPixel);
 
     RectF boundingBox;
-    graphics.MeasureString(m_Text.c_str(), -1, &font, PointF(0, 0), &boundingBox);
+    
+    if (m_ClipString != TEXT_CLIP_NONE)
+    {
+        int targetW = GetWidth(); 
+        if (targetW > 0)
+        {
+            // Measure with a fixed width to get wrapped height
+            // We subtract padding because the layout rect should be the content area
+            int contentW = targetW - m_PaddingLeft - m_PaddingRight;
+            if (contentW < 0) contentW = 0;
+
+            RectF layoutRect(0, 0, (REAL)contentW, 50000.0f); // Large height constraint
+            
+            // We need a format to enable wrapping
+            StringFormat format;
+            if (m_ClipString == TEXT_CLIP_ELLIPSIS) format.SetTrimming(StringTrimmingEllipsisCharacter);
+            
+            graphics.MeasureString(m_Text.c_str(), -1, &font, layoutRect, &format, &boundingBox);
+        }
+        else
+        {
+            graphics.MeasureString(m_Text.c_str(), -1, &font, PointF(0, 0), &boundingBox);
+        }
+    }
+    else
+    {
+        graphics.MeasureString(m_Text.c_str(), -1, &font, PointF(0, 0), &boundingBox);
+    }
     
     ReleaseDC(NULL, hdc);
     
@@ -206,6 +233,9 @@ bool TextElement::HitTest(int x, int y)
     // Bounding box check first (Element's bounds)
     if (!Element::HitTest(x, y)) return false;
 
+    // If we have a background or gradient, the entire element is clickable
+    if ((m_HasSolidColor && m_SolidAlpha > 0) || (m_HasGradient)) return true;
+
     HDC hdc = GetDC(NULL);
     Graphics graphics(hdc);
     
@@ -230,6 +260,11 @@ bool TextElement::HitTest(int x, int y)
         format.SetLineAlignment(StringAlignmentCenter); break;
     case TEXT_ALIGN_LEFT_BOTTOM: case TEXT_ALIGN_CENTER_BOTTOM: case TEXT_ALIGN_RIGHT_BOTTOM:
         format.SetLineAlignment(StringAlignmentFar); break;
+    }
+
+    // Set wrapping logic mirroring Render/GetAutoHeight
+    if (m_ClipString != TEXT_CLIP_NONE) {
+        format.SetTrimming(m_ClipString == TEXT_CLIP_ELLIPSIS ? StringTrimmingEllipsisCharacter : StringTrimmingCharacter);
     }
 
     Gdiplus::Rect bounds = GetBounds();
