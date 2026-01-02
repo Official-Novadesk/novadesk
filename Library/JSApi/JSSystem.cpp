@@ -144,6 +144,40 @@ namespace JSApi {
         duk_put_prop_string(ctx, -2, "monitors");
         return 1;
     }
+    
+    duk_ret_t js_system_execute(duk_context* ctx) {
+        if (duk_get_top(ctx) < 1) return DUK_RET_TYPE_ERROR;
+
+        std::wstring target = Utils::ToWString(duk_get_string(ctx, 0));
+        std::wstring parameters = L"";
+        std::wstring workingDir = L"";
+        int show = SW_SHOWNORMAL;
+
+        if (duk_get_top(ctx) > 1 && !duk_is_null_or_undefined(ctx, 1)) {
+            parameters = Utils::ToWString(duk_get_string(ctx, 1));
+        }
+
+        if (duk_get_top(ctx) > 2 && !duk_is_null_or_undefined(ctx, 2)) {
+            workingDir = Utils::ToWString(duk_get_string(ctx, 2));
+        }
+
+        if (duk_get_top(ctx) > 3 && !duk_is_null_or_undefined(ctx, 3)) {
+            if (duk_is_number(ctx, 3)) {
+                show = duk_get_int(ctx, 3);
+            } else if (duk_is_string(ctx, 3)) {
+                std::string s = duk_get_string(ctx, 3);
+                if (s == "hide") show = SW_HIDE;
+                else if (s == "normal") show = SW_SHOWNORMAL;
+                else if (s == "minimized") show = SW_SHOWMINIMIZED;
+                else if (s == "maximized") show = SW_SHOWMAXIMIZED;
+            }
+        }
+
+        bool success = System::Execute(target, parameters, workingDir, show);
+        
+        duk_push_boolean(ctx, success);
+        return 1;
+    }
 
     // Monitor Implementations
     duk_ret_t js_cpu_constructor(duk_context* ctx) {
@@ -372,6 +406,8 @@ namespace JSApi {
         duk_put_prop_string(ctx, -2, "registerHotkey");
         duk_push_c_function(ctx, js_unregister_hotkey, 1);
         duk_put_prop_string(ctx, -2, "unregisterHotkey");
+        duk_push_c_function(ctx, js_system_execute, DUK_VARARGS);
+        duk_put_prop_string(ctx, -2, "execute");
         duk_push_c_function(ctx, js_system_get_display_metrics, 0);
         duk_put_prop_string(ctx, -2, "getDisplayMetrics");
     }

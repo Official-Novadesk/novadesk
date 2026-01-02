@@ -17,6 +17,7 @@ namespace JSApi {
     duk_ret_t js_unregister_hotkey(duk_context* ctx);
 
     // System API
+    duk_ret_t js_system_execute(duk_context* ctx);
     duk_ret_t js_system_get_display_metrics(duk_context* ctx);
 
     // Monitor Constructors/Methods

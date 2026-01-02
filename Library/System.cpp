@@ -13,6 +13,7 @@
 #include "System.h"
 #include "Widget.h"
 #include <algorithm>
+#include <shellapi.h>
 
 extern std::vector<Widget*> widgets; // Defined in Novadesk.cpp
 
@@ -318,4 +319,10 @@ HWND System::GetBackmostTopWindow()
     }
 
     return winPos;
+}
+
+bool System::Execute(const std::wstring& target, const std::wstring& parameters, const std::wstring& workingDir, int show)
+{
+    HINSTANCE result = ShellExecuteW(NULL, L"open", target.c_str(), parameters.empty() ? NULL : parameters.c_str(), workingDir.empty() ? NULL : workingDir.c_str(), show);
+    return (intptr_t)result > 32;
 }
