@@ -177,6 +177,11 @@ namespace JSApi {
     }
  
     void OnMessage(UINT message, WPARAM wParam, LPARAM lParam) {
+        static const UINT WM_RUN_WIDGET_SCRIPT = WM_USER + 101;
+        if (message == WM_RUN_WIDGET_SCRIPT) {
+            HandleWidgetScriptRun((Widget*)wParam);
+            return;
+        }
         TimerManager::HandleMessage(message, wParam, lParam);
     }
  

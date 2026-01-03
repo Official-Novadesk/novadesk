@@ -31,4 +31,6 @@ namespace TimerManager {
     void HandleTimer(UINT_PTR id);
 
     void HandleMessage(UINT message, WPARAM wParam, LPARAM lParam);
-}
+ 
+     HWND GetWindow();
+ }

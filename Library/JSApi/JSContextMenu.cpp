@@ -162,7 +162,20 @@ namespace JSApi {
         duk_push_global_stash(ctx);
         if (duk_get_prop_string(ctx, -1, "widget_objects")) {
             if (duk_get_prop_string(ctx, -1, Utils::ToString(widgetId).c_str())) {
-                if (duk_get_prop_string(ctx, -1, "__contextCallbacks")) {
+                // Save original globals
+                duk_get_global_string(ctx, "win");
+                duk_get_global_string(ctx, "system");
+                duk_get_global_string(ctx, "widgetWindow");
+
+                // Set context
+                duk_dup(ctx, -4);
+                duk_put_global_string(ctx, "win");
+                duk_push_undefined(ctx);
+                duk_put_global_string(ctx, "system");
+                duk_push_undefined(ctx);
+                duk_put_global_string(ctx, "widgetWindow");
+
+                if (duk_get_prop_string(ctx, -4, "__contextCallbacks")) {
                     if (duk_get_prop_index(ctx, -1, (duk_uarridx_t)commandId)) {
                         if (duk_is_function(ctx, -1)) {
                             if (duk_pcall(ctx, 0) != 0) {
@@ -173,6 +186,12 @@ namespace JSApi {
                     }
                     duk_pop(ctx); // __contextCallbacks
                 }
+
+                // Restore globals
+                duk_put_global_string(ctx, "widgetWindow");
+                duk_put_global_string(ctx, "system");
+                duk_put_global_string(ctx, "win");
+
                 duk_pop(ctx); // widget object
             } else {
                 duk_pop(ctx); // undefined

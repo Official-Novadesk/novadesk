@@ -15,10 +15,12 @@
 #include "JSElement.h"
 #include "JSContextMenu.h"
 #include "../PathUtils.h"
+#include "../TimerManager.h"
 
 extern std::vector<Widget*> widgets;
 
 namespace JSApi {
+    static const UINT WM_RUN_WIDGET_SCRIPT = WM_USER + 101;
     
     Widget* GetWidgetFromContext(duk_context* ctx) {
         duk_push_this(ctx);
@@ -100,7 +102,10 @@ namespace JSApi {
         BindWidgetControlMethods(ctx);
 
         if (!widget->GetOptions().scriptPath.empty()) {
-            ExecuteWidgetScript(widget);
+            // Defer script execution until the next message loop cycle.
+            // This allows the main script to finish its setup (like registering IPC listeners)
+            // before the widget script starts sending messages.
+            PostMessage(TimerManager::GetWindow(), WM_RUN_WIDGET_SCRIPT, (WPARAM)widget, 0);
         }
 
         // Register in Global Stash for Event Dispatching
@@ -206,5 +211,9 @@ namespace JSApi {
 
         BindWidgetUIMethods(ctx);
         BindWidgetContextMenuMethods(ctx);
+    }
+
+    void HandleWidgetScriptRun(Widget* widget) {
+        ExecuteWidgetScript(widget);
     }
 }

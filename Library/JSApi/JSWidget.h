@@ -16,4 +16,6 @@ namespace JSApi {
     duk_ret_t js_widget_refresh(duk_context* ctx);
 
     void BindWidgetControlMethods(duk_context* ctx);
-}
+ 
+     void HandleWidgetScriptRun(class Widget* widget);
+ }

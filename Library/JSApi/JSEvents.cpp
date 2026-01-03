@@ -52,8 +52,6 @@ namespace JSApi {
         duk_push_global_stash(s_JsContext);
         duk_get_global_string(s_JsContext, "win");
         duk_put_prop_string(s_JsContext, -2, "original_win");
-        duk_get_global_string(s_JsContext, "system");
-        duk_put_prop_string(s_JsContext, -2, "original_system");
         duk_get_global_string(s_JsContext, "novadesk");
         duk_put_prop_string(s_JsContext, -2, "original_novadesk");
         duk_get_global_string(s_JsContext, "path");
@@ -67,7 +65,7 @@ namespace JSApi {
         // Save and remove timers and constructors
         const char* forbidden[] = { 
             "setInterval", "setTimeout", "clearInterval", "clearTimeout", "setImmediate",
-            "widgetWindow"
+            "widgetWindow", "system"
         };
         for (const char* f : forbidden) {
             duk_get_global_string(s_JsContext, f);
@@ -91,11 +89,6 @@ namespace JSApi {
 
         BindWidgetUIMethods(s_JsContext);
         duk_put_global_string(s_JsContext, "win");
-
-        duk_push_object(s_JsContext);
-        BindSystemBaseMethods(s_JsContext);
-        BindJsonMethods(s_JsContext);
-        duk_put_global_string(s_JsContext, "system");
 
         duk_push_object(s_JsContext);
         BindNovadeskBaseMethods(s_JsContext);
@@ -122,11 +115,12 @@ namespace JSApi {
         // Wrap the script in an IIFE (Immediately Invoked Function Expression) to provide 
         // variable isolation. This prevents top-level 'var' and 'function' declarations 
         // from colliding between different widgets that share the same Duktape heap.
-        // The parameters (win, system, etc.) ensure these widget-specific objects 
-        // are trapped in the closure.
-        std::string wrappedContent = "(function(win, system, novadesk, ipc, path, __dirname, __filename) {\n";
+        // The parameters (win, novadesk, etc.) ensure these widget-specific objects 
+        // are trapped in the closure. By adding restricted globals like 'system' 
+        // to the parameters but NOT the arguments, we shadow them with 'undefined'.
+        std::string wrappedContent = "(function(win, novadesk, ipc, path, __dirname, __filename, system, setInterval, setTimeout, clearInterval, clearTimeout, setImmediate, widgetWindow) {\n";
         wrappedContent += content;
-        wrappedContent += "\n})(win, system, novadesk, ipc, path, __dirname, __filename);";
+        wrappedContent += "\n})(win, novadesk, ipc, path, __dirname, __filename);";
 
         if (duk_peval_string(s_JsContext, wrappedContent.c_str()) != 0) {
             Logging::Log(LogLevel::Error, L"Widget Script Error (%s): %S", widget->GetOptions().id.c_str(), duk_safe_to_string(s_JsContext, -1));
@@ -136,8 +130,6 @@ namespace JSApi {
         duk_push_global_stash(s_JsContext);
         duk_get_prop_string(s_JsContext, -1, "original_win");
         duk_put_global_string(s_JsContext, "win");
-        duk_get_prop_string(s_JsContext, -1, "original_system");
-        duk_put_global_string(s_JsContext, "system");
         duk_get_prop_string(s_JsContext, -1, "original_novadesk");
         duk_put_global_string(s_JsContext, "novadesk");
         duk_get_prop_string(s_JsContext, -1, "original_path");
@@ -157,7 +149,7 @@ namespace JSApi {
 
         // Clean up context tracking properties
         const char* context_props[] = { 
-            "original_win", "original_system", "original_novadesk", 
+            "original_win", "original_novadesk", 
             "original_path", "original_dirname", "original_filename" 
         };
         for (const char* p : context_props) {
@@ -173,7 +165,22 @@ namespace JSApi {
         if (duk_get_prop_string(s_JsContext, -1, "widget_objects")) {
             std::string id = Utils::ToString(widget->GetOptions().id);
             if (duk_get_prop_string(s_JsContext, -1, id.c_str())) {
-                if (duk_get_prop_string(s_JsContext, -1, "\xFF" "events")) {
+                // Save original globals to restore later
+                duk_get_global_string(s_JsContext, "win");
+                duk_get_global_string(s_JsContext, "system");
+                duk_get_global_string(s_JsContext, "widgetWindow");
+
+                // Set widget-specific context for the duration of the event
+                duk_dup(s_JsContext, -4); // The widget object
+                duk_put_global_string(s_JsContext, "win");
+                
+                // Mask restricted globals
+                duk_push_undefined(s_JsContext);
+                duk_put_global_string(s_JsContext, "system");
+                duk_push_undefined(s_JsContext);
+                duk_put_global_string(s_JsContext, "widgetWindow");
+
+                if (duk_get_prop_string(s_JsContext, -4, "\xFF" "events")) {
                     if (duk_get_prop_string(s_JsContext, -1, eventName.c_str())) {
                         if (duk_is_array(s_JsContext, -1)) {
                             duk_size_t len = duk_get_length(s_JsContext, -1);
@@ -192,6 +199,11 @@ namespace JSApi {
                     duk_pop(s_JsContext); // event name prop
                 }
                 duk_pop(s_JsContext); // events object
+
+                // Restore original globals
+                duk_put_global_string(s_JsContext, "widgetWindow");
+                duk_put_global_string(s_JsContext, "system");
+                duk_put_global_string(s_JsContext, "win");
             }
             duk_pop(s_JsContext); // widget object
         }
