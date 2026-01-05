@@ -203,7 +203,8 @@ void Widget::ChangeZPos(ZPOSITION zPos, bool all)
         break;
 
     case ZPOSITION_NORMAL:
-        break;
+        if (all || !System::GetShowDesktop()) break;
+        // Fallthrough
 
     case ZPOSITION_ONDESKTOP:
         if (System::GetShowDesktop())
@@ -264,12 +265,6 @@ timer_check:
 void Widget::ChangeSingleZPos(ZPOSITION zPos, bool all)
 {
     if (zPos == ZPOSITION_NORMAL && System::GetShowDesktop())
-    {
-        m_WindowZPosition = zPos;
-        SetWindowPos(m_hWnd, System::GetBackmostTopWindow(), 0, 0, 0, 0, ZPOS_FLAGS);
-        BringWindowToTop(m_hWnd);
-    }
-    else if (zPos == ZPOSITION_ONDESKTOP)
     {
         m_WindowZPosition = zPos;
         SetWindowPos(m_hWnd, System::GetBackmostTopWindow(), 0, 0, 0, 0, ZPOS_FLAGS);
