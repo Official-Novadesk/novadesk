@@ -1260,7 +1260,9 @@ void Widget::OnContextMenu()
         AppendMenu(hSubMenu, MF_STRING, 1001, L"Refresh");
         AppendMenu(hSubMenu, MF_STRING, 1003, L"Exit");
         
-        AppendMenu(hMenu, MF_POPUP, (UINT_PTR)hSubMenu, L"Novadesk");
+        WCHAR szAppTitle[100];
+        LoadStringW(GetModuleHandle(NULL), IDS_APP_TITLE, szAppTitle, 100);
+        AppendMenu(hMenu, MF_POPUP, (UINT_PTR)hSubMenu, szAppTitle);
     }
 
     SetForegroundWindow(m_hWnd);

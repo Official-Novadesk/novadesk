@@ -284,7 +284,7 @@ void ShowTrayMenu(HWND hWnd)
         AppendMenu(hSubMenu, MF_STRING, ID_TRAY_REFRESH, L"Refresh");
         AppendMenu(hSubMenu, MF_STRING, ID_TRAY_EXIT, L"Exit");
         
-        AppendMenu(hMenu, MF_POPUP, (UINT_PTR)hSubMenu, L"Novadesk");
+        AppendMenu(hMenu, MF_POPUP, (UINT_PTR)hSubMenu, szTitle);
     }
 
     SetForegroundWindow(hWnd);
