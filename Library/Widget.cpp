@@ -12,6 +12,7 @@
 #include "Resource.h"
 #include "MenuUtils.h"
 #include "JSApi/JSContextMenu.h"
+#include "Utils.h"
 #include <vector>
 #include <windowsx.h>
 #include <algorithm>
@@ -1260,9 +1261,8 @@ void Widget::OnContextMenu()
         AppendMenu(hSubMenu, MF_STRING, 1001, L"Refresh");
         AppendMenu(hSubMenu, MF_STRING, 1003, L"Exit");
         
-        WCHAR szAppTitle[100];
-        LoadStringW(GetModuleHandle(NULL), IDS_APP_TITLE, szAppTitle, 100);
-        AppendMenu(hMenu, MF_POPUP, (UINT_PTR)hSubMenu, szAppTitle);
+        std::wstring appTitle = Utils::GetAppTitle();
+        AppendMenu(hMenu, MF_POPUP, (UINT_PTR)hSubMenu, appTitle.c_str());
     }
 
     SetForegroundWindow(m_hWnd);

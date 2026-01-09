@@ -217,12 +217,12 @@ bool BuildWidget() {
         fs::path destExe = distDir / (widgetRealName + ".exe");
         fs::copy_file(srcExe, destExe, fs::copy_options::overwrite_existing);
 
-        fs::copy_file(widgetPath / "index.js", distDir / "index.js", fs::copy_options::overwrite_existing);
+        fs::path widgetsSubDir = distDir / "Widgets";
+        fs::create_directories(widgetsSubDir);
+
+        fs::copy_file(widgetPath / "index.js", widgetsSubDir / "index.js", fs::copy_options::overwrite_existing);
         if (fs::exists(widgetPath / "ui")) {
-            fs::copy(widgetPath / "ui", distDir / "ui", fs::copy_options::recursive);
-        }
-        if (fs::exists(widgetPath / "assets")) {
-            fs::copy(widgetPath / "assets", distDir / "assets", fs::copy_options::recursive);
+            fs::copy(widgetPath / "ui", widgetsSubDir / "ui", fs::copy_options::recursive);
         }
 
         fs::path rceditPath = exeDir / "rcedit-x86.exe";
