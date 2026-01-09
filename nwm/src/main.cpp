@@ -18,17 +18,6 @@ fs::path GetExeDir() {
     return fs::path(path).parent_path();
 }
 
-// Scaffolding templates
-const std::string INDEX_JS_TEMPLATE = "novadesk.log('Widget initialized');\n";
-const std::string UI_JS_TEMPLATE = "// UI logic here\n";
-const std::string META_JSON_TEMPLATE = R"({
-  "name": "{NAME}",
-  "version": "1.0.0",
-  "author": "Your Name",
-  "description": "Widget Description",
-  "icon": "assets/icon.ico"
-})";
-
 // Helper to execute a command and wait
 bool ExecuteCommand(const std::string& command) {
     STARTUPINFOA si = { sizeof(si) };
@@ -105,21 +94,8 @@ bool InitWidget(const std::string& name) {
             
             std::cout << "Widget initialized from template." << std::endl;
         } else {
-            // Fallback to hardcoded templates
-            fs::create_directories(baseDir / "ui");
-            
-            std::ofstream indexFile(baseDir / "index.js");
-            indexFile << INDEX_JS_TEMPLATE;
-            
-            std::ofstream uiFile(baseDir / "ui" / "ui.js");
-            uiFile << UI_JS_TEMPLATE;
-            
-            std::ofstream metaFile(baseDir / "meta.json");
-            std::string metaContent = META_JSON_TEMPLATE;
-            size_t pos = metaContent.find("{NAME}");
-            if (pos != std::string::npos) metaContent.replace(pos, 6, name);
-            metaFile << metaContent;
-            std::cout << "Widget initialized from default boilerplate." << std::endl;
+            std::cerr << "Error: Widget template folder not found at " << templateDir << std::endl;
+            return false;
         }
 
         std::cout << "Widget '" << name << "' initialized successfully at " << baseDir << std::endl;
@@ -220,9 +196,17 @@ bool BuildWidget() {
         fs::path widgetsSubDir = distDir / "Widgets";
         fs::create_directories(widgetsSubDir);
 
-        fs::copy_file(widgetPath / "index.js", widgetsSubDir / "index.js", fs::copy_options::overwrite_existing);
-        if (fs::exists(widgetPath / "ui")) {
-            fs::copy(widgetPath / "ui", widgetsSubDir / "ui", fs::copy_options::recursive);
+        for (const auto& entry : fs::directory_iterator(widgetPath)) {
+            const auto& path = entry.path();
+            std::string filename = path.filename().string();
+
+            if (filename == "dist") continue;
+
+            if (fs::is_directory(path)) {
+                fs::copy(path, widgetsSubDir / filename, fs::copy_options::recursive);
+            } else if (filename != (widgetRealName + ".exe")) {
+                fs::copy_file(path, widgetsSubDir / filename, fs::copy_options::overwrite_existing);
+            }
         }
 
         fs::path rceditPath = exeDir / "rcedit-x86.exe";
