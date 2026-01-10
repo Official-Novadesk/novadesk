@@ -30,5 +30,4 @@ namespace JSApi {
     // Binding functions
     void BindConsoleMethods(duk_context* ctx);
     void BindNovadeskAppMethods(duk_context* ctx);
-    void BindRestrictedAppMethods(duk_context* ctx);
 }

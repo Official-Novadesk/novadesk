@@ -192,8 +192,6 @@ namespace JSApi {
     }
 
     void BindNovadeskAppMethods(duk_context* ctx) {
-        duk_push_c_function(ctx, js_include, 1);
-        duk_put_prop_string(ctx, -2, "include");
         duk_push_c_function(ctx, js_novadesk_saveLogToFile, 1);
         duk_put_prop_string(ctx, -2, "saveLogToFile");
         duk_push_c_function(ctx, js_novadesk_enableDebugging, 1);
@@ -206,10 +204,5 @@ namespace JSApi {
         duk_put_prop_string(ctx, -2, "refresh");
         duk_push_c_function(ctx, js_novadesk_exit, 0);
         duk_put_prop_string(ctx, -2, "exit");
-    }
-
-    void BindRestrictedAppMethods(duk_context* ctx) {
-        duk_push_c_function(ctx, js_include, 1);
-        duk_put_prop_string(ctx, -2, "include");
     }
 }

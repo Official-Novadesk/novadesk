@@ -89,6 +89,9 @@ namespace JSApi {
 
         // Register global modules
         BindPathMethods(ctx);
+        
+        duk_push_c_function(ctx, js_include, 1);
+        duk_put_global_string(ctx, "include");
 
         BindIPCMethods(ctx);
 
