@@ -113,7 +113,22 @@ namespace JSApi {
 
     duk_ret_t js_include(duk_context* ctx) {
         std::wstring filename = Utils::ToWString(duk_require_string(ctx, 0));
-        std::wstring fullPath = PathUtils::ResolvePath(filename, PathUtils::GetWidgetsDir());
+        
+        // Determine the base directory for path resolution
+        std::wstring baseDir = PathUtils::GetWidgetsDir();
+        
+        // Check if __dirname is available in the global scope
+        duk_get_global_string(ctx, "__dirname");
+        if (duk_is_string(ctx, -1)) {
+            std::wstring dirname = Utils::ToWString(duk_get_string(ctx, -1));
+            if (!dirname.empty()) {
+                baseDir = dirname;
+                if (baseDir.back() != L'\\') baseDir += L'\\';
+            }
+        }
+        duk_pop(ctx);
+        
+        std::wstring fullPath = PathUtils::ResolvePath(filename, baseDir);
 
         std::string content = FileUtils::ReadFileContent(fullPath);
         if (content.empty()) {
