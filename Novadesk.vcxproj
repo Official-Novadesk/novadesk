@@ -176,6 +176,7 @@
     <ClInclude Include="Library\TimerManager.h" />
     <ClInclude Include="Library\PropertyParser.h" />
     <ClInclude Include="Library\json\json.hpp" />
+    <ClInclude Include="Library\Version.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Library\Element.cpp" />

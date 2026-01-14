@@ -136,6 +136,9 @@
     <ClInclude Include="Library\JSApi\JSNovadeskTray.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Library\Version.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Library\Novadesk.cpp">
