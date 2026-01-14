@@ -12,6 +12,7 @@
 #include "Resource.h"
 #include "MenuUtils.h"
 #include "JSApi/JSContextMenu.h"
+#include "Utils.h"
 #include <vector>
 #include <windowsx.h>
 #include <algorithm>
@@ -19,6 +20,7 @@
 
 #include "JSApi/JSApi.h"
 #include "JSApi/JSCommon.h"
+#include "JSApi/JSEvents.h"
 #include "ColorUtil.h"
 #pragma comment(lib, "gdiplus.lib")
 
@@ -202,7 +204,8 @@ void Widget::ChangeZPos(ZPOSITION zPos, bool all)
         break;
 
     case ZPOSITION_NORMAL:
-        break;
+        if (all || !System::GetShowDesktop()) break;
+        // Fallthrough
 
     case ZPOSITION_ONDESKTOP:
         if (System::GetShowDesktop())
@@ -263,12 +266,6 @@ timer_check:
 void Widget::ChangeSingleZPos(ZPOSITION zPos, bool all)
 {
     if (zPos == ZPOSITION_NORMAL && System::GetShowDesktop())
-    {
-        m_WindowZPosition = zPos;
-        SetWindowPos(m_hWnd, System::GetBackmostTopWindow(), 0, 0, 0, 0, ZPOS_FLAGS);
-        BringWindowToTop(m_hWnd);
-    }
-    else if (zPos == ZPOSITION_ONDESKTOP)
     {
         m_WindowZPosition = zPos;
         SetWindowPos(m_hWnd, System::GetBackmostTopWindow(), 0, 0, 0, 0, ZPOS_FLAGS);
@@ -822,7 +819,7 @@ void Widget::AddText(const PropertyParser::TextOptions& options)
 
     TextElement* element = new TextElement(options.id, options.x, options.y, options.width, options.height, 
                              options.text, options.fontFace, options.fontSize, options.fontColor, options.alpha,
-                             options.bold, options.italic, options.textAlign, options.clip, options.clipW, options.clipH);
+                             options.bold, options.italic, options.textAlign, options.clip);
                              
     Logging::Log(LogLevel::Debug, L"Widget::AddText: Created TextElement id='%s', text='%s', x=%d, y=%d", element->GetId().c_str(), element->GetText().c_str(), element->GetX(), element->GetY());
 
@@ -1138,25 +1135,25 @@ bool Widget::HandleMouseMessage(UINT message, WPARAM wParam, LPARAM lParam)
             if (m_MouseOverElement)
             {
                 m_MouseOverElement->m_IsMouseOver = false;
-                std::wstring leaveAction = m_MouseOverElement->m_OnMouseLeave;
-                if (!leaveAction.empty())
-                    JSApi::ExecuteScript(leaveAction);
+                int leaveId = m_MouseOverElement->m_OnMouseLeaveCallbackId;
+                if (leaveId != -1)
+                    JSApi::CallEventCallback(leaveId);
                 
-                // If ExecuteScript cleared the elements, m_MouseOverElement is now invalid
+                // If callback cleared the elements, m_MouseOverElement is now invalid
                 if (m_Elements.empty()) {
                     m_MouseOverElement = nullptr;
-                    return true; // Technically handled or compromised
+                    return true;
                 }
             }
 
             if (hitElement)
             {
                 hitElement->m_IsMouseOver = true;
-                std::wstring overAction = hitElement->m_OnMouseOver;
-                if (!overAction.empty())
-                    JSApi::ExecuteScript(overAction);
+                int overId = hitElement->m_OnMouseOverCallbackId;
+                if (overId != -1)
+                    JSApi::CallEventCallback(overId);
 
-                // If ExecuteScript cleared the elements, hitElement is now invalid
+                // If callback cleared the elements, hitElement is now invalid
                 if (m_Elements.empty()) {
                     m_MouseOverElement = nullptr;
                     return true;
@@ -1175,18 +1172,16 @@ bool Widget::HandleMouseMessage(UINT message, WPARAM wParam, LPARAM lParam)
         tme.hwndTrack = m_hWnd;
         TrackMouseEvent(&tme);
         
-        handled = true; // Mouse move is generally considered handled if we process hovers? 
-                        // Actually for context menu, only RBUTTONUP handling implies consumption.
-                        // But for function signature satisfaction, we return true if we did logic.
+        handled = true; 
     }
     else if (message == WM_MOUSELEAVE)
     {
         if (m_MouseOverElement)
         {
              m_MouseOverElement->m_IsMouseOver = false;
-             std::wstring leaveAction = m_MouseOverElement->m_OnMouseLeave;
-             if (!leaveAction.empty())
-                 JSApi::ExecuteScript(leaveAction);
+             int leaveId = m_MouseOverElement->m_OnMouseLeaveCallbackId;
+             if (leaveId != -1)
+                 JSApi::CallEventCallback(leaveId);
              m_MouseOverElement = nullptr;
         }
         handled = true;
@@ -1195,45 +1190,46 @@ bool Widget::HandleMouseMessage(UINT message, WPARAM wParam, LPARAM lParam)
     // Dispatch Actions
     if (actionElement)
     {
-        std::wstring action;
+        int actionId = -1;
+
         switch (message)
         {
-        case WM_LBUTTONUP:     action = actionElement->m_OnLeftMouseUp; break;
-        case WM_LBUTTONDOWN:   action = actionElement->m_OnLeftMouseDown; break;
-        case WM_LBUTTONDBLCLK: action = actionElement->m_OnLeftDoubleClick; break;
-        case WM_RBUTTONUP:     action = actionElement->m_OnRightMouseUp; break;
-        case WM_RBUTTONDOWN:   action = actionElement->m_OnRightMouseDown; break;
-        case WM_RBUTTONDBLCLK: action = actionElement->m_OnRightDoubleClick; break;
-        case WM_MBUTTONUP:     action = actionElement->m_OnMiddleMouseUp; break;
-        case WM_MBUTTONDOWN:   action = actionElement->m_OnMiddleMouseDown; break;
-        case WM_MBUTTONDBLCLK: action = actionElement->m_OnMiddleDoubleClick; break;
+        case WM_LBUTTONUP:     actionId = actionElement->m_OnLeftMouseUpCallbackId; break;
+        case WM_LBUTTONDOWN:   actionId = actionElement->m_OnLeftMouseDownCallbackId; break;
+        case WM_LBUTTONDBLCLK: actionId = actionElement->m_OnLeftDoubleClickCallbackId; break;
+        case WM_RBUTTONUP:     actionId = actionElement->m_OnRightMouseUpCallbackId; break;
+        case WM_RBUTTONDOWN:   actionId = actionElement->m_OnRightMouseDownCallbackId; break;
+        case WM_RBUTTONDBLCLK: actionId = actionElement->m_OnRightDoubleClickCallbackId; break;
+        case WM_MBUTTONUP:     actionId = actionElement->m_OnMiddleMouseUpCallbackId; break;
+        case WM_MBUTTONDOWN:   actionId = actionElement->m_OnMiddleMouseDownCallbackId; break;
+        case WM_MBUTTONDBLCLK: actionId = actionElement->m_OnMiddleDoubleClickCallbackId; break;
         case WM_XBUTTONUP:
-            if (GET_XBUTTON_WPARAM(wParam) == XBUTTON1) action = actionElement->m_OnX1MouseUp;
-            else action = actionElement->m_OnX2MouseUp;
+            if (GET_XBUTTON_WPARAM(wParam) == XBUTTON1) { actionId = actionElement->m_OnX1MouseUpCallbackId; }
+            else { actionId = actionElement->m_OnX2MouseUpCallbackId; }
             break;
         case WM_XBUTTONDOWN:
-            if (GET_XBUTTON_WPARAM(wParam) == XBUTTON1) action = actionElement->m_OnX1MouseDown;
-            else action = actionElement->m_OnX2MouseDown;
+            if (GET_XBUTTON_WPARAM(wParam) == XBUTTON1) { actionId = actionElement->m_OnX1MouseDownCallbackId; }
+            else { actionId = actionElement->m_OnX2MouseDownCallbackId; }
             break;
         case WM_XBUTTONDBLCLK:
-            if (GET_XBUTTON_WPARAM(wParam) == XBUTTON1) action = actionElement->m_OnX1DoubleClick;
-            else action = actionElement->m_OnX2DoubleClick;
+            if (GET_XBUTTON_WPARAM(wParam) == XBUTTON1) { actionId = actionElement->m_OnX1DoubleClickCallbackId; }
+            else { actionId = actionElement->m_OnX2DoubleClickCallbackId; }
             break;
         case WM_MOUSEWHEEL:
-            if (GET_WHEEL_DELTA_WPARAM(wParam) > 0) action = actionElement->m_OnScrollUp;
-            else action = actionElement->m_OnScrollDown;
+            if (GET_WHEEL_DELTA_WPARAM(wParam) > 0) { actionId = actionElement->m_OnScrollUpCallbackId; }
+            else { actionId = actionElement->m_OnScrollDownCallbackId; }
             break;
         case WM_MOUSEHWHEEL:
-            if (GET_WHEEL_DELTA_WPARAM(wParam) > 0) action = actionElement->m_OnScrollRight;
-            else action = actionElement->m_OnScrollLeft;
+            if (GET_WHEEL_DELTA_WPARAM(wParam) > 0) { actionId = actionElement->m_OnScrollRightCallbackId; }
+            else { actionId = actionElement->m_OnScrollLeftCallbackId; }
             break;
         }
 
-        if (!action.empty())
+        if (actionId != -1)
         {
-            // ExecuteScript might clear elements, so we must use our local copy of the action string
-            JSApi::ExecuteScript(action);
-            handled = true;
+             // Execute function callback
+             JSApi::CallEventCallback(actionId);
+             handled = true;
         }
     }
     
@@ -1265,7 +1261,8 @@ void Widget::OnContextMenu()
         AppendMenu(hSubMenu, MF_STRING, 1001, L"Refresh");
         AppendMenu(hSubMenu, MF_STRING, 1003, L"Exit");
         
-        AppendMenu(hMenu, MF_POPUP, (UINT_PTR)hSubMenu, L"Novadesk");
+        std::wstring appTitle = Utils::GetAppTitle();
+        AppendMenu(hMenu, MF_POPUP, (UINT_PTR)hSubMenu, appTitle.c_str());
     }
 
     SetForegroundWindow(m_hWnd);

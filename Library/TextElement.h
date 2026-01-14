@@ -40,7 +40,7 @@ public:
           const std::wstring& text, const std::wstring& fontFace,
           int fontSize, COLORREF fontColor, BYTE alpha,
           bool bold, bool italic, TextAlignment textAlign,
-          TextClipString clip = TEXT_CLIP_NONE, int clipW = -1, int clipH = -1);
+          TextClipString clip = TEXT_CLIP_NONE);
 
     virtual ~TextElement() {}
 
@@ -53,7 +53,7 @@ public:
     void SetBold(bool bold) { m_Bold = bold; }
     void SetItalic(bool italic) { m_Italic = italic; }
     void SetTextAlign(TextAlignment align) { m_TextAlign = align; }
-    void SetClip(TextClipString clip, int w, int h) { m_ClipString = clip; m_ClipStringW = w; m_ClipStringH = h; }
+    void SetClip(TextClipString clip) { m_ClipString = clip; }
 
     const std::wstring& GetText() const { return m_Text; }
     const std::wstring& GetFontFace() const { return m_FontFace; }
@@ -64,8 +64,6 @@ public:
     bool IsItalic() const { return m_Italic; }
     TextAlignment GetTextAlign() const { return m_TextAlign; }
     TextClipString GetClipString() const { return m_ClipString; }
-    int GetClipW() const { return m_ClipStringW; }
-    int GetClipH() const { return m_ClipStringH; }
 
     virtual int GetAutoWidth() override;
     virtual int GetAutoHeight() override;
@@ -82,8 +80,6 @@ private:
     bool m_Italic;
     TextAlignment m_TextAlign;
     TextClipString m_ClipString;
-    int m_ClipStringW;
-    int m_ClipStringH;
 };
 
 #endif

@@ -95,8 +95,3 @@ setInterval(function () {
   ipc.send('net-out', netOutKB);
 
 }, 1000);
-
-var hotkeyId = system.registerHotkey("CTRL+S", function () {
-  novadesk.log("CTRL+S pressed");
-  novadesk.refresh();
-});

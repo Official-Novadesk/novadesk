@@ -48,6 +48,45 @@ namespace JSApi {
         }
     }
 
+    // Helper to convert Duktape to nlohmann::json
+    json PushDukToJson(duk_context* ctx, duk_idx_t idx) {
+        if (duk_is_null_or_undefined(ctx, idx)) {
+            return nullptr;
+        }
+        else if (duk_is_boolean(ctx, idx)) {
+            return duk_get_boolean(ctx, idx);
+        }
+        else if (duk_is_number(ctx, idx)) {
+            return duk_get_number(ctx, idx);
+        }
+        else if (duk_is_string(ctx, idx)) {
+            return duk_get_string(ctx, idx);
+        }
+        else if (duk_is_array(ctx, idx)) {
+            json j = json::array();
+            duk_size_t len = duk_get_length(ctx, idx);
+            for (duk_size_t i = 0; i < len; i++) {
+                duk_get_prop_index(ctx, idx, (duk_uarridx_t)i);
+                j.push_back(PushDukToJson(ctx, -1));
+                duk_pop(ctx);
+            }
+            return j;
+        }
+        else if (duk_is_object(ctx, idx)) {
+            json j = json::object();
+            duk_enum(ctx, idx, DUK_ENUM_OWN_PROPERTIES_ONLY);
+            while (duk_next(ctx, -1, 1)) {
+                // [ ... enum key value ]
+                std::string key = duk_get_string(ctx, -2);
+                j[key] = PushDukToJson(ctx, -1);
+                duk_pop_2(ctx); // pop key and value
+            }
+            duk_pop(ctx); // pop enum
+            return j;
+        }
+        return nullptr;
+    }
+
     duk_ret_t js_read_json(duk_context* ctx) {
         const char* path = duk_get_string(ctx, 0);
         if (!path) return 0;
@@ -91,19 +130,23 @@ namespace JSApi {
             wpath = PathUtils::ResolvePath(wpath, PathUtils::GetParentDir(s_CurrentScriptPath));
         }
 
-        // Encode to JSON string using Duktape
-        duk_dup(ctx, 1);
-        const char* jsonStr = duk_json_encode(ctx, -1);
-        
-        std::ofstream out(wpath);
-        bool success = out.is_open();
-        if (success) {
-            out << jsonStr;
-            out.close();
+        try {
+            // Convert Duktape object to json
+            json j = PushDukToJson(ctx, 1);
+            
+            std::ofstream out(wpath);
+            if (out.is_open()) {
+                out << j.dump(4); // Pretty print with 4 spaces
+                out.close();
+                duk_push_boolean(ctx, true);
+                return 1;
+            }
         }
-        duk_pop(ctx); // Pop encoded string
+        catch (...) {
+            Logging::Log(LogLevel::Error, L"Failed to write JSON file: %s", wpath.c_str());
+        }
 
-        duk_push_boolean(ctx, success);
+        duk_push_boolean(ctx, false);
         return 1;
     }
 

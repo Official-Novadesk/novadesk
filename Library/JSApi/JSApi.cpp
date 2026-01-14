@@ -17,7 +17,7 @@
 #include "JSJson.h"
 #include "JSPath.h"
 #include "JSNovadeskTray.h"
-#include "JSApp.h"
+
 
 #include "../Widget.h"
 #include "../Settings.h"
@@ -37,12 +37,16 @@ namespace JSApi {
     void InitializeJavaScriptAPI(duk_context* ctx) {
         s_JsContext = ctx;
 
-        // Register novadesk object and methods
+        // Register console object
         duk_push_object(ctx);
-        BindNovadeskBaseMethods(ctx);
+        BindConsoleMethods(ctx);
+        duk_put_global_string(ctx, "console");
+
+        // Register app object
+        duk_push_object(ctx);
         BindNovadeskAppMethods(ctx);
         BindNovadeskTrayMethods(ctx);
-        duk_put_global_string(ctx, "novadesk");
+        duk_put_global_string(ctx, "app");
 
         // Initialize Global Stash for Object Tracking
         duk_push_global_stash(ctx);
@@ -85,7 +89,10 @@ namespace JSApi {
 
         // Register global modules
         BindPathMethods(ctx);
-        BindAppMethods(ctx);
+        
+        duk_push_c_function(ctx, js_include, 1);
+        duk_put_global_string(ctx, "include");
+
         BindIPCMethods(ctx);
 
         Logging::Log(LogLevel::Info, L"JavaScript API initialized");
@@ -125,7 +132,12 @@ namespace JSApi {
         duk_push_string(ctx, filename.c_str());
         duk_put_global_string(ctx, "__filename");
 
-        if (duk_peval_string(ctx, content.c_str()) != 0) {
+        // Wrap the script in an IIFE to prevent global scope pollution
+        std::string wrappedContent = "(function() {\n";
+        wrappedContent += content;
+        wrappedContent += "\n})();";
+
+        if (duk_peval_string(ctx, wrappedContent.c_str()) != 0) {
             Logging::Log(LogLevel::Error, L"Script execution failed: %S", duk_safe_to_string(ctx, -1));
             duk_pop(ctx);
             return false;
@@ -151,9 +163,10 @@ namespace JSApi {
         widgets.clear();
         for (auto w : widgetsCopy) delete w;
 
-        duk_get_global_string(ctx, "novadesk");
+        duk_push_global_stash(ctx);
         duk_del_prop_string(ctx, -1, "__hotkeys");
         duk_del_prop_string(ctx, -1, "__timers");
+        duk_del_prop_string(ctx, -1, "__trayCallbacks");
         duk_pop(ctx);
  
         s_NextTempId = 1;
@@ -172,6 +185,12 @@ namespace JSApi {
     }
  
     void OnMessage(UINT message, WPARAM wParam, LPARAM lParam) {
+        static const UINT WM_DISPATCH_IPC = WM_USER + 102;
+
+        if (message == WM_DISPATCH_IPC) {
+            DispatchPendingIPC(s_JsContext);
+            return;
+        }
         TimerManager::HandleMessage(message, wParam, lParam);
     }
  

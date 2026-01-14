@@ -28,6 +28,6 @@ namespace JSApi {
     duk_ret_t js_novadesk_refresh(duk_context* ctx);
 
     // Binding functions
-    void BindNovadeskBaseMethods(duk_context* ctx);
+    void BindConsoleMethods(duk_context* ctx);
     void BindNovadeskAppMethods(duk_context* ctx);
 }

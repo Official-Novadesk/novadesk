@@ -129,27 +129,31 @@ public:
     bool HasMouseAction() const;
 
     // Mouse Actions
-    std::wstring m_OnLeftMouseUp;
-    std::wstring m_OnLeftMouseDown;
-    std::wstring m_OnLeftDoubleClick;
-    std::wstring m_OnRightMouseUp;
-    std::wstring m_OnRightMouseDown;
-    std::wstring m_OnRightDoubleClick;
-    std::wstring m_OnMiddleMouseUp;
-    std::wstring m_OnMiddleMouseDown;
-    std::wstring m_OnMiddleDoubleClick;
-    std::wstring m_OnX1MouseUp;
-    std::wstring m_OnX1MouseDown;
-    std::wstring m_OnX1DoubleClick;
-    std::wstring m_OnX2MouseUp;
-    std::wstring m_OnX2MouseDown;
-    std::wstring m_OnX2DoubleClick;
-    std::wstring m_OnScrollUp;
-    std::wstring m_OnScrollDown;
-    std::wstring m_OnScrollLeft;
-    std::wstring m_OnScrollRight;
-    std::wstring m_OnMouseOver;
-    std::wstring m_OnMouseLeave;
+    // Mouse Actions (String based actions removed)
+
+    
+    // Callback IDs (initialized to -1)
+    int m_OnLeftMouseUpCallbackId = -1;
+    int m_OnLeftMouseDownCallbackId = -1;
+    int m_OnLeftDoubleClickCallbackId = -1;
+    int m_OnRightMouseUpCallbackId = -1;
+    int m_OnRightMouseDownCallbackId = -1;
+    int m_OnRightDoubleClickCallbackId = -1;
+    int m_OnMiddleMouseUpCallbackId = -1;
+    int m_OnMiddleMouseDownCallbackId = -1;
+    int m_OnMiddleDoubleClickCallbackId = -1;
+    int m_OnX1MouseUpCallbackId = -1;
+    int m_OnX1MouseDownCallbackId = -1;
+    int m_OnX1DoubleClickCallbackId = -1;
+    int m_OnX2MouseUpCallbackId = -1;
+    int m_OnX2MouseDownCallbackId = -1;
+    int m_OnX2DoubleClickCallbackId = -1;
+    int m_OnScrollUpCallbackId = -1;
+    int m_OnScrollDownCallbackId = -1;
+    int m_OnScrollLeftCallbackId = -1;
+    int m_OnScrollRightCallbackId = -1;
+    int m_OnMouseOverCallbackId = -1;
+    int m_OnMouseLeaveCallbackId = -1;
 
     bool m_IsMouseOver = false;
 

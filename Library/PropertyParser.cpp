@@ -11,6 +11,7 @@
 #include "Settings.h"
 #include "PathUtils.h"
 #include <string>
+#include "JSApi/JSEvents.h"
 
 namespace PropertyParser {
 
@@ -128,6 +129,18 @@ namespace PropertyParser {
             }
             duk_pop(m_Ctx);
             return false;
+        }
+
+        void GetEvent(const char* key, int& outId) {
+            if (duk_get_prop_string(m_Ctx, -1, key)) {
+                if (duk_is_function(m_Ctx, -1)) {
+                    outId = JSApi::RegisterEventCallback(m_Ctx, -1);
+                } else if (duk_is_string(m_Ctx, -1)) {
+                    // String event handlers are no longer supported
+                    // Logging::Log(LogLevel::Warning, L"String event handler '%S' ignored. Use function reference.", key);
+                }
+            }
+            duk_pop(m_Ctx);
         }
 
     private:
@@ -277,30 +290,31 @@ namespace PropertyParser {
         duk_pop(ctx); // Pop 'padding' property
 
         // Mouse Actions
-        reader.GetString("onleftmouseup", options.onLeftMouseUp);
-        reader.GetString("onleftmousedown", options.onLeftMouseDown);
-        reader.GetString("onleftdoubleclick", options.onLeftDoubleClick);
-        reader.GetString("onrightmouseup", options.onRightMouseUp);
-        reader.GetString("onrightmousedown", options.onRightMouseDown);
-        reader.GetString("onrightdoubleclick", options.onRightDoubleClick);
-        reader.GetString("onmiddlemouseup", options.onMiddleMouseUp);
-        reader.GetString("onmiddlemousedown", options.onMiddleMouseDown);
-        reader.GetString("onmiddledoubleclick", options.onMiddleDoubleClick);
+        // Mouse Actions
+        reader.GetEvent("onleftmouseup", options.onLeftMouseUpCallbackId);
+        reader.GetEvent("onleftmousedown", options.onLeftMouseDownCallbackId);
+        reader.GetEvent("onleftdoubleclick", options.onLeftDoubleClickCallbackId);
+        reader.GetEvent("onrightmouseup", options.onRightMouseUpCallbackId);
+        reader.GetEvent("onrightmousedown", options.onRightMouseDownCallbackId);
+        reader.GetEvent("onrightdoubleclick", options.onRightDoubleClickCallbackId);
+        reader.GetEvent("onmiddlemouseup", options.onMiddleMouseUpCallbackId);
+        reader.GetEvent("onmiddlemousedown", options.onMiddleMouseDownCallbackId);
+        reader.GetEvent("onmiddledoubleclick", options.onMiddleDoubleClickCallbackId);
         
-        reader.GetString("onx1mouseup", options.onX1MouseUp);
-        reader.GetString("onx1mousedown", options.onX1MouseDown);
-        reader.GetString("onx1doubleclick", options.onX1DoubleClick);
-        reader.GetString("onx2mouseup", options.onX2MouseUp);
-        reader.GetString("onx2mousedown", options.onX2MouseDown);
-        reader.GetString("onx2doubleclick", options.onX2DoubleClick);
+        reader.GetEvent("onx1mouseup", options.onX1MouseUpCallbackId);
+        reader.GetEvent("onx1mousedown", options.onX1MouseDownCallbackId);
+        reader.GetEvent("onx1doubleclick", options.onX1DoubleClickCallbackId);
+        reader.GetEvent("onx2mouseup", options.onX2MouseUpCallbackId);
+        reader.GetEvent("onx2mousedown", options.onX2MouseDownCallbackId);
+        reader.GetEvent("onx2doubleclick", options.onX2DoubleClickCallbackId);
         
-        reader.GetString("onscrollup", options.onScrollUp);
-        reader.GetString("onscrolldown", options.onScrollDown);
-        reader.GetString("onscrollleft", options.onScrollLeft);
-        reader.GetString("onscrollright", options.onScrollRight);
+        reader.GetEvent("onscrollup", options.onScrollUpCallbackId);
+        reader.GetEvent("onscrolldown", options.onScrollDownCallbackId);
+        reader.GetEvent("onscrollleft", options.onScrollLeftCallbackId);
+        reader.GetEvent("onscrollright", options.onScrollRightCallbackId);
         
-        reader.GetString("onmouseover", options.onMouseOver);
-        reader.GetString("onmouseleave", options.onMouseLeave);
+        reader.GetEvent("onmouseover", options.onMouseOverCallbackId);
+        reader.GetEvent("onmouseleave", options.onMouseLeaveCallbackId);
         
         reader.GetBool("antialias", options.antialias);
     }
@@ -324,7 +338,12 @@ namespace PropertyParser {
         }
 
         // Image specific
-        reader.GetInt("preserveaspectratio", options.preserveAspectRatio);
+        std::wstring aspectStr;
+        if (reader.GetString("preserveaspectratio", aspectStr)) {
+            if (aspectStr == L"preserve") options.preserveAspectRatio = IMAGE_ASPECT_PRESERVE;
+            else if (aspectStr == L"crop") options.preserveAspectRatio = IMAGE_ASPECT_CROP;
+            else if (aspectStr == L"stretch") options.preserveAspectRatio = IMAGE_ASPECT_STRETCH;
+        }
         reader.GetBool("grayscale", options.grayscale);
         reader.GetBool("tile", options.tile);
         int alpha = 255;
@@ -386,10 +405,13 @@ namespace PropertyParser {
             else if (alignStr == L"rightbottom") options.textAlign = TEXT_ALIGN_RIGHT_BOTTOM;
         }
         
-        int clipVal = 0;
-        if (reader.GetInt("clipstring", clipVal)) options.clip = (TextClipString)clipVal;
-        reader.GetInt("clipstringw", options.clipW);
-        reader.GetInt("clipstringh", options.clipH);
+        std::wstring clipStr;
+        if (reader.GetString("clipstring", clipStr)) {
+            if (clipStr == L"none") options.clip = TEXT_CLIP_NONE;
+            else if (clipStr == L"on" || clipStr == L"clip") options.clip = TEXT_CLIP_ON;
+            else if (clipStr == L"ellipsis") options.clip = TEXT_CLIP_ELLIPSIS;
+        }
+
     }
 
     /*
@@ -599,27 +621,13 @@ namespace PropertyParser {
         duk_put_prop_string(ctx, -2, "padding");
 
         // Mouse Actions
-        if (!element->m_OnLeftMouseUp.empty()) { duk_push_string(ctx, Utils::ToString(element->m_OnLeftMouseUp).c_str()); duk_put_prop_string(ctx, -2, "onleftmouseup"); }
-        if (!element->m_OnLeftMouseDown.empty()) { duk_push_string(ctx, Utils::ToString(element->m_OnLeftMouseDown).c_str()); duk_put_prop_string(ctx, -2, "onleftmousedown"); }
-        if (!element->m_OnLeftDoubleClick.empty()) { duk_push_string(ctx, Utils::ToString(element->m_OnLeftDoubleClick).c_str()); duk_put_prop_string(ctx, -2, "onleftdoubleclick"); }
-        if (!element->m_OnRightMouseUp.empty()) { duk_push_string(ctx, Utils::ToString(element->m_OnRightMouseUp).c_str()); duk_put_prop_string(ctx, -2, "onrightmouseup"); }
-        if (!element->m_OnRightMouseDown.empty()) { duk_push_string(ctx, Utils::ToString(element->m_OnRightMouseDown).c_str()); duk_put_prop_string(ctx, -2, "onrightmousedown"); }
-        if (!element->m_OnRightDoubleClick.empty()) { duk_push_string(ctx, Utils::ToString(element->m_OnRightDoubleClick).c_str()); duk_put_prop_string(ctx, -2, "onrightdoubleclick"); }
-        if (!element->m_OnMiddleMouseUp.empty()) { duk_push_string(ctx, Utils::ToString(element->m_OnMiddleMouseUp).c_str()); duk_put_prop_string(ctx, -2, "onmiddlemouseup"); }
-        if (!element->m_OnMiddleMouseDown.empty()) { duk_push_string(ctx, Utils::ToString(element->m_OnMiddleMouseDown).c_str()); duk_put_prop_string(ctx, -2, "onmiddlemousedown"); }
-        if (!element->m_OnMiddleDoubleClick.empty()) { duk_push_string(ctx, Utils::ToString(element->m_OnMiddleDoubleClick).c_str()); duk_put_prop_string(ctx, -2, "onmiddledoubleclick"); }
-        if (!element->m_OnX1MouseUp.empty()) { duk_push_string(ctx, Utils::ToString(element->m_OnX1MouseUp).c_str()); duk_put_prop_string(ctx, -2, "onx1mouseup"); }
-        if (!element->m_OnX1MouseDown.empty()) { duk_push_string(ctx, Utils::ToString(element->m_OnX1MouseDown).c_str()); duk_put_prop_string(ctx, -2, "onx1mousedown"); }
-        if (!element->m_OnX1DoubleClick.empty()) { duk_push_string(ctx, Utils::ToString(element->m_OnX1DoubleClick).c_str()); duk_put_prop_string(ctx, -2, "onx1doubleclick"); }
-        if (!element->m_OnX2MouseUp.empty()) { duk_push_string(ctx, Utils::ToString(element->m_OnX2MouseUp).c_str()); duk_put_prop_string(ctx, -2, "onx2mouseup"); }
-        if (!element->m_OnX2MouseDown.empty()) { duk_push_string(ctx, Utils::ToString(element->m_OnX2MouseDown).c_str()); duk_put_prop_string(ctx, -2, "onx2mousedown"); }
-        if (!element->m_OnX2DoubleClick.empty()) { duk_push_string(ctx, Utils::ToString(element->m_OnX2DoubleClick).c_str()); duk_put_prop_string(ctx, -2, "onx2doubleclick"); }
-        if (!element->m_OnScrollUp.empty()) { duk_push_string(ctx, Utils::ToString(element->m_OnScrollUp).c_str()); duk_put_prop_string(ctx, -2, "onscrollup"); }
-        if (!element->m_OnScrollDown.empty()) { duk_push_string(ctx, Utils::ToString(element->m_OnScrollDown).c_str()); duk_put_prop_string(ctx, -2, "onscrolldown"); }
-        if (!element->m_OnScrollLeft.empty()) { duk_push_string(ctx, Utils::ToString(element->m_OnScrollLeft).c_str()); duk_put_prop_string(ctx, -2, "onscrollleft"); }
-        if (!element->m_OnScrollRight.empty()) { duk_push_string(ctx, Utils::ToString(element->m_OnScrollRight).c_str()); duk_put_prop_string(ctx, -2, "onscrollright"); }
-        if (!element->m_OnMouseOver.empty()) { duk_push_string(ctx, Utils::ToString(element->m_OnMouseOver).c_str()); duk_put_prop_string(ctx, -2, "onmouseover"); }
-        if (!element->m_OnMouseLeave.empty()) { duk_push_string(ctx, Utils::ToString(element->m_OnMouseLeave).c_str()); duk_put_prop_string(ctx, -2, "onmouseleave"); }
+        // We only support function callbacks now, so string push is removed or could push "[Function]"
+        // But for properties panel we might want to know if it has one?
+        // For now, let's omit pushing them back as string, or push empty/placeholder
+        /*
+        if (element->m_OnLeftMouseUpCallbackId != -1) { duk_push_string(ctx, "[Function]"); duk_put_prop_string(ctx, -2, "onleftmouseup"); }
+        // ... etc (omitted since we can't easily stringify the function back from just ID in this context easily without re-getting from stash)
+        */
 
         // Type Specific
         if (element->GetType() == ELEMENT_TEXT) {
@@ -648,14 +656,24 @@ namespace PropertyParser {
                 case TEXT_ALIGN_RIGHT_BOTTOM: alStr = "rightbottom"; break;
             }
             duk_push_string(ctx, alStr); duk_put_prop_string(ctx, -2, "textalign");
-            duk_push_int(ctx, (int)t->GetClipString()); duk_put_prop_string(ctx, -2, "clipstring");
-            duk_push_int(ctx, t->GetClipW()); duk_put_prop_string(ctx, -2, "clipstringw");
-            duk_push_int(ctx, t->GetClipH()); duk_put_prop_string(ctx, -2, "clipstringh");
+            const char* clipStr = "none";
+            switch (t->GetClipString()) {
+                case TEXT_CLIP_ON: clipStr = "clip"; break;
+                case TEXT_CLIP_ELLIPSIS: clipStr = "ellipsis"; break;
+            }
+            duk_push_string(ctx, clipStr); duk_put_prop_string(ctx, -2, "clipstring");
+
             
         } else if (element->GetType() == ELEMENT_IMAGE) {
             ImageElement* img = static_cast<ImageElement*>(element);
             duk_push_string(ctx, Utils::ToString(img->GetImagePath()).c_str()); duk_put_prop_string(ctx, -2, "path");
-            duk_push_int(ctx, img->GetPreserveAspectRatio()); duk_put_prop_string(ctx, -2, "preserveaspectratio");
+            
+            const char* aspectStr = "stretch";
+            switch (img->GetPreserveAspectRatio()) {
+                case IMAGE_ASPECT_PRESERVE: aspectStr = "preserve"; break;
+                case IMAGE_ASPECT_CROP:     aspectStr = "crop";     break;
+            }
+            duk_push_string(ctx, aspectStr); duk_put_prop_string(ctx, -2, "preserveaspectratio");
             duk_push_boolean(ctx, img->IsGrayscale()); duk_put_prop_string(ctx, -2, "grayscale");
             duk_push_boolean(ctx, img->IsTile()); duk_put_prop_string(ctx, -2, "tile");
             duk_push_int(ctx, img->GetImageAlpha()); duk_put_prop_string(ctx, -2, "imagealpha");
@@ -722,27 +740,27 @@ namespace PropertyParser {
         element->SetPadding(options.paddingLeft, options.paddingTop, options.paddingRight, options.paddingBottom);
 
         // Mouse Actions (Directly overwrite if not empty in options)
-        if (!options.onLeftMouseUp.empty()) element->m_OnLeftMouseUp = options.onLeftMouseUp;
-        if (!options.onLeftMouseDown.empty()) element->m_OnLeftMouseDown = options.onLeftMouseDown;
-        if (!options.onLeftDoubleClick.empty()) element->m_OnLeftDoubleClick = options.onLeftDoubleClick;
-        if (!options.onRightMouseUp.empty()) element->m_OnRightMouseUp = options.onRightMouseUp;
-        if (!options.onRightMouseDown.empty()) element->m_OnRightMouseDown = options.onRightMouseDown;
-        if (!options.onRightDoubleClick.empty()) element->m_OnRightDoubleClick = options.onRightDoubleClick;
-        if (!options.onMiddleMouseUp.empty()) element->m_OnMiddleMouseUp = options.onMiddleMouseUp;
-        if (!options.onMiddleMouseDown.empty()) element->m_OnMiddleMouseDown = options.onMiddleMouseDown;
-        if (!options.onMiddleDoubleClick.empty()) element->m_OnMiddleDoubleClick = options.onMiddleDoubleClick;
-        if (!options.onX1MouseUp.empty()) element->m_OnX1MouseUp = options.onX1MouseUp;
-        if (!options.onX1MouseDown.empty()) element->m_OnX1MouseDown = options.onX1MouseDown;
-        if (!options.onX1DoubleClick.empty()) element->m_OnX1DoubleClick = options.onX1DoubleClick;
-        if (!options.onX2MouseUp.empty()) element->m_OnX2MouseUp = options.onX2MouseUp;
-        if (!options.onX2MouseDown.empty()) element->m_OnX2MouseDown = options.onX2MouseDown;
-        if (!options.onX2DoubleClick.empty()) element->m_OnX2DoubleClick = options.onX2DoubleClick;
-        if (!options.onScrollUp.empty()) element->m_OnScrollUp = options.onScrollUp;
-        if (!options.onScrollDown.empty()) element->m_OnScrollDown = options.onScrollDown;
-        if (!options.onScrollLeft.empty()) element->m_OnScrollLeft = options.onScrollLeft;
-        if (!options.onScrollRight.empty()) element->m_OnScrollRight = options.onScrollRight;
-        if (!options.onMouseOver.empty()) element->m_OnMouseOver = options.onMouseOver;
-        if (!options.onMouseLeave.empty()) element->m_OnMouseLeave = options.onMouseLeave;
+        if (options.onLeftMouseUpCallbackId != -1) element->m_OnLeftMouseUpCallbackId = options.onLeftMouseUpCallbackId;
+        if (options.onLeftMouseDownCallbackId != -1) element->m_OnLeftMouseDownCallbackId = options.onLeftMouseDownCallbackId;
+        if (options.onLeftDoubleClickCallbackId != -1) element->m_OnLeftDoubleClickCallbackId = options.onLeftDoubleClickCallbackId;
+        if (options.onRightMouseUpCallbackId != -1) element->m_OnRightMouseUpCallbackId = options.onRightMouseUpCallbackId;
+        if (options.onRightMouseDownCallbackId != -1) element->m_OnRightMouseDownCallbackId = options.onRightMouseDownCallbackId;
+        if (options.onRightDoubleClickCallbackId != -1) element->m_OnRightDoubleClickCallbackId = options.onRightDoubleClickCallbackId;
+        if (options.onMiddleMouseUpCallbackId != -1) element->m_OnMiddleMouseUpCallbackId = options.onMiddleMouseUpCallbackId;
+        if (options.onMiddleMouseDownCallbackId != -1) element->m_OnMiddleMouseDownCallbackId = options.onMiddleMouseDownCallbackId;
+        if (options.onMiddleDoubleClickCallbackId != -1) element->m_OnMiddleDoubleClickCallbackId = options.onMiddleDoubleClickCallbackId;
+        if (options.onX1MouseUpCallbackId != -1) element->m_OnX1MouseUpCallbackId = options.onX1MouseUpCallbackId;
+        if (options.onX1MouseDownCallbackId != -1) element->m_OnX1MouseDownCallbackId = options.onX1MouseDownCallbackId;
+        if (options.onX1DoubleClickCallbackId != -1) element->m_OnX1DoubleClickCallbackId = options.onX1DoubleClickCallbackId;
+        if (options.onX2MouseUpCallbackId != -1) element->m_OnX2MouseUpCallbackId = options.onX2MouseUpCallbackId;
+        if (options.onX2MouseDownCallbackId != -1) element->m_OnX2MouseDownCallbackId = options.onX2MouseDownCallbackId;
+        if (options.onX2DoubleClickCallbackId != -1) element->m_OnX2DoubleClickCallbackId = options.onX2DoubleClickCallbackId;
+        if (options.onScrollUpCallbackId != -1) element->m_OnScrollUpCallbackId = options.onScrollUpCallbackId;
+        if (options.onScrollDownCallbackId != -1) element->m_OnScrollDownCallbackId = options.onScrollDownCallbackId;
+        if (options.onScrollLeftCallbackId != -1) element->m_OnScrollLeftCallbackId = options.onScrollLeftCallbackId;
+        if (options.onScrollRightCallbackId != -1) element->m_OnScrollRightCallbackId = options.onScrollRightCallbackId;
+        if (options.onMouseOverCallbackId != -1) element->m_OnMouseOverCallbackId = options.onMouseOverCallbackId;
+        if (options.onMouseLeaveCallbackId != -1) element->m_OnMouseLeaveCallbackId = options.onMouseLeaveCallbackId;
         
         element->SetAntiAlias(options.antialias);
     }
@@ -785,7 +803,7 @@ namespace PropertyParser {
         element->SetBold(options.bold);
         element->SetItalic(options.italic);
         element->SetTextAlign(options.textAlign);
-        element->SetClip(options.clip, options.clipW, options.clipH);
+        element->SetClip(options.clip);
     }
 
     /*
@@ -839,27 +857,27 @@ namespace PropertyParser {
         options.paddingRight = element->GetPaddingRight();
         options.paddingBottom = element->GetPaddingBottom();
 
-        options.onLeftMouseUp = element->m_OnLeftMouseUp;
-        options.onLeftMouseDown = element->m_OnLeftMouseDown;
-        options.onLeftDoubleClick = element->m_OnLeftDoubleClick;
-        options.onRightMouseUp = element->m_OnRightMouseUp;
-        options.onRightMouseDown = element->m_OnRightMouseDown;
-        options.onRightDoubleClick = element->m_OnRightDoubleClick;
-        options.onMiddleMouseUp = element->m_OnMiddleMouseUp;
-        options.onMiddleMouseDown = element->m_OnMiddleMouseDown;
-        options.onMiddleDoubleClick = element->m_OnMiddleDoubleClick;
-        options.onX1MouseUp = element->m_OnX1MouseUp;
-        options.onX1MouseDown = element->m_OnX1MouseDown;
-        options.onX1DoubleClick = element->m_OnX1DoubleClick;
-        options.onX2MouseUp = element->m_OnX2MouseUp;
-        options.onX2MouseDown = element->m_OnX2MouseDown;
-        options.onX2DoubleClick = element->m_OnX2DoubleClick;
-        options.onScrollUp = element->m_OnScrollUp;
-        options.onScrollDown = element->m_OnScrollDown;
-        options.onScrollLeft = element->m_OnScrollLeft;
-        options.onScrollRight = element->m_OnScrollRight;
-        options.onMouseOver = element->m_OnMouseOver;
-        options.onMouseLeave = element->m_OnMouseLeave;
+        options.onLeftMouseUpCallbackId = element->m_OnLeftMouseUpCallbackId;
+        options.onLeftMouseDownCallbackId = element->m_OnLeftMouseDownCallbackId;
+        options.onLeftDoubleClickCallbackId = element->m_OnLeftDoubleClickCallbackId;
+        options.onRightMouseUpCallbackId = element->m_OnRightMouseUpCallbackId;
+        options.onRightMouseDownCallbackId = element->m_OnRightMouseDownCallbackId;
+        options.onRightDoubleClickCallbackId = element->m_OnRightDoubleClickCallbackId;
+        options.onMiddleMouseUpCallbackId = element->m_OnMiddleMouseUpCallbackId;
+        options.onMiddleMouseDownCallbackId = element->m_OnMiddleMouseDownCallbackId;
+        options.onMiddleDoubleClickCallbackId = element->m_OnMiddleDoubleClickCallbackId;
+        options.onX1MouseUpCallbackId = element->m_OnX1MouseUpCallbackId;
+        options.onX1MouseDownCallbackId = element->m_OnX1MouseDownCallbackId;
+        options.onX1DoubleClickCallbackId = element->m_OnX1DoubleClickCallbackId;
+        options.onX2MouseUpCallbackId = element->m_OnX2MouseUpCallbackId;
+        options.onX2MouseDownCallbackId = element->m_OnX2MouseDownCallbackId;
+        options.onX2DoubleClickCallbackId = element->m_OnX2DoubleClickCallbackId;
+        options.onScrollUpCallbackId = element->m_OnScrollUpCallbackId;
+        options.onScrollDownCallbackId = element->m_OnScrollDownCallbackId;
+        options.onScrollLeftCallbackId = element->m_OnScrollLeftCallbackId;
+        options.onScrollRightCallbackId = element->m_OnScrollRightCallbackId;
+        options.onMouseOverCallbackId = element->m_OnMouseOverCallbackId;
+        options.onMouseLeaveCallbackId = element->m_OnMouseLeaveCallbackId;
     }
 
     void PreFillTextOptions(TextOptions& options, TextElement* element) {
@@ -874,8 +892,6 @@ namespace PropertyParser {
         options.italic = element->IsItalic();
         options.textAlign = element->GetTextAlign();
         options.clip = element->GetClipString();
-        options.clipW = element->GetClipW();
-        options.clipH = element->GetClipH();
     }
 
     void PreFillImageOptions(ImageOptions& options, ImageElement* element) {

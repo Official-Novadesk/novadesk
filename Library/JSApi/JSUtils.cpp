@@ -53,7 +53,9 @@ namespace JSApi {
 
         int tempId = s_NextTimerId++;
         
-        duk_get_global_string(ctx, "novadesk");
+        duk_push_int(ctx, tempId);
+
+        duk_push_global_stash(ctx);
         if (!duk_get_prop_string(ctx, -1, "__timers")) {
             duk_pop(ctx);
             duk_push_object(ctx);
@@ -61,10 +63,9 @@ namespace JSApi {
             duk_get_prop_string(ctx, -1, "__timers");
         }
         
-        duk_push_int(ctx, tempId);
-        duk_dup(ctx, 0);
-        duk_put_prop(ctx, -3);
-        duk_pop_2(ctx);
+        duk_dup(ctx, 0); // duplicate function
+        duk_put_prop_index(ctx, -2, (duk_uarridx_t)tempId);
+        duk_pop_2(ctx); // pop __timers and global_stash
 
         int id = TimerManager::Register(ms, tempId, repeating);
         duk_push_int(ctx, id);
@@ -76,8 +77,8 @@ namespace JSApi {
         int id = duk_get_int(ctx, 0);
         
         TimerManager::Clear(id);
-
-        duk_get_global_string(ctx, "novadesk");
+        
+        duk_push_global_stash(ctx);
         if (duk_get_prop_string(ctx, -1, "__timers")) {
             duk_push_int(ctx, id);
             duk_del_prop(ctx, -2);
@@ -91,7 +92,9 @@ namespace JSApi {
 
         int tempId = s_NextImmId++;
 
-        duk_get_global_string(ctx, "novadesk");
+        duk_push_int(ctx, tempId);
+
+        duk_push_global_stash(ctx);
         if (!duk_get_prop_string(ctx, -1, "__timers")) {
             duk_pop(ctx);
             duk_push_object(ctx);
@@ -99,10 +102,9 @@ namespace JSApi {
             duk_get_prop_string(ctx, -1, "__timers");
         }
         
-        duk_push_int(ctx, tempId);
-        duk_dup(ctx, 0);
-        duk_put_prop(ctx, -3);
-        duk_pop_2(ctx);
+        duk_dup(ctx, 0); // duplicate function
+        duk_put_prop_index(ctx, -2, (duk_uarridx_t)tempId);
+        duk_pop_2(ctx); // pop __timers and global_stash
 
         int id = TimerManager::PushImmediate(tempId);
         duk_push_int(ctx, id);
@@ -111,7 +113,22 @@ namespace JSApi {
 
     duk_ret_t js_include(duk_context* ctx) {
         std::wstring filename = Utils::ToWString(duk_require_string(ctx, 0));
-        std::wstring fullPath = PathUtils::ResolvePath(filename, PathUtils::GetWidgetsDir());
+        
+        // Determine the base directory for path resolution
+        std::wstring baseDir = PathUtils::GetWidgetsDir();
+        
+        // Check if __dirname is available in the global scope
+        duk_get_global_string(ctx, "__dirname");
+        if (duk_is_string(ctx, -1)) {
+            std::wstring dirname = Utils::ToWString(duk_get_string(ctx, -1));
+            if (!dirname.empty()) {
+                baseDir = dirname;
+                if (baseDir.back() != L'\\') baseDir += L'\\';
+            }
+        }
+        duk_pop(ctx);
+        
+        std::wstring fullPath = PathUtils::ResolvePath(filename, baseDir);
 
         std::string content = FileUtils::ReadFileContent(fullPath);
         if (content.empty()) {
@@ -131,8 +148,8 @@ namespace JSApi {
         bool enable = duk_get_boolean(ctx, 0);
         Settings::SetGlobalBool("saveLogToFile", enable);
         if (enable) {
-            std::wstring logPath = PathUtils::GetExeDir() + L"novadesk.log";
-            Logging::SetFileLogging(logPath, true);
+            std::wstring logPath = PathUtils::GetExeDir() + L"logs.log";
+            Logging::SetFileLogging(logPath, false);
         } else {
             Logging::SetFileLogging(L"");
         }
@@ -155,8 +172,8 @@ namespace JSApi {
         if (disable) {
              Logging::SetFileLogging(L"");
         } else if (Settings::GetGlobalBool("saveLogToFile", false)) {
-             std::wstring logPath = PathUtils::GetExeDir() + L"novadesk.log";
-             Logging::SetFileLogging(logPath, true);
+             std::wstring logPath = PathUtils::GetExeDir() + L"logs.log";
+             Logging::SetFileLogging(logPath, false);
         }
         return 0;
     }
@@ -180,15 +197,13 @@ namespace JSApi {
         return 0;
     }
 
-    void BindNovadeskBaseMethods(duk_context* ctx) {
+    void BindConsoleMethods(duk_context* ctx) {
         duk_push_c_function(ctx, js_log, DUK_VARARGS);
         duk_put_prop_string(ctx, -2, "log");
         duk_push_c_function(ctx, js_error, DUK_VARARGS);
         duk_put_prop_string(ctx, -2, "error");
         duk_push_c_function(ctx, js_debug, DUK_VARARGS);
         duk_put_prop_string(ctx, -2, "debug");
-        duk_push_c_function(ctx, js_include, 1);
-        duk_put_prop_string(ctx, -2, "include");
     }
 
     void BindNovadeskAppMethods(duk_context* ctx) {

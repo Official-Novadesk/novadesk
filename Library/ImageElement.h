@@ -10,6 +10,13 @@
 
 #include "Element.h"
 
+enum ImageAspectRatio
+{
+    IMAGE_ASPECT_STRETCH,   // 0
+    IMAGE_ASPECT_PRESERVE,  // 1
+    IMAGE_ASPECT_CROP       // 2
+};
+
 class ImageElement : public Element
 {
 public:
@@ -30,7 +37,7 @@ public:
 
     virtual bool HitTest(int x, int y) override;
 
-    void SetPreserveAspectRatio(int mode) { m_PreserveAspectRatio = mode; }
+    void SetPreserveAspectRatio(ImageAspectRatio mode) { m_PreserveAspectRatio = mode; }
     void SetImageTint(COLORREF color, BYTE alpha) { 
         m_ImageTint = color; 
         m_ImageTintAlpha = alpha; 
@@ -59,7 +66,7 @@ public:
     }
 
     const std::wstring& GetImagePath() const { return m_ImagePath; }
-    int GetPreserveAspectRatio() const { return m_PreserveAspectRatio; }
+    ImageAspectRatio GetPreserveAspectRatio() const { return m_PreserveAspectRatio; }
     bool HasImageTint() const { return m_HasImageTint; }
     COLORREF GetImageTint() const { return m_ImageTint; }
     BYTE GetImageTintAlpha() const { return m_ImageTintAlpha; }
@@ -76,7 +83,7 @@ private:
     Gdiplus::Bitmap* m_Image;
     
     // 0 = Stretch, 1 = Preserve, 2 = Crop
-    int m_PreserveAspectRatio = 0;
+    ImageAspectRatio m_PreserveAspectRatio = IMAGE_ASPECT_STRETCH;
     
     bool m_HasImageTint = false;
     COLORREF m_ImageTint = 0;

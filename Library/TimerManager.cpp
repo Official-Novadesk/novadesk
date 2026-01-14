@@ -107,14 +107,18 @@ namespace TimerManager {
     ** Handle custom window messages (for setImmediate).
     */
     void HandleMessage(UINT message, WPARAM wParam, LPARAM lParam) {
-        if (message == WM_TIMER_ACTION) {
-            UINT_PTR id = (UINT_PTR)wParam;
-            auto it = s_Timers.find(id);
-            if (it != s_Timers.end()) {
-                int cbIdx = it->second.callbackIdx;
-                s_Timers.erase(it);
-                if (s_JSHandler) s_JSHandler(cbIdx);
-            }
-        }
-    }
-}
+         if (message == WM_TIMER_ACTION) {
+             UINT_PTR id = (UINT_PTR)wParam;
+             auto it = s_Timers.find(id);
+             if (it != s_Timers.end()) {
+                 int cbIdx = it->second.callbackIdx;
+                 s_Timers.erase(it);
+                 if (s_JSHandler) s_JSHandler(cbIdx);
+             }
+         }
+     }
+ 
+     HWND GetWindow() {
+         return s_Window;
+     }
+ }

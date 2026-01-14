@@ -14,11 +14,11 @@ TextElement::TextElement(const std::wstring& id, int x, int y, int w, int h,
      const std::wstring& text, const std::wstring& fontFace,
      int fontSize, COLORREF fontColor, BYTE alpha,
      bool bold, bool italic, TextAlignment textAlign,
-     TextClipString clip, int clipW, int clipH)
+     TextClipString clip)
     : Element(ELEMENT_TEXT, id, x, y, w, h),
       m_Text(text), m_FontFace(fontFace), m_FontSize(fontSize),
       m_FontColor(fontColor), m_Alpha(alpha), m_Bold(bold), m_Italic(italic),
-      m_TextAlign(textAlign), m_ClipString(clip), m_ClipStringW(clipW), m_ClipStringH(clipH)
+      m_TextAlign(textAlign), m_ClipString(clip)
 {
 }
 
@@ -146,9 +146,10 @@ int TextElement::GetAutoWidth()
     ReleaseDC(NULL, hdc);
     
     int width = (int)ceil(boundingBox.Width);
-    if (!m_WDefined && m_ClipString != TEXT_CLIP_NONE && m_ClipStringW != -1)
+    // Clipping is now based on element width if defined
+    if (!m_WDefined && m_ClipString != TEXT_CLIP_NONE && m_Width > 0)
     {
-        if (width > m_ClipStringW) return m_ClipStringW;
+        if (width > m_Width) return m_Width;
     }
     return width;
 }
@@ -196,9 +197,10 @@ int TextElement::GetAutoHeight()
     ReleaseDC(NULL, hdc);
     
     int height = (int)ceil(boundingBox.Height);
-    if (!m_HDefined && m_ClipString != TEXT_CLIP_NONE && m_ClipStringH != -1)
+    // Clipping is now based on element height if defined
+    if (!m_HDefined && m_ClipString != TEXT_CLIP_NONE && m_Height > 0)
     {
-        if (height > m_ClipStringH) return m_ClipStringH;
+        if (height > m_Height) return m_Height;
     }
     return height;
 }

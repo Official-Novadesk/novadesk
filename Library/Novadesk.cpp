@@ -21,6 +21,8 @@
 #include <fcntl.h>
 #include <io.h>
 #include "MenuUtils.h"
+#include "Utils.h"
+#include "PathUtils.h"
 
 #pragma comment(lib, "gdiplus.lib")
 
@@ -57,21 +59,31 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
         _setmode(_fileno(stdout), _O_U16TEXT);
     }
 
+    // Clear log file on startup
+    // This ensures a fresh log for the new session, while subsequent refreshes 
+    // (handled in Settings.cpp/JSUtils.cpp) will append to preserve history.
+    std::wstring logPath = PathUtils::GetExeDir() + L"logs.log";
+    DeleteFileW(logPath.c_str());
+
     // Enable DPI Awareness
     SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
 
     UNREFERENCED_PARAMETER(hPrevInstance);
     UNREFERENCED_PARAMETER(nCmdShow);
 
+    std::wstring appTitle = Utils::GetAppTitle();
+    std::wstring mutexName = L"Global\\NovadeskMutex_" + appTitle;
+    std::wstring className = L"NovadeskTrayClass_" + appTitle;
+
     // Single instance enforcement
-    HANDLE hMutex = CreateMutex(NULL, TRUE, L"Global\\NovadeskMutex");
+    HANDLE hMutex = CreateMutex(NULL, TRUE, mutexName.c_str());
     if (GetLastError() == ERROR_ALREADY_EXISTS)
     {
         // Another instance is running, check arguments for commands
         if (lpCmdLine && wcslen(lpCmdLine) > 0)
         {
             std::wstring cmd = lpCmdLine;
-            HWND hExisting = FindWindow(L"NovadeskTrayClass", NULL);
+            HWND hExisting = FindWindow(className.c_str(), NULL);
 
             if (hExisting)
             {
@@ -100,7 +112,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     Settings::Initialize();
 
     // Initialize global strings
-    LoadStringW(hInstance, IDS_APP_TITLE, szTitle, MAX_LOADSTRING);
+    wcscpy_s(szTitle, MAX_LOADSTRING, appTitle.c_str());
     hInst = hInstance;
 
     // Create a hidden message-only window for tray icon
@@ -149,11 +161,11 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
         return 0;
     };
     wcex.hInstance = hInstance;
-    wcex.lpszClassName = L"NovadeskTrayClass";
+    wcex.lpszClassName = className.c_str();
 
     RegisterClassExW(&wcex);
 
-    HWND hWnd = CreateWindowW(L"NovadeskTrayClass", szTitle, WS_OVERLAPPEDWINDOW,
+    HWND hWnd = CreateWindowW(className.c_str(), szTitle, WS_OVERLAPPEDWINDOW,
         CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, nullptr, nullptr, hInstance, nullptr);
 
     if (!hWnd) {
@@ -284,7 +296,7 @@ void ShowTrayMenu(HWND hWnd)
         AppendMenu(hSubMenu, MF_STRING, ID_TRAY_REFRESH, L"Refresh");
         AppendMenu(hSubMenu, MF_STRING, ID_TRAY_EXIT, L"Exit");
         
-        AppendMenu(hMenu, MF_POPUP, (UINT_PTR)hSubMenu, L"Novadesk");
+        AppendMenu(hMenu, MF_POPUP, (UINT_PTR)hSubMenu, szTitle);
     }
 
     SetForegroundWindow(hWnd);

@@ -60,7 +60,7 @@ namespace JSApi {
         int keyUpIdx = -1;
         int idForCallback = s_NextTempId++; 
 
-        duk_get_global_string(ctx, "novadesk");
+        duk_push_global_stash(ctx);
         if (!duk_get_prop_string(ctx, -1, "__hotkeys")) {
             duk_pop(ctx);
             duk_push_object(ctx);

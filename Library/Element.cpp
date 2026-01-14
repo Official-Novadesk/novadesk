@@ -56,32 +56,32 @@ bool Element::HitTest(int x, int y) {
 bool Element::HasAction(UINT message, WPARAM wParam) const {
     switch (message)
     {
-    case WM_LBUTTONUP:     return !m_OnLeftMouseUp.empty();
-    case WM_LBUTTONDOWN:   return !m_OnLeftMouseDown.empty();
-    case WM_LBUTTONDBLCLK: return !m_OnLeftDoubleClick.empty();
-    case WM_RBUTTONUP:     return !m_OnRightMouseUp.empty();
-    case WM_RBUTTONDOWN:   return !m_OnRightMouseDown.empty();
-    case WM_RBUTTONDBLCLK: return !m_OnRightDoubleClick.empty();
-    case WM_MBUTTONUP:     return !m_OnMiddleMouseUp.empty();
-    case WM_MBUTTONDOWN:   return !m_OnMiddleMouseDown.empty();
-    case WM_MBUTTONDBLCLK: return !m_OnMiddleDoubleClick.empty();
+    case WM_LBUTTONUP:     return m_OnLeftMouseUpCallbackId != -1;
+    case WM_LBUTTONDOWN:   return m_OnLeftMouseDownCallbackId != -1;
+    case WM_LBUTTONDBLCLK: return m_OnLeftDoubleClickCallbackId != -1;
+    case WM_RBUTTONUP:     return m_OnRightMouseUpCallbackId != -1;
+    case WM_RBUTTONDOWN:   return m_OnRightMouseDownCallbackId != -1;
+    case WM_RBUTTONDBLCLK: return m_OnRightDoubleClickCallbackId != -1;
+    case WM_MBUTTONUP:     return m_OnMiddleMouseUpCallbackId != -1;
+    case WM_MBUTTONDOWN:   return m_OnMiddleMouseDownCallbackId != -1;
+    case WM_MBUTTONDBLCLK: return m_OnMiddleDoubleClickCallbackId != -1;
     case WM_XBUTTONUP:
-        if (GET_XBUTTON_WPARAM(wParam) == XBUTTON1) return !m_OnX1MouseUp.empty();
-        else return !m_OnX2MouseUp.empty();
+        if (GET_XBUTTON_WPARAM(wParam) == XBUTTON1) return m_OnX1MouseUpCallbackId != -1;
+        else return m_OnX2MouseUpCallbackId != -1;
     case WM_XBUTTONDOWN:
-        if (GET_XBUTTON_WPARAM(wParam) == XBUTTON1) return !m_OnX1MouseDown.empty();
-        else return !m_OnX2MouseDown.empty();
+        if (GET_XBUTTON_WPARAM(wParam) == XBUTTON1) return m_OnX1MouseDownCallbackId != -1;
+        else return m_OnX2MouseDownCallbackId != -1;
     case WM_XBUTTONDBLCLK:
-        if (GET_XBUTTON_WPARAM(wParam) == XBUTTON1) return !m_OnX1DoubleClick.empty();
-        else return !m_OnX2DoubleClick.empty();
+        if (GET_XBUTTON_WPARAM(wParam) == XBUTTON1) return m_OnX1DoubleClickCallbackId != -1;
+        else return m_OnX2DoubleClickCallbackId != -1;
     case WM_MOUSEWHEEL:
-        if (GET_WHEEL_DELTA_WPARAM(wParam) > 0) return !m_OnScrollUp.empty();
-        else return !m_OnScrollDown.empty();
+        if (GET_WHEEL_DELTA_WPARAM(wParam) > 0) return m_OnScrollUpCallbackId != -1;
+        else return m_OnScrollDownCallbackId != -1;
     case WM_MOUSEHWHEEL:
-        if (GET_WHEEL_DELTA_WPARAM(wParam) > 0) return !m_OnScrollRight.empty();
-        else return !m_OnScrollLeft.empty();
+        if (GET_WHEEL_DELTA_WPARAM(wParam) > 0) return m_OnScrollRightCallbackId != -1;
+        else return m_OnScrollLeftCallbackId != -1;
     case WM_MOUSEMOVE:
-        return !m_OnMouseOver.empty() || !m_OnMouseLeave.empty();
+        return m_OnMouseOverCallbackId != -1 || m_OnMouseLeaveCallbackId != -1;
     }
     return false;
 }
@@ -90,20 +90,34 @@ bool Element::HasAction(UINT message, WPARAM wParam) const {
 ** Check if the element has any interactive mouse action.
 */
 bool Element::HasMouseAction() const {
-    return !m_OnLeftMouseUp.empty() || !m_OnLeftMouseDown.empty() || !m_OnLeftDoubleClick.empty() ||
-           !m_OnRightMouseUp.empty() || !m_OnRightMouseDown.empty() || !m_OnRightDoubleClick.empty() ||
-           !m_OnMiddleMouseUp.empty() || !m_OnMiddleMouseDown.empty() || !m_OnMiddleDoubleClick.empty() ||
-           !m_OnX1MouseUp.empty() || !m_OnX1MouseDown.empty() || !m_OnX1DoubleClick.empty() ||
-           !m_OnX2MouseUp.empty() || !m_OnX2MouseDown.empty() || !m_OnX2DoubleClick.empty() ||
-           !m_OnScrollUp.empty() || !m_OnScrollDown.empty() || !m_OnScrollLeft.empty() || !m_OnScrollRight.empty() ||
-           !m_OnMouseOver.empty() || !m_OnMouseLeave.empty();
+    return m_OnLeftMouseUpCallbackId != -1 ||
+           m_OnLeftMouseDownCallbackId != -1 ||
+           m_OnLeftDoubleClickCallbackId != -1 ||
+           m_OnRightMouseUpCallbackId != -1 ||
+           m_OnRightMouseDownCallbackId != -1 ||
+           m_OnRightDoubleClickCallbackId != -1 ||
+           m_OnMiddleMouseUpCallbackId != -1 ||
+           m_OnMiddleMouseDownCallbackId != -1 ||
+           m_OnMiddleDoubleClickCallbackId != -1 ||
+           m_OnX1MouseUpCallbackId != -1 ||
+           m_OnX1MouseDownCallbackId != -1 ||
+           m_OnX1DoubleClickCallbackId != -1 ||
+           m_OnX2MouseUpCallbackId != -1 ||
+           m_OnX2MouseDownCallbackId != -1 ||
+           m_OnX2DoubleClickCallbackId != -1 ||
+           m_OnScrollUpCallbackId != -1 ||
+           m_OnScrollDownCallbackId != -1 ||
+           m_OnScrollLeftCallbackId != -1 ||
+           m_OnScrollRightCallbackId != -1 ||
+           m_OnMouseOverCallbackId != -1 ||
+           m_OnMouseLeaveCallbackId != -1;
 }
 
 /*
 ** Set the padding for the element.
 */
 void Element::SetPadding(int left, int top, int right, int bottom) {
-    Logging::Log(LogLevel::Debug, L"Element SetPadding: [%d, %d, %d, %d]", left, top, right, bottom);
+    // Logging::Log(LogLevel::Debug, L"Element SetPadding: [%d, %d, %d, %d]", left, top, right, bottom);
     m_PaddingLeft = left;
     m_PaddingTop = top;
     m_PaddingRight = right;

@@ -10,4 +10,8 @@
 
 namespace JSApi {
     void ExecuteScript(const std::wstring& script);
+    
+    // Function callback support
+    int RegisterEventCallback(duk_context* ctx, duk_idx_t idx);
+    void CallEventCallback(int id);
 }

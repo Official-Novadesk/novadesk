@@ -17,7 +17,7 @@ namespace JSApi {
         duk_context* ctx = s_JsContext;
         if (!ctx) return;
 
-        duk_get_global_string(ctx, "novadesk");
+        duk_push_global_stash(ctx);
         if (duk_get_prop_string(ctx, -1, "__trayCallbacks")) {
             if (duk_get_prop_index(ctx, -1, (duk_uarridx_t)id)) {
                 if (duk_is_function(ctx, -1)) {
@@ -29,7 +29,7 @@ namespace JSApi {
             }
             duk_pop(ctx); // pop __trayCallbacks
         }
-        duk_pop(ctx); // pop novadesk
+        duk_pop(ctx); // pop global_stash
     }
 
     // Helper for recursion
@@ -68,8 +68,8 @@ namespace JSApi {
                             if (duk_is_function(ctx, -1)) {
                                 item.id = 2000 + s_NextTempId++; // Start IDs from 2000 for safety
                                 
-                                // Store callback in novadesk.__trayCallbacks
-                                duk_get_global_string(ctx, "novadesk");
+                                // Store callback in global_stash.__trayCallbacks
+                                duk_push_global_stash(ctx);
                                 if (!duk_get_prop_string(ctx, -1, "__trayCallbacks")) {
                                     duk_pop(ctx);
                                     duk_push_object(ctx);
@@ -79,7 +79,7 @@ namespace JSApi {
                                 
                                 duk_dup(ctx, -3); // duplicate function
                                 duk_put_prop_index(ctx, -2, (duk_uarridx_t)item.id);
-                                duk_pop_2(ctx); // pop __trayCallbacks and novadesk
+                                duk_pop_2(ctx); // pop __trayCallbacks and global_stash
                             }
                         }
                         duk_pop(ctx);
@@ -104,7 +104,7 @@ namespace JSApi {
         if (!duk_is_array(ctx, 0)) return DUK_RET_TYPE_ERROR;
 
         // Clear old callbacks
-        duk_get_global_string(ctx, "novadesk");
+        duk_push_global_stash(ctx);
         duk_push_object(ctx);
         duk_put_prop_string(ctx, -2, "__trayCallbacks");
         duk_pop(ctx);
@@ -120,7 +120,7 @@ namespace JSApi {
         ClearTrayMenu();
         
         // Clear callbacks
-        duk_get_global_string(ctx, "novadesk");
+        duk_push_global_stash(ctx);
         duk_push_object(ctx);
         duk_put_prop_string(ctx, -2, "__trayCallbacks");
         duk_pop(ctx);

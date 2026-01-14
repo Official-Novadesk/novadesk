@@ -51,30 +51,34 @@ namespace PropertyParser
         int paddingBottom = 0;
 
         // Mouse Actions
-        std::wstring onLeftMouseUp;
-        std::wstring onLeftMouseDown;
-        std::wstring onLeftDoubleClick;
-        std::wstring onRightMouseUp;
-        std::wstring onRightMouseDown;
-        std::wstring onRightDoubleClick;
-        std::wstring onMiddleMouseUp;
-        std::wstring onMiddleMouseDown;
-        std::wstring onMiddleDoubleClick;
+        // Mouse Actions (String based actions removed)
+
+
+        // Callback IDs
+        int onLeftMouseUpCallbackId = -1;
+        int onLeftMouseDownCallbackId = -1;
+        int onLeftDoubleClickCallbackId = -1;
+        int onRightMouseUpCallbackId = -1;
+        int onRightMouseDownCallbackId = -1;
+        int onRightDoubleClickCallbackId = -1;
+        int onMiddleMouseUpCallbackId = -1;
+        int onMiddleMouseDownCallbackId = -1;
+        int onMiddleDoubleClickCallbackId = -1;
         
-        std::wstring onX1MouseUp;
-        std::wstring onX1MouseDown;
-        std::wstring onX1DoubleClick;
-        std::wstring onX2MouseUp;
-        std::wstring onX2MouseDown;
-        std::wstring onX2DoubleClick;
+        int onX1MouseUpCallbackId = -1;
+        int onX1MouseDownCallbackId = -1;
+        int onX1DoubleClickCallbackId = -1;
+        int onX2MouseUpCallbackId = -1;
+        int onX2MouseDownCallbackId = -1;
+        int onX2DoubleClickCallbackId = -1;
         
-        std::wstring onScrollUp;
-        std::wstring onScrollDown;
-        std::wstring onScrollLeft;
-        std::wstring onScrollRight;
+        int onScrollUpCallbackId = -1;
+        int onScrollDownCallbackId = -1;
+        int onScrollLeftCallbackId = -1;
+        int onScrollRightCallbackId = -1;
         
-        std::wstring onMouseOver;
-        std::wstring onMouseLeave;
+        int onMouseOverCallbackId = -1;
+        int onMouseLeaveCallbackId = -1;
 
         bool antialias = true;
         
@@ -86,7 +90,7 @@ namespace PropertyParser
     */
     struct ImageOptions : public ElementOptions {
         std::wstring path;
-        int preserveAspectRatio = 0;
+        ImageAspectRatio preserveAspectRatio = IMAGE_ASPECT_STRETCH;
         
         bool hasImageTint = false;
         COLORREF imageTint = 0;
@@ -116,8 +120,6 @@ namespace PropertyParser
         bool italic = false;
         TextAlignment textAlign = TEXT_ALIGN_LEFT_TOP;
         TextClipString clip = TEXT_CLIP_NONE;
-        int clipW = -1;
-        int clipH = -1;
     };
 
     /*

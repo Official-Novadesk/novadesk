@@ -63,7 +63,7 @@ win.addText({
     x: 160,
     y: 70,
     fontsize: CONFIG.font.text,
-    clipstring: 1,
+    clipstring: "clip",
     width: 220,
     fontweight: "bold",
     fontcolor: CONFIG.colors.font,
@@ -82,7 +82,7 @@ win.addText({
     height: 25,
     solidcolor: CONFIG.colors.accent,
     solidcolorradius: 5,
-    textalign: "centercenter",
+    textalign: "centercenter"
 });
 
 win.addText({
@@ -97,5 +97,5 @@ win.addText({
     height: 25,
     solidcolor: CONFIG.colors.accent,
     solidcolorradius: 5,
-    textalign: "centercenter",
+    textalign: "centercenter"
 });
