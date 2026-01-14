@@ -14,11 +14,11 @@ TextElement::TextElement(const std::wstring& id, int x, int y, int w, int h,
      const std::wstring& text, const std::wstring& fontFace,
      int fontSize, COLORREF fontColor, BYTE alpha,
      bool bold, bool italic, TextAlignment textAlign,
-     TextClipString clip, int clipW, int clipH)
+     TextClipString clip)
     : Element(ELEMENT_TEXT, id, x, y, w, h),
       m_Text(text), m_FontFace(fontFace), m_FontSize(fontSize),
       m_FontColor(fontColor), m_Alpha(alpha), m_Bold(bold), m_Italic(italic),
-      m_TextAlign(textAlign), m_ClipString(clip), m_ClipStringW(clipW), m_ClipStringH(clipH)
+      m_TextAlign(textAlign), m_ClipString(clip)
 {
 }
 
@@ -109,10 +109,11 @@ void TextElement::Render(Graphics& graphics)
     }
     
     // Apply padding to layout rectangle
-    int layoutX = m_X + m_PaddingLeft;
-    int layoutY = m_Y + m_PaddingTop;
-    int layoutW = GetWidth() - m_PaddingLeft - m_PaddingRight;
-    int layoutH = GetHeight() - m_PaddingTop - m_PaddingBottom;
+    Gdiplus::Rect bounds = GetBounds();
+    int layoutX = bounds.X + m_PaddingLeft;
+    int layoutY = bounds.Y + m_PaddingTop;
+    int layoutW = bounds.Width - m_PaddingLeft - m_PaddingRight;
+    int layoutH = bounds.Height - m_PaddingTop - m_PaddingBottom;
     
     // Ensure positive dimensions
     if (layoutW < 0) layoutW = 0;
@@ -144,10 +145,11 @@ int TextElement::GetAutoWidth()
     
     ReleaseDC(NULL, hdc);
     
-    int width = (int)ceil(boundingBox.Width) + m_PaddingLeft + m_PaddingRight;
-    if (!m_WDefined && m_ClipString != TEXT_CLIP_NONE && m_ClipStringW != -1)
+    int width = (int)ceil(boundingBox.Width);
+    // Clipping is now based on element width if defined
+    if (!m_WDefined && m_ClipString != TEXT_CLIP_NONE && m_Width > 0)
     {
-        if (width > m_ClipStringW) return m_ClipStringW;
+        if (width > m_Width) return m_Width;
     }
     return width;
 }
@@ -163,22 +165,78 @@ int TextElement::GetAutoHeight()
     Font font(m_FontFace.c_str(), (REAL)m_FontSize, fontStyle, UnitPixel);
 
     RectF boundingBox;
-    graphics.MeasureString(m_Text.c_str(), -1, &font, PointF(0, 0), &boundingBox);
+    
+    if (m_ClipString != TEXT_CLIP_NONE)
+    {
+        int targetW = GetWidth(); 
+        if (targetW > 0)
+        {
+            // Measure with a fixed width to get wrapped height
+            // We subtract padding because the layout rect should be the content area
+            int contentW = targetW - m_PaddingLeft - m_PaddingRight;
+            if (contentW < 0) contentW = 0;
+
+            RectF layoutRect(0, 0, (REAL)contentW, 50000.0f); // Large height constraint
+            
+            // We need a format to enable wrapping
+            StringFormat format;
+            if (m_ClipString == TEXT_CLIP_ELLIPSIS) format.SetTrimming(StringTrimmingEllipsisCharacter);
+            
+            graphics.MeasureString(m_Text.c_str(), -1, &font, layoutRect, &format, &boundingBox);
+        }
+        else
+        {
+            graphics.MeasureString(m_Text.c_str(), -1, &font, PointF(0, 0), &boundingBox);
+        }
+    }
+    else
+    {
+        graphics.MeasureString(m_Text.c_str(), -1, &font, PointF(0, 0), &boundingBox);
+    }
     
     ReleaseDC(NULL, hdc);
     
-    int height = (int)ceil(boundingBox.Height) + m_PaddingTop + m_PaddingBottom;
-    if (!m_HDefined && m_ClipString != TEXT_CLIP_NONE && m_ClipStringH != -1)
+    int height = (int)ceil(boundingBox.Height);
+    // Clipping is now based on element height if defined
+    if (!m_HDefined && m_ClipString != TEXT_CLIP_NONE && m_Height > 0)
     {
-        if (height > m_ClipStringH) return m_ClipStringH;
+        if (height > m_Height) return m_Height;
     }
     return height;
 }
 
+Gdiplus::Rect TextElement::GetBounds() {
+    int w = GetWidth();
+    int h = GetHeight();
+    int x = m_X;
+    int y = m_Y;
+
+    // Horizontal Alignment Offset
+    if (m_TextAlign == TEXT_ALIGN_CENTER_TOP || m_TextAlign == TEXT_ALIGN_CENTER_CENTER || m_TextAlign == TEXT_ALIGN_CENTER_BOTTOM) {
+        x -= w / 2;
+    }
+    else if (m_TextAlign == TEXT_ALIGN_RIGHT_TOP || m_TextAlign == TEXT_ALIGN_RIGHT_CENTER || m_TextAlign == TEXT_ALIGN_RIGHT_BOTTOM) {
+        x -= w;
+    }
+
+    // Vertical Alignment Offset
+    if (m_TextAlign == TEXT_ALIGN_LEFT_CENTER || m_TextAlign == TEXT_ALIGN_CENTER_CENTER || m_TextAlign == TEXT_ALIGN_RIGHT_CENTER) {
+        y -= h / 2;
+    }
+    else if (m_TextAlign == TEXT_ALIGN_LEFT_BOTTOM || m_TextAlign == TEXT_ALIGN_CENTER_BOTTOM || m_TextAlign == TEXT_ALIGN_RIGHT_BOTTOM) {
+        y -= h;
+    }
+
+    return Gdiplus::Rect(x, y, w, h);
+}
+
 bool TextElement::HitTest(int x, int y)
 {
-    // Bounding box check first (Element's layout rect)
+    // Bounding box check first (Element's bounds)
     if (!Element::HitTest(x, y)) return false;
+
+    // If we have a background or gradient, the entire element is clickable
+    if ((m_HasSolidColor && m_SolidAlpha > 0) || (m_HasGradient)) return true;
 
     HDC hdc = GetDC(NULL);
     Graphics graphics(hdc);
@@ -206,8 +264,14 @@ bool TextElement::HitTest(int x, int y)
         format.SetLineAlignment(StringAlignmentFar); break;
     }
 
-    int pW = GetWidth() - m_PaddingLeft - m_PaddingRight;
-    int pH = GetHeight() - m_PaddingTop - m_PaddingBottom;
+    // Set wrapping logic mirroring Render/GetAutoHeight
+    if (m_ClipString != TEXT_CLIP_NONE) {
+        format.SetTrimming(m_ClipString == TEXT_CLIP_ELLIPSIS ? StringTrimmingEllipsisCharacter : StringTrimmingCharacter);
+    }
+
+    Gdiplus::Rect bounds = GetBounds();
+    int pW = bounds.Width - m_PaddingLeft - m_PaddingRight;
+    int pH = bounds.Height - m_PaddingTop - m_PaddingBottom;
     if (pW < 0) pW = 0;
     if (pH < 0) pH = 0;
 
@@ -217,8 +281,8 @@ bool TextElement::HitTest(int x, int y)
     
     ReleaseDC(NULL, hdc);
 
-    boundingBox.X += m_X;
-    boundingBox.Y += m_Y;
+    boundingBox.X += bounds.X;
+    boundingBox.Y += bounds.Y;
 
     return (x >= boundingBox.X && x < boundingBox.X + boundingBox.Width &&
             y >= boundingBox.Y && y < boundingBox.Y + boundingBox.Height);

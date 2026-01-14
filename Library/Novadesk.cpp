@@ -7,16 +7,22 @@
 
 #include "framework.h"
 #include "Novadesk.h"
-#include "duktape/duktape.h"
+#include "JSApi/duktape/duktape.h"
 #include "Widget.h"
 #include "System.h"
 #include "Logging.h"
-#include "JSApi.h"
+#include "JSApi/JSApi.h"
+#include "JSApi/JSNovadeskTray.h"
 #include "Settings.h"
 #include "Resource.h"
 #include <vector>
 #include <shellapi.h>
 #include <gdiplus.h>
+#include <fcntl.h>
+#include <io.h>
+#include "MenuUtils.h"
+#include "Utils.h"
+#include "PathUtils.h"
 
 #pragma comment(lib, "gdiplus.lib")
 
@@ -44,21 +50,40 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
                      _In_ LPWSTR    lpCmdLine,
                      _In_ int       nCmdShow)
 {
+    // Attach to parent console for logging if present
+    if (AttachConsole(ATTACH_PARENT_PROCESS)) {
+        FILE* fDummy;
+        freopen_s(&fDummy, "CONOUT$", "w", stdout);
+        freopen_s(&fDummy, "CONOUT$", "w", stderr);
+        // Also enable wide output for stdout
+        _setmode(_fileno(stdout), _O_U16TEXT);
+    }
+
+    // Clear log file on startup
+    // This ensures a fresh log for the new session, while subsequent refreshes 
+    // (handled in Settings.cpp/JSUtils.cpp) will append to preserve history.
+    std::wstring logPath = PathUtils::GetExeDir() + L"logs.log";
+    DeleteFileW(logPath.c_str());
+
     // Enable DPI Awareness
     SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
 
     UNREFERENCED_PARAMETER(hPrevInstance);
     UNREFERENCED_PARAMETER(nCmdShow);
 
+    std::wstring appTitle = Utils::GetAppTitle();
+    std::wstring mutexName = L"Global\\NovadeskMutex_" + appTitle;
+    std::wstring className = L"NovadeskTrayClass_" + appTitle;
+
     // Single instance enforcement
-    HANDLE hMutex = CreateMutex(NULL, TRUE, L"Global\\NovadeskMutex");
+    HANDLE hMutex = CreateMutex(NULL, TRUE, mutexName.c_str());
     if (GetLastError() == ERROR_ALREADY_EXISTS)
     {
         // Another instance is running, check arguments for commands
         if (lpCmdLine && wcslen(lpCmdLine) > 0)
         {
             std::wstring cmd = lpCmdLine;
-            HWND hExisting = FindWindow(L"NovadeskTrayClass", NULL);
+            HWND hExisting = FindWindow(className.c_str(), NULL);
 
             if (hExisting)
             {
@@ -87,7 +112,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     Settings::Initialize();
 
     // Initialize global strings
-    LoadStringW(hInstance, IDS_APP_TITLE, szTitle, MAX_LOADSTRING);
+    wcscpy_s(szTitle, MAX_LOADSTRING, appTitle.c_str());
     hInst = hInstance;
 
     // Create a hidden message-only window for tray icon
@@ -115,6 +140,14 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
             {
                 DestroyWindow(hWnd);
             }
+            else if (wmId == ID_TRAY_REFRESH)
+            {
+                JSApi::Reload();
+            }
+            else if (wmId >= 2000)
+            {
+                JSApi::OnTrayCommand(wmId);
+            }
 
         }
         break;
@@ -128,11 +161,11 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
         return 0;
     };
     wcex.hInstance = hInstance;
-    wcex.lpszClassName = L"NovadeskTrayClass";
+    wcex.lpszClassName = className.c_str();
 
     RegisterClassExW(&wcex);
 
-    HWND hWnd = CreateWindowW(L"NovadeskTrayClass", szTitle, WS_OVERLAPPEDWINDOW,
+    HWND hWnd = CreateWindowW(className.c_str(), szTitle, WS_OVERLAPPEDWINDOW,
         CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, nullptr, nullptr, hInstance, nullptr);
 
     if (!hWnd) {
@@ -159,13 +192,31 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     std::wstring scriptPath;
     if (lpCmdLine && wcslen(lpCmdLine) > 0)
     {
-        // Remove quotes if present
         scriptPath = lpCmdLine;
+        
+        // Trim leading and trailing whitespace
+        size_t first = scriptPath.find_first_not_of(L" \t\r\n");
+        if (std::wstring::npos != first) {
+            size_t last = scriptPath.find_last_not_of(L" \t\r\n");
+            scriptPath = scriptPath.substr(first, (last - first + 1));
+        }
+
+        // Remove quotes if present
         if (!scriptPath.empty() && scriptPath.front() == L'"' && scriptPath.back() == L'"')
         {
             scriptPath = scriptPath.substr(1, scriptPath.length() - 2);
         }
-        Logging::Log(LogLevel::Info, L"Using custom script: %s", scriptPath.c_str());
+        
+        // Trim again after quote removal in case there were spaces inside quotes (unlikely but safe)
+        first = scriptPath.find_first_not_of(L" \t\r\n");
+        if (std::wstring::npos != first) {
+            size_t last = scriptPath.find_last_not_of(L" \t\r\n");
+            scriptPath = scriptPath.substr(first, (last - first + 1));
+        }
+
+        if (!scriptPath.empty()) {
+            Logging::Log(LogLevel::Info, L"Using custom script: %s", scriptPath.c_str());
+        }
     }
 
     // Load and execute script (with optional custom path)
@@ -181,7 +232,10 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     }
 
     // Cleanup
-    for (auto w : widgets) delete w;
+    std::vector<Widget*> widgetsCopy = widgets;
+    widgets.clear();
+    for (auto w : widgetsCopy) delete w;
+    
     duk_destroy_heap(ctx);
     System::Finalize();
     
@@ -219,6 +273,9 @@ void RemoveTrayIcon()
     Logging::Log(LogLevel::Info, L"Tray icon removed");
 }
 
+std::vector<MenuItem> g_TrayMenu;
+bool g_ShowDefaultTrayItems = true;
+
 void ShowTrayMenu(HWND hWnd)
 {
     POINT pt;
@@ -226,7 +283,21 @@ void ShowTrayMenu(HWND hWnd)
 
     HMENU hMenu = CreatePopupMenu();
 
-    AppendMenu(hMenu, MF_STRING, ID_TRAY_EXIT, L"Exit");
+    MenuUtils::BuildMenu(hMenu, g_TrayMenu);
+
+    if (g_ShowDefaultTrayItems)
+    {
+        if (!g_TrayMenu.empty())
+        {
+            AppendMenu(hMenu, MF_SEPARATOR, 0, NULL);
+        }
+        
+        HMENU hSubMenu = CreatePopupMenu();
+        AppendMenu(hSubMenu, MF_STRING, ID_TRAY_REFRESH, L"Refresh");
+        AppendMenu(hSubMenu, MF_STRING, ID_TRAY_EXIT, L"Exit");
+        
+        AppendMenu(hMenu, MF_POPUP, (UINT_PTR)hSubMenu, szTitle);
+    }
 
     SetForegroundWindow(hWnd);
     TrackPopupMenu(hMenu, TPM_BOTTOMALIGN | TPM_LEFTALIGN, pt.x, pt.y, 0, hWnd, NULL);
@@ -252,3 +323,17 @@ void HideTrayIconDynamic()
 }
 
 
+void SetTrayMenu(const std::vector<MenuItem>& menu)
+{
+    g_TrayMenu = menu;
+}
+
+void ClearTrayMenu()
+{
+    g_TrayMenu.clear();
+}
+
+void SetShowDefaultTrayItems(bool show)
+{
+    g_ShowDefaultTrayItems = show;
+}

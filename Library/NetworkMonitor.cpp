@@ -11,6 +11,8 @@
 NetworkMonitor::NetworkMonitor()
     : m_LastInBytes(0)
     , m_LastOutBytes(0)
+    , m_StartInBytes(0)
+    , m_StartOutBytes(0)
     , m_LastUpdateTime(0)
     , m_FirstUpdate(true)
 {
@@ -54,8 +56,14 @@ NetworkMonitor::Stats NetworkMonitor::GetStats()
                     totalOut += pIfRow->dwOutOctets;
                 }
 
-                stats.totalIn = totalIn;
-                stats.totalOut = totalOut;
+                if (m_FirstUpdate)
+                {
+                    m_StartInBytes = totalIn;
+                    m_StartOutBytes = totalOut;
+                }
+
+                stats.totalIn = totalIn - m_StartInBytes;
+                stats.totalOut = totalOut - m_StartOutBytes;
 
                 // Calculate speed (bytes per second)
                 ULONGLONG currentTime = GetTickCount64();

@@ -15,6 +15,7 @@
 #include "Element.h"
 #include "TextElement.h"
 #include "ImageElement.h"
+#include "BarElement.h"
 
 struct duk_hthread;
 typedef struct duk_hthread duk_context;
@@ -22,12 +23,10 @@ typedef struct duk_hthread duk_context;
 namespace PropertyParser {
     struct ImageOptions;
     struct TextOptions;
+    struct BarOptions;
 }
 
-struct ContextMenuItem {
-    std::wstring label;
-    std::wstring action;
-};
+#include "MenuItem.h"
 
 struct WidgetOptions
 {
@@ -47,6 +46,7 @@ struct WidgetOptions
     bool snapEdges = true;
     bool m_WDefined = false;
     bool m_HDefined = false;
+    std::wstring scriptPath;
 };
 
 class Widget
@@ -59,47 +59,33 @@ public:
     bool Create();
 
     void Show();
+    void Refresh();
 
     void ChangeZPos(ZPOSITION zPos, bool all = false);
-
     void ChangeSingleZPos(ZPOSITION zPos, bool all = false);
-
     void SetWindowPosition(int x, int y, int w, int h);
-
     void SetWindowOpacity(BYTE opacity);
-
     void SetBackgroundColor(const std::wstring& colorStr);
-
     void SetDraggable(bool enable) { m_Options.draggable = enable; }
-
     void SetClickThrough(bool enable);
-
     void SetKeepOnScreen(bool enable) { m_Options.keepOnScreen = enable; }
-
     void SetSnapEdges(bool enable) { m_Options.snapEdges = enable; }
 
     const WidgetOptions& GetOptions() const { return m_Options; }
-    
     HWND GetWindow() const { return m_hWnd; }
-
     ZPOSITION GetWindowZPosition() const { return m_WindowZPosition; }
 
     void AddImage(const PropertyParser::ImageOptions& options);
-
     void AddText(const PropertyParser::TextOptions& options);
+    void AddBar(const PropertyParser::BarOptions& options);
 
     void SetElementProperties(const std::wstring& id, duk_context* ctx);
-
     bool RemoveElements(const std::wstring& id = L"");
-
     void RemoveElements(const std::vector<std::wstring>& ids);
-
-    void AddContextMenuItem(const std::wstring& label, const std::wstring& action);
-
-    void ClearContextMenuItems();
-
-    void RemoveContextMenuItem(const std::wstring& label);
-
+	// Context Menu
+    void SetContextMenu(const std::vector<MenuItem>& menu);
+    void ClearContextMenu();
+    void SetContextMenuDisabled(bool disabled) { m_ContextMenuDisabled = disabled; }
     void SetShowDefaultContextMenuItems(bool show) { m_ShowDefaultContextMenuItems = show; }
 
     void Redraw();
@@ -125,8 +111,9 @@ private:
     std::vector<Element*> m_Elements;
     
     // Context Menu
-    std::vector<ContextMenuItem> m_ContextMenuItems;
+    std::vector<MenuItem> m_ContextMenu;
     bool m_ShowDefaultContextMenuItems = true;
+    bool m_ContextMenuDisabled = false;
 
     Element* m_MouseOverElement = nullptr;
 
@@ -140,4 +127,3 @@ private:
 };
 
 #endif
-

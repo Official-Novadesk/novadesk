@@ -22,25 +22,32 @@ Element::Element(ElementType type, const std::wstring& id, int x, int y, int wid
 ** Get the width of the element.
 */
 int Element::GetWidth() { 
-    if (m_WDefined) return m_Width;
-    return GetAutoWidth();
+    int w = m_WDefined ? m_Width : GetAutoWidth();
+    return w + m_PaddingLeft + m_PaddingRight;
 }
 
 /*
 ** Get the height of the element.
 */
 int Element::GetHeight() { 
-    if (m_HDefined) return m_Height;
-    return GetAutoHeight();
+    int h = m_HDefined ? m_Height : GetAutoHeight();
+    return h + m_PaddingTop + m_PaddingBottom;
+}
+
+/*
+** Get the bounding box of the element.
+*/
+Gdiplus::Rect Element::GetBounds() {
+    return Gdiplus::Rect(m_X, m_Y, GetWidth(), GetHeight());
 }
 
 /*
 ** Check if a point is within the element's bounds.
 */
 bool Element::HitTest(int x, int y) {
-    int w = GetWidth();
-    int h = GetHeight();
-    return (x >= m_X && x < m_X + w && y >= m_Y && y < m_Y + h);
+    Gdiplus::Rect bounds = GetBounds();
+    return (x >= bounds.X && x < bounds.X + bounds.Width &&
+            y >= bounds.Y && y < bounds.Y + bounds.Height);
 }
 
 /*
@@ -49,41 +56,68 @@ bool Element::HitTest(int x, int y) {
 bool Element::HasAction(UINT message, WPARAM wParam) const {
     switch (message)
     {
-    case WM_LBUTTONUP:     return !m_OnLeftMouseUp.empty();
-    case WM_LBUTTONDOWN:   return !m_OnLeftMouseDown.empty();
-    case WM_LBUTTONDBLCLK: return !m_OnLeftDoubleClick.empty();
-    case WM_RBUTTONUP:     return !m_OnRightMouseUp.empty();
-    case WM_RBUTTONDOWN:   return !m_OnRightMouseDown.empty();
-    case WM_RBUTTONDBLCLK: return !m_OnRightDoubleClick.empty();
-    case WM_MBUTTONUP:     return !m_OnMiddleMouseUp.empty();
-    case WM_MBUTTONDOWN:   return !m_OnMiddleMouseDown.empty();
-    case WM_MBUTTONDBLCLK: return !m_OnMiddleDoubleClick.empty();
+    case WM_LBUTTONUP:     return m_OnLeftMouseUpCallbackId != -1;
+    case WM_LBUTTONDOWN:   return m_OnLeftMouseDownCallbackId != -1;
+    case WM_LBUTTONDBLCLK: return m_OnLeftDoubleClickCallbackId != -1;
+    case WM_RBUTTONUP:     return m_OnRightMouseUpCallbackId != -1;
+    case WM_RBUTTONDOWN:   return m_OnRightMouseDownCallbackId != -1;
+    case WM_RBUTTONDBLCLK: return m_OnRightDoubleClickCallbackId != -1;
+    case WM_MBUTTONUP:     return m_OnMiddleMouseUpCallbackId != -1;
+    case WM_MBUTTONDOWN:   return m_OnMiddleMouseDownCallbackId != -1;
+    case WM_MBUTTONDBLCLK: return m_OnMiddleDoubleClickCallbackId != -1;
     case WM_XBUTTONUP:
-        if (GET_XBUTTON_WPARAM(wParam) == XBUTTON1) return !m_OnX1MouseUp.empty();
-        else return !m_OnX2MouseUp.empty();
+        if (GET_XBUTTON_WPARAM(wParam) == XBUTTON1) return m_OnX1MouseUpCallbackId != -1;
+        else return m_OnX2MouseUpCallbackId != -1;
     case WM_XBUTTONDOWN:
-        if (GET_XBUTTON_WPARAM(wParam) == XBUTTON1) return !m_OnX1MouseDown.empty();
-        else return !m_OnX2MouseDown.empty();
+        if (GET_XBUTTON_WPARAM(wParam) == XBUTTON1) return m_OnX1MouseDownCallbackId != -1;
+        else return m_OnX2MouseDownCallbackId != -1;
     case WM_XBUTTONDBLCLK:
-        if (GET_XBUTTON_WPARAM(wParam) == XBUTTON1) return !m_OnX1DoubleClick.empty();
-        else return !m_OnX2DoubleClick.empty();
+        if (GET_XBUTTON_WPARAM(wParam) == XBUTTON1) return m_OnX1DoubleClickCallbackId != -1;
+        else return m_OnX2DoubleClickCallbackId != -1;
     case WM_MOUSEWHEEL:
-        if (GET_WHEEL_DELTA_WPARAM(wParam) > 0) return !m_OnScrollUp.empty();
-        else return !m_OnScrollDown.empty();
+        if (GET_WHEEL_DELTA_WPARAM(wParam) > 0) return m_OnScrollUpCallbackId != -1;
+        else return m_OnScrollDownCallbackId != -1;
     case WM_MOUSEHWHEEL:
-        if (GET_WHEEL_DELTA_WPARAM(wParam) > 0) return !m_OnScrollRight.empty();
-        else return !m_OnScrollLeft.empty();
+        if (GET_WHEEL_DELTA_WPARAM(wParam) > 0) return m_OnScrollRightCallbackId != -1;
+        else return m_OnScrollLeftCallbackId != -1;
     case WM_MOUSEMOVE:
-        return !m_OnMouseOver.empty() || !m_OnMouseLeave.empty();
+        return m_OnMouseOverCallbackId != -1 || m_OnMouseLeaveCallbackId != -1;
     }
     return false;
+}
+
+/*
+** Check if the element has any interactive mouse action.
+*/
+bool Element::HasMouseAction() const {
+    return m_OnLeftMouseUpCallbackId != -1 ||
+           m_OnLeftMouseDownCallbackId != -1 ||
+           m_OnLeftDoubleClickCallbackId != -1 ||
+           m_OnRightMouseUpCallbackId != -1 ||
+           m_OnRightMouseDownCallbackId != -1 ||
+           m_OnRightDoubleClickCallbackId != -1 ||
+           m_OnMiddleMouseUpCallbackId != -1 ||
+           m_OnMiddleMouseDownCallbackId != -1 ||
+           m_OnMiddleDoubleClickCallbackId != -1 ||
+           m_OnX1MouseUpCallbackId != -1 ||
+           m_OnX1MouseDownCallbackId != -1 ||
+           m_OnX1DoubleClickCallbackId != -1 ||
+           m_OnX2MouseUpCallbackId != -1 ||
+           m_OnX2MouseDownCallbackId != -1 ||
+           m_OnX2DoubleClickCallbackId != -1 ||
+           m_OnScrollUpCallbackId != -1 ||
+           m_OnScrollDownCallbackId != -1 ||
+           m_OnScrollLeftCallbackId != -1 ||
+           m_OnScrollRightCallbackId != -1 ||
+           m_OnMouseOverCallbackId != -1 ||
+           m_OnMouseLeaveCallbackId != -1;
 }
 
 /*
 ** Set the padding for the element.
 */
 void Element::SetPadding(int left, int top, int right, int bottom) {
-    Logging::Log(LogLevel::Debug, L"Element SetPadding: [%d, %d, %d, %d]", left, top, right, bottom);
+    // Logging::Log(LogLevel::Debug, L"Element SetPadding: [%d, %d, %d, %d]", left, top, right, bottom);
     m_PaddingLeft = left;
     m_PaddingTop = top;
     m_PaddingRight = right;
@@ -96,8 +130,9 @@ void Element::SetPadding(int left, int top, int right, int bottom) {
 void Element::RenderBackground(Gdiplus::Graphics& graphics) {
     if (!m_HasSolidColor) return;
 
-    int w = GetWidth();
-    int h = GetHeight();
+    Gdiplus::Rect bounds = GetBounds();
+    int w = bounds.Width;
+    int h = bounds.Height;
     if (w <= 0 || h <= 0) return;
     
     Gdiplus::Brush* brush = nullptr;
@@ -134,9 +169,9 @@ void Element::RenderBackground(Gdiplus::Graphics& graphics) {
             );
         };
 
-        // Rainmeter swaps start/end points (angle + 180) to mimic GDI+ for their SolidColor2
-        Gdiplus::PointF p1 = FindEdgePoint(m_GradientAngle + 180.0f, (float)m_X, (float)m_Y, (float)w, (float)h);
-        Gdiplus::PointF p2 = FindEdgePoint(m_GradientAngle, (float)m_X, (float)m_Y, (float)w, (float)h);
+       
+        Gdiplus::PointF p1 = FindEdgePoint(m_GradientAngle + 180.0f, (float)bounds.X, (float)bounds.Y, (float)w, (float)h);
+        Gdiplus::PointF p2 = FindEdgePoint(m_GradientAngle, (float)bounds.X, (float)bounds.Y, (float)w, (float)h);
         
         Gdiplus::Color color1(m_SolidAlpha, GetRValue(m_SolidColor), GetGValue(m_SolidColor), GetBValue(m_SolidColor));
         Gdiplus::Color color2(m_SolidAlpha2, GetRValue(m_SolidColor2), GetGValue(m_SolidColor2), GetBValue(m_SolidColor2));
@@ -155,17 +190,16 @@ void Element::RenderBackground(Gdiplus::Graphics& graphics) {
         if (d > w) d = w;
         if (d > h) d = h;
 
-        Gdiplus::Rect r(m_X, m_Y, w, h);
-        path->AddArc(r.X, r.Y, d, d, 180, 90);
-        path->AddArc(r.X + r.Width - d, r.Y, d, d, 270, 90);
-        path->AddArc(r.X + r.Width - d, r.Y + r.Height - d, d, d, 0, 90);
-        path->AddArc(r.X, r.Y + r.Height - d, d, d, 90, 90);
+        path->AddArc(bounds.X, bounds.Y, d, d, 180, 90);
+        path->AddArc(bounds.X + bounds.Width - d, bounds.Y, d, d, 270, 90);
+        path->AddArc(bounds.X + bounds.Width - d, bounds.Y + bounds.Height - d, d, d, 0, 90);
+        path->AddArc(bounds.X, bounds.Y + bounds.Height - d, d, d, 90, 90);
         path->CloseFigure();
         
         graphics.FillPath(brush, path);
         delete path;
     } else {
-        graphics.FillRectangle(brush, (Gdiplus::REAL)m_X, (Gdiplus::REAL)m_Y, (Gdiplus::REAL)w, (Gdiplus::REAL)h);
+        graphics.FillRectangle(brush, (Gdiplus::REAL)bounds.X, (Gdiplus::REAL)bounds.Y, (Gdiplus::REAL)w, (Gdiplus::REAL)h);
     }
     
     delete brush;
@@ -177,10 +211,11 @@ void Element::RenderBackground(Gdiplus::Graphics& graphics) {
 void Element::RenderBevel(Gdiplus::Graphics& graphics) {
     if (m_BevelType == 0 || m_BevelWidth <= 0) return;
 
-    int w = GetWidth();
-    int h = GetHeight();
+    Gdiplus::Rect bounds = GetBounds();
+    int w = bounds.Width;
+    int h = bounds.Height;
     
-    Gdiplus::Color highlight(m_BevelAlpha1, GetRValue(m_BevelColor1), GetGValue(m_BevelColor1), GetBValue(m_BevelColor1));
+    Gdiplus::Color highlight(m_BevelAlpha, GetRValue(m_BevelColor), GetGValue(m_BevelColor), GetBValue(m_BevelColor));
     Gdiplus::Color shadow(m_BevelAlpha2, GetRValue(m_BevelColor2), GetGValue(m_BevelColor2), GetBValue(m_BevelColor2));
     
     Gdiplus::Pen highlightPen(highlight, (Gdiplus::REAL)m_BevelWidth);
@@ -190,34 +225,34 @@ void Element::RenderBevel(Gdiplus::Graphics& graphics) {
     
     switch (m_BevelType) {
     case 1: // Raised
-        graphics.DrawLine(&highlightPen, m_X + offset, m_Y + offset, m_X + w - offset, m_Y + offset);
-        graphics.DrawLine(&highlightPen, m_X + offset, m_Y + offset, m_X + offset, m_Y + h - offset);
-        graphics.DrawLine(&shadowPen, m_X + w - offset, m_Y + offset, m_X + w - offset, m_Y + h - offset);
-        graphics.DrawLine(&shadowPen, m_X + offset, m_Y + h - offset, m_X + w - offset, m_Y + h - offset);
+        graphics.DrawLine(&highlightPen, bounds.X + offset, bounds.Y + offset, bounds.X + w - offset, bounds.Y + offset);
+        graphics.DrawLine(&highlightPen, bounds.X + offset, bounds.Y + offset, bounds.X + offset, bounds.Y + h - offset);
+        graphics.DrawLine(&shadowPen, bounds.X + w - offset, bounds.Y + offset, bounds.X + w - offset, bounds.Y + h - offset);
+        graphics.DrawLine(&shadowPen, bounds.X + offset, bounds.Y + h - offset, bounds.X + w - offset, bounds.Y + h - offset);
         break;
         
     case 2: // Sunken
-        graphics.DrawLine(&shadowPen, m_X + offset, m_Y + offset, m_X + w - offset, m_Y + offset);
-        graphics.DrawLine(&shadowPen, m_X + offset, m_Y + offset, m_X + offset, m_Y + h - offset);
-        graphics.DrawLine(&highlightPen, m_X + w - offset, m_Y + offset, m_X + w - offset, m_Y + h - offset);
-        graphics.DrawLine(&highlightPen, m_X + offset, m_Y + h - offset, m_X + w - offset, m_Y + h - offset);
+        graphics.DrawLine(&shadowPen, bounds.X + offset, bounds.Y + offset, bounds.X + w - offset, bounds.Y + offset);
+        graphics.DrawLine(&shadowPen, bounds.X + offset, bounds.Y + offset, bounds.X + offset, bounds.Y + h - offset);
+        graphics.DrawLine(&highlightPen, bounds.X + w - offset, bounds.Y + offset, bounds.X + w - offset, bounds.Y + h - offset);
+        graphics.DrawLine(&highlightPen, bounds.X + offset, bounds.Y + h - offset, bounds.X + w - offset, bounds.Y + h - offset);
         break;
         
     case 3: // Emboss
         {
-            Gdiplus::Color midHighlight(m_BevelAlpha1 / 2, GetRValue(m_BevelColor1), GetGValue(m_BevelColor1), GetBValue(m_BevelColor1));
+            Gdiplus::Color midHighlight(m_BevelAlpha / 2, GetRValue(m_BevelColor), GetGValue(m_BevelColor), GetBValue(m_BevelColor));
             Gdiplus::Pen midPen(midHighlight, (Gdiplus::REAL)m_BevelWidth);
-            graphics.DrawLine(&highlightPen, m_X + offset, m_Y + offset, m_X + w - offset, m_Y + offset);
-            graphics.DrawLine(&midPen, m_X + offset, m_Y + offset, m_X + offset, m_Y + h - offset);
+            graphics.DrawLine(&highlightPen, bounds.X + offset, bounds.Y + offset, bounds.X + w - offset, bounds.Y + offset);
+            graphics.DrawLine(&midPen, bounds.X + offset, bounds.Y + offset, bounds.X + offset, bounds.Y + h - offset);
         }
         break;
         
     case 4: // Pillow
         for (int i = 0; i < m_BevelWidth; i++) {
-            int alpha = (int)(m_BevelAlpha1 * (1.0f - (float)i / m_BevelWidth));
-            Gdiplus::Color fadeColor(alpha, GetRValue(m_BevelColor1), GetGValue(m_BevelColor1), GetBValue(m_BevelColor1));
+            int alpha = (int)(m_BevelAlpha * (1.0f - (float)i / m_BevelWidth));
+            Gdiplus::Color fadeColor(alpha, GetRValue(m_BevelColor), GetGValue(m_BevelColor), GetBValue(m_BevelColor));
             Gdiplus::Pen fadePen(fadeColor, 1.0f);
-            graphics.DrawRectangle(&fadePen, m_X + i, m_Y + i, w - i * 2, h - i * 2);
+            graphics.DrawRectangle(&fadePen, bounds.X + i, bounds.Y + i, w - i * 2, h - i * 2);
         }
         break;
     }

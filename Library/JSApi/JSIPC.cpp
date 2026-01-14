@@ -1,0 +1,292 @@
+/* Copyright (C) 2026 Novadesk Project 
+ *
+ * This Source Code Form is subject to the terms of the GNU General Public
+ * License; either version 2 of the License, or (at your option) any later
+ * version. If a copy of the GPL was not distributed with this file, You can
+ * obtain one at <https://www.gnu.org/licenses/gpl-2.0.html>. */
+ 
+ #include "JSIPC.h"
+ #include "JSWidget.h"
+ #include "JSApi.h"
+ #include "../Logging.h"
+ #include "../Utils.h"
+ #include "../TimerManager.h"
+ #include <cstring>
+ #include <vector>
+ 
+ extern std::vector<Widget*> widgets;
+ 
+ namespace JSApi {
+     static const UINT WM_DISPATCH_IPC = WM_USER + 102;
+ 
+     // Helper to get the widget ID or context identifier for IPC listener storage.
+     // Returns the widget ID for widget contexts, or "main" for main context.
+     static std::string GetCurrentContextListenersKey(duk_context* ctx) {
+         // If we are currently executing a widget script, 'original_win' will be in the stash.
+         duk_push_global_stash(ctx);
+         if (duk_has_prop_string(ctx, -1, "original_win")) {
+             duk_pop(ctx);
+             
+             // Get the widget ID from the global 'win' object
+             duk_get_global_string(ctx, "win");
+             if (duk_is_object(ctx, -1) && duk_get_prop_string(ctx, -1, "\xFF" "id")) {
+                 if (duk_is_string(ctx, -1)) {
+                     std::string widgetId = duk_get_string(ctx, -1);
+                     duk_pop_2(ctx); // Pop id and win
+                     return widgetId;
+                 }
+                 duk_pop(ctx); // Pop id
+             }
+             duk_pop(ctx); // Pop win
+         } else {
+             duk_pop(ctx);
+         }
+ 
+         // Also check if the global 'win' object is currently a widget.
+         // This helps identify asynchronous callbacks if the engine leaves 'win' breadcrumbs.
+         duk_get_global_string(ctx, "win");
+         if (duk_is_object(ctx, -1) && duk_has_prop_string(ctx, -1, "\xFF" "widgetPtr")) {
+             if (duk_get_prop_string(ctx, -1, "\xFF" "id")) {
+                 if (duk_is_string(ctx, -1)) {
+                     std::string widgetId = duk_get_string(ctx, -1);
+                     duk_pop_2(ctx); // Pop id and win
+                     return widgetId;
+                 }
+                 duk_pop(ctx); // Pop id
+             }
+         }
+         duk_pop(ctx); // Pop win
+ 
+         return "main";
+     }
+ 
+     static std::string GetTargetContextListenersKey(duk_context* ctx) {
+         std::string current = GetCurrentContextListenersKey(ctx);
+         // If current is a widget ID, target is main; if main, target is all widgets
+         return (current == "main") ? "ui" : "main";
+     }
+ 
+     duk_ret_t js_ipc_on(duk_context* ctx) {
+         if (!duk_is_string(ctx, 0) || !duk_is_function(ctx, 1)) return DUK_RET_TYPE_ERROR;
+         const char* channel = duk_get_string(ctx, 0);
+         std::string contextKey = GetCurrentContextListenersKey(ctx);
+ 
+         duk_push_global_stash(ctx);
+         
+         // For widget contexts, store under ui_ipc_listeners[widgetId][channel]
+         // For main context, store under main_ipc_listeners[channel]
+         if (contextKey != "main") {
+             // Widget context - use ui_ipc_listeners
+             if (!duk_get_prop_string(ctx, -1, "ui_ipc_listeners")) {
+                 duk_pop(ctx);
+                 duk_push_object(ctx);
+                 duk_dup(ctx, -1);
+                 duk_put_prop_string(ctx, -3, "ui_ipc_listeners");
+             }
+             
+             // Get or create object for this widget ID
+             if (!duk_get_prop_string(ctx, -1, contextKey.c_str())) {
+                 duk_pop(ctx);
+                 duk_push_object(ctx);
+                 duk_dup(ctx, -1);
+                 duk_put_prop_string(ctx, -3, contextKey.c_str());
+             }
+         } else {
+             // Main context - use main_ipc_listeners
+             if (!duk_get_prop_string(ctx, -1, "main_ipc_listeners")) {
+                 duk_pop(ctx);
+                 duk_push_object(ctx);
+                 duk_dup(ctx, -1);
+                 duk_put_prop_string(ctx, -3, "main_ipc_listeners");
+             }
+         }
+ 
+         // Get or create the array for this specific channel
+         if (!duk_get_prop_string(ctx, -1, channel)) {
+             duk_pop(ctx);
+             duk_push_array(ctx);
+             duk_dup(ctx, -1);
+             duk_put_prop_string(ctx, -3, channel);
+         }
+         
+         // Add the callback to the array
+         duk_dup(ctx, 1);
+         duk_put_prop_index(ctx, -2, (duk_uarridx_t)duk_get_length(ctx, -2));
+         
+         duk_pop_3(ctx); // array, listeners object, stash
+         return 0;
+     }
+ 
+     duk_ret_t js_ipc_send(duk_context* ctx) {
+         duk_idx_t nargs = duk_get_top(ctx);
+         if (nargs < 1 || !duk_is_string(ctx, 0)) return DUK_RET_TYPE_ERROR;
+ 
+         const char* channel = duk_get_string(ctx, 0);
+         std::string targetKey = GetTargetContextListenersKey(ctx);
+ 
+         // Defer dispatch using the global stash
+         duk_push_global_stash(ctx);
+         if (!duk_get_prop_string(ctx, -1, "pending_ipc")) {
+             duk_pop(ctx);
+             duk_push_array(ctx);
+             duk_dup(ctx, -1);
+             duk_put_prop_string(ctx, -3, "pending_ipc");
+         }
+ 
+         duk_push_object(ctx);
+         duk_push_string(ctx, channel);
+         duk_put_prop_string(ctx, -2, "channel");
+         duk_push_string(ctx, targetKey.c_str());
+         duk_put_prop_string(ctx, -2, "target");
+         
+         // If we have a second argument, it's the data payload
+         if (nargs > 1) {
+             duk_dup(ctx, 1); // arg 1 is data
+             duk_put_prop_string(ctx, -2, "data");
+         }
+ 
+         duk_put_prop_index(ctx, -2, (duk_uarridx_t)duk_get_length(ctx, -2));
+         duk_pop_2(ctx); // array, stash
+ 
+         PostMessage(TimerManager::GetWindow(), WM_DISPATCH_IPC, 0, 0);
+         return 0;
+     }
+ 
+     void DispatchPendingIPC(duk_context* ctx) {
+         if (!ctx) return;
+         duk_push_global_stash(ctx);
+         if (!duk_get_prop_string(ctx, -1, "pending_ipc")) {
+             duk_pop_2(ctx); // Pop stash and undefined
+             return;
+         }
+ 
+         duk_size_t pendingCount = duk_get_length(ctx, -1);
+         if (pendingCount == 0) {
+             duk_pop_2(ctx); // Pop stash and pending_ipc (empty array)
+             return;
+         }
+ 
+         // Copy items to a local list to avoid issues if Dispatch triggers more sends
+         duk_push_array(ctx); // [stash, pending_ipc_original, local_copy_array]
+         for (duk_size_t i = 0; i < pendingCount; i++) {
+             duk_get_prop_index(ctx, -2, (duk_uarridx_t)i); // [..., local_copy_array, item]
+             duk_put_prop_index(ctx, -2, (duk_uarridx_t)i); // [..., local_copy_array]
+         }
+         
+         // Clear the pending queue immediately
+         duk_push_array(ctx); // [stash, pending_ipc_original, local_copy_array, new_empty_array]
+         duk_put_prop_string(ctx, -4, "pending_ipc"); // Replaces pending_ipc_original
+         duk_pop(ctx);
+ 
+         // Process the local copy
+         for (duk_size_t i = 0; i < pendingCount; i++) {
+             duk_get_prop_index(ctx, -1, (duk_uarridx_t)i); // item object
+             
+             duk_get_prop_string(ctx, -1, "channel");
+             const char* channel = duk_get_string(ctx, -1);
+             duk_get_prop_string(ctx, -2, "target");
+             const char* targetKey = duk_get_string(ctx, -1);
+             duk_get_prop_string(ctx, -3, "data"); // data payload (might be undefined)
+             
+             // Stack at this point:
+             // [stash, local_copy_array, item, channel, target, data]
+ 
+             duk_push_global_stash(ctx); // [..., result_of_data, stash]
+             if (strcmp(targetKey, "ui") == 0) {
+                 if (duk_get_prop_string(ctx, -1, "ui_ipc_listeners")) {
+                     if (duk_is_object(ctx, -1)) {
+                         duk_enum(ctx, -1, DUK_ENUM_OWN_PROPERTIES_ONLY);
+                         while (duk_next(ctx, -1, 1)) {
+                             // Stack: [..., stash, ui_ipc_listeners, enum, key, value]
+                             if (duk_is_object(ctx, -1) && duk_get_prop_string(ctx, -1, channel)) {
+                                 if (duk_is_array(ctx, -1)) {
+                                     duk_size_t len = duk_get_length(ctx, -1);
+                                     for (duk_size_t j = 0; j < len; j++) {
+                                         duk_get_prop_index(ctx, -1, (duk_uarridx_t)j); // callback
+                                         if (duk_is_function(ctx, -1)) {
+                                             // Relative indices:
+                                             // -1: callback
+                                             // -2: chan_arr
+                                             // -3: widget_listeners
+                                             // -4: widget_id
+                                             // -5: enum
+                                             // -6: ui_ipc_listeners
+                                             // -7: stash
+                                             // -8: data payload (correct!)
+                                             duk_dup(ctx, -8);
+                                             if (duk_pcall(ctx, 1) != 0) {
+                                                 Logging::Log(LogLevel::Error, L"IPC Async Error (%S): %S", channel, duk_safe_to_string(ctx, -1));
+                                             }
+                                             duk_pop(ctx); // result
+                                         } else {
+                                             duk_pop(ctx); // not a function
+                                         }
+                                     }
+                                 }
+                                 duk_pop(ctx); // array
+                             } else {
+                                 duk_pop(ctx); // undefined prop
+                             }
+                             duk_pop_2(ctx); // key, value
+                         }
+                         duk_pop(ctx); // enum
+                     }
+                 }
+                 duk_pop_2(ctx); // ui_ipc_listeners, stash
+             } else {
+                 if (duk_get_prop_string(ctx, -1, "main_ipc_listeners")) {
+                     if (duk_is_object(ctx, -1) && duk_get_prop_string(ctx, -1, channel)) {
+                         if (duk_is_array(ctx, -1)) {
+                             duk_size_t len = duk_get_length(ctx, -1);
+                             for (duk_size_t j = 0; j < len; j++) {
+                                 duk_get_prop_index(ctx, -1, (duk_uarridx_t)j);
+                                 if (duk_is_function(ctx, -1)) {
+                                     // Relative indices:
+                                     // -1: callback
+                                     // -2: chan_arr
+                                     // -3: main_ipc_listeners
+                                     // -4: stash
+                                     // -5: data payload (correct!)
+                                     duk_dup(ctx, -5);
+                                     if (duk_pcall(ctx, 1) != 0) {
+                                         Logging::Log(LogLevel::Error, L"IPC Async Error (%S): %S", channel, duk_safe_to_string(ctx, -1));
+                                     }
+                                     duk_pop(ctx); // result
+                                 } else {
+                                     duk_pop(ctx);
+                                 }
+                             }
+                         }
+                         duk_pop(ctx); // array
+                     } else {
+                         duk_pop(ctx); // undefined prop
+                     }
+                 }
+                 duk_pop_2(ctx); // main_ipc_listeners, stash
+             }
+ 
+             duk_pop_n(ctx, 4); // data, target, channel, item
+         }
+ 
+         duk_pop_2(ctx); // local_copy, stash
+     }
+ 
+     void ClearIPCListeners(duk_context* ctx, const std::string& widgetId) {
+         duk_push_global_stash(ctx);
+         if (duk_get_prop_string(ctx, -1, "ui_ipc_listeners")) {
+             if (duk_has_prop_string(ctx, -1, widgetId.c_str())) {
+                 duk_del_prop_string(ctx, -1, widgetId.c_str());
+             }
+         }
+         duk_pop_2(ctx);
+     }
+ 
+     void BindIPCMethods(duk_context* ctx) {
+         duk_push_object(ctx);
+         duk_push_c_function(ctx, js_ipc_on, 2);
+         duk_put_prop_string(ctx, -2, "on");
+         duk_push_c_function(ctx, js_ipc_send, 2);
+         duk_put_prop_string(ctx, -2, "send");
+         duk_put_global_string(ctx, "ipc");
+     }
+ }

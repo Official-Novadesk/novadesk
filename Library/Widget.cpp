@@ -10,12 +10,17 @@
 #include "Logging.h"
 #include "Settings.h"
 #include "Resource.h"
+#include "MenuUtils.h"
+#include "JSApi/JSContextMenu.h"
+#include "Utils.h"
 #include <vector>
 #include <windowsx.h>
 #include <algorithm>
 #include <gdiplus.h>
 
-#include "JSApi.h"
+#include "JSApi/JSApi.h"
+#include "JSApi/JSCommon.h"
+#include "JSApi/JSEvents.h"
 #include "ColorUtil.h"
 #pragma comment(lib, "gdiplus.lib")
 
@@ -41,10 +46,13 @@ Widget::Widget(const WidgetOptions& options)
 */
 Widget::~Widget()
 {
+    JSApi::TriggerWidgetEvent(this, "close");
+
     if (m_hWnd)
     {
         DestroyWindow(m_hWnd);
     }
+    JSApi::TriggerWidgetEvent(this, "closed");
     
     // Clean up elements
     for (auto* element : m_Elements)
@@ -145,6 +153,17 @@ void Widget::Show()
     }
 }
 
+void Widget::Refresh()
+{
+    JSApi::TriggerWidgetEvent(this, "refresh");
+
+    RemoveElements(L""); // Clear all elements
+    if (!m_Options.scriptPath.empty())
+    {
+        JSApi::ExecuteWidgetScript(this);
+    }
+}
+
 /*
 ** Change the z-order position of this widget.
 ** If all is true, affects all widgets in the same z-order group.
@@ -185,7 +204,8 @@ void Widget::ChangeZPos(ZPOSITION zPos, bool all)
         break;
 
     case ZPOSITION_NORMAL:
-        break;
+        if (all || !System::GetShowDesktop()) break;
+        // Fallthrough
 
     case ZPOSITION_ONDESKTOP:
         if (System::GetShowDesktop())
@@ -246,12 +266,6 @@ timer_check:
 void Widget::ChangeSingleZPos(ZPOSITION zPos, bool all)
 {
     if (zPos == ZPOSITION_NORMAL && System::GetShowDesktop())
-    {
-        m_WindowZPosition = zPos;
-        SetWindowPos(m_hWnd, System::GetBackmostTopWindow(), 0, 0, 0, 0, ZPOS_FLAGS);
-        BringWindowToTop(m_hWnd);
-    }
-    else if (zPos == ZPOSITION_ONDESKTOP)
     {
         m_WindowZPosition = zPos;
         SetWindowPos(m_hWnd, System::GetBackmostTopWindow(), 0, 0, 0, 0, ZPOS_FLAGS);
@@ -486,6 +500,30 @@ LRESULT CALLBACK Widget::WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
             widget->HandleMouseMessage(message, wParam, lParam);
         }
         return 0;
+    case WM_SETCURSOR:
+        if (LOWORD(lParam) == HTCLIENT && widget)
+        {
+            POINT pt;
+            GetCursorPos(&pt);
+            ScreenToClient(hWnd, &pt);
+
+            Element* hitElement = nullptr;
+            for (auto it = widget->m_Elements.rbegin(); it != widget->m_Elements.rend(); ++it)
+            {
+                if ((*it)->HitTest(pt.x, pt.y))
+                {
+                    hitElement = *it;
+                    break;
+                }
+            }
+
+            if (hitElement && hitElement->HasMouseAction())
+            {
+                SetCursor(LoadCursor(NULL, IDC_HAND));
+                return TRUE;
+            }
+        }
+        return DefWindowProc(hWnd, message, wParam, lParam);
 
     case WM_MOUSEMOVE:
         if (widget) 
@@ -588,7 +626,7 @@ LRESULT CALLBACK Widget::WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
                         GetWindowRect(w->GetWindow(), &otherRect);
                         
                         // Vertical overlap -> Snap horizontally
-                        if (wp->y < otherRect.bottom && wp->y + widget->m_Options.height > otherRect.top)
+                        if (wp->y < otherRect.bottom + SNAP_DISTANCE && wp->y + widget->m_Options.height > otherRect.top - SNAP_DISTANCE)
                         {
                             if (abs(wp->x - otherRect.left) < SNAP_DISTANCE) wp->x = otherRect.left;
                             if (abs(wp->x - otherRect.right) < SNAP_DISTANCE) wp->x = otherRect.right;
@@ -597,7 +635,7 @@ LRESULT CALLBACK Widget::WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
                         }
 
                         // Horizontal overlap -> Snap vertically
-                        if (wp->x < otherRect.right && wp->x + widget->m_Options.width > otherRect.left)
+                        if (wp->x < otherRect.right + SNAP_DISTANCE && wp->x + widget->m_Options.width > otherRect.left - SNAP_DISTANCE)
                         {
                             if (abs(wp->y - otherRect.top) < SNAP_DISTANCE) wp->y = otherRect.top;
                             if (abs(wp->y - otherRect.bottom) < SNAP_DISTANCE) wp->y = otherRect.bottom;
@@ -781,9 +819,35 @@ void Widget::AddText(const PropertyParser::TextOptions& options)
 
     TextElement* element = new TextElement(options.id, options.x, options.y, options.width, options.height, 
                              options.text, options.fontFace, options.fontSize, options.fontColor, options.alpha,
-                             options.bold, options.italic, options.textAlign, options.clip, options.clipW, options.clipH);
+                             options.bold, options.italic, options.textAlign, options.clip);
                              
+    Logging::Log(LogLevel::Debug, L"Widget::AddText: Created TextElement id='%s', text='%s', x=%d, y=%d", element->GetId().c_str(), element->GetText().c_str(), element->GetX(), element->GetY());
+
     PropertyParser::ApplyElementOptions(element, options);
+
+    m_Elements.push_back(element);
+    
+    Redraw();
+}
+
+/*
+** Add a bar content item to the widget.
+*/
+void Widget::AddBar(const PropertyParser::BarOptions& options)
+{
+    if (options.id.empty()) {
+        Logging::Log(LogLevel::Error, L"AddBar failed: Element ID cannot be empty.");
+        return;
+    }
+
+    if (FindElementById(options.id)) {
+        Logging::Log(LogLevel::Error, L"AddBar failed: Element with ID '%s' already exists.", options.id.c_str());
+        return;
+    }
+
+    BarElement* element = new BarElement(options.id, options.x, options.y, options.width, options.height, options.value, options.orientation);
+    
+    PropertyParser::ApplyBarOptions(element, options);
 
     m_Elements.push_back(element);
     
@@ -800,50 +864,19 @@ void Widget::SetElementProperties(const std::wstring& id, duk_context* ctx)
 
     if (element->GetType() == ELEMENT_TEXT) {
         PropertyParser::TextOptions options;
-        
-        // Fill struct with current state before parsing for partial updates
-        options.id = element->GetId();
-        options.x = element->GetX();
-        options.y = element->GetY();
-        options.width = element->GetWidth();
-        options.height = element->GetHeight();
-        options.rotate = element->GetRotate();
-        options.antialias = element->GetAntiAlias();
-        
-        TextElement* t = static_cast<TextElement*>(element);
-        options.text = t->GetText();
-        options.fontFace = t->GetFontFace();
-        options.fontSize = t->GetFontSize();
-        options.fontColor = t->GetFontColor();
-        options.alpha = t->GetFontAlpha();
-        options.bold = t->IsBold();
-        options.italic = t->IsItalic();
-        options.textAlign = t->GetTextAlign();
-        options.clip = t->GetClipString();
-        options.clipW = t->GetClipW();
-        options.clipH = t->GetClipH();
-
+        PropertyParser::PreFillTextOptions(options, static_cast<TextElement*>(element));
         PropertyParser::ParseTextOptions(ctx, options);
-        PropertyParser::ApplyTextOptions(t, options);
+        PropertyParser::ApplyTextOptions(static_cast<TextElement*>(element), options);
     } else if (element->GetType() == ELEMENT_IMAGE) {
         PropertyParser::ImageOptions options;
-        options.id = element->GetId();
-        options.x = element->GetX();
-        options.y = element->GetY();
-        options.width = element->GetWidth();
-        options.height = element->GetHeight();
-        options.rotate = element->GetRotate();
-        options.antialias = element->GetAntiAlias();
-
-        ImageElement* img = static_cast<ImageElement*>(element);
-        options.path = img->GetImagePath();
-        options.preserveAspectRatio = img->GetPreserveAspectRatio();
-        options.imageAlpha = img->GetImageAlpha();
-        options.grayscale = img->IsGrayscale();
-        options.tile = img->IsTile();
-
+        PropertyParser::PreFillImageOptions(options, static_cast<ImageElement*>(element));
         PropertyParser::ParseImageOptions(ctx, options);
-        PropertyParser::ApplyImageOptions(img, options);
+        PropertyParser::ApplyImageOptions(static_cast<ImageElement*>(element), options);
+    } else if (element->GetType() == ELEMENT_BAR) {
+        PropertyParser::BarOptions options;
+        PropertyParser::PreFillBarOptions(options, static_cast<BarElement*>(element));
+        PropertyParser::ParseBarOptions(ctx, options);
+        PropertyParser::ApplyBarOptions(static_cast<BarElement*>(element), options);
     }
 
     Redraw();
@@ -902,33 +935,19 @@ void Widget::RemoveElements(const std::vector<std::wstring>& ids)
 }
 
 /*
-** Add a custom item to the context menu.
+** Set the entire custom context menu.
 */
-void Widget::AddContextMenuItem(const std::wstring& label, const std::wstring& action)
+void Widget::SetContextMenu(const std::vector<MenuItem>& menu)
 {
-    m_ContextMenuItems.push_back({ label, action });
+    m_ContextMenu = menu;
 }
 
 /*
 ** Clear all custom context menu items.
 */
-void Widget::ClearContextMenuItems()
+void Widget::ClearContextMenu()
 {
-    m_ContextMenuItems.clear();
-}
-
-/*
-** Remove a specific context menu item by label.
-*/
-void Widget::RemoveContextMenuItem(const std::wstring& label)
-{
-    auto it = std::remove_if(m_ContextMenuItems.begin(), m_ContextMenuItems.end(),
-        [&](const ContextMenuItem& item) { return item.label == label; });
-
-    if (it != m_ContextMenuItems.end())
-    {
-        m_ContextMenuItems.erase(it, m_ContextMenuItems.end());
-    }
+    m_ContextMenu.clear();
 }
 
 /*
@@ -938,7 +957,6 @@ void Widget::Redraw()
 {
     UpdateLayeredWindowContent();
 }
-
 
 
 /*
@@ -959,8 +977,9 @@ void Widget::UpdateLayeredWindowContent()
         int maxY = 0;
         for (Element* element : m_Elements)
         {
-            maxX = (std::max)(maxX, element->GetX() + element->GetWidth());
-            maxY = (std::max)(maxY, element->GetY() + element->GetHeight());
+            Gdiplus::Rect bounds = element->GetBounds();
+            maxX = (std::max)(maxX, bounds.X + bounds.Width);
+            maxY = (std::max)(maxY, bounds.Y + bounds.Height);
         }
         
         if (!m_Options.m_WDefined) calcW = maxX;
@@ -1116,31 +1135,34 @@ bool Widget::HandleMouseMessage(UINT message, WPARAM wParam, LPARAM lParam)
             if (m_MouseOverElement)
             {
                 m_MouseOverElement->m_IsMouseOver = false;
-                std::wstring leaveAction = m_MouseOverElement->m_OnMouseLeave;
-                if (!leaveAction.empty())
-                    JSApi::ExecuteScript(leaveAction);
+                int leaveId = m_MouseOverElement->m_OnMouseLeaveCallbackId;
+                if (leaveId != -1)
+                    JSApi::CallEventCallback(leaveId);
                 
-                // If ExecuteScript cleared the elements, m_MouseOverElement is now invalid
+                // If callback cleared the elements, m_MouseOverElement is now invalid
                 if (m_Elements.empty()) {
                     m_MouseOverElement = nullptr;
-                    return true; // Technically handled or compromised
+                    return true;
                 }
             }
 
             if (hitElement)
             {
                 hitElement->m_IsMouseOver = true;
-                std::wstring overAction = hitElement->m_OnMouseOver;
-                if (!overAction.empty())
-                    JSApi::ExecuteScript(overAction);
+                int overId = hitElement->m_OnMouseOverCallbackId;
+                if (overId != -1)
+                    JSApi::CallEventCallback(overId);
 
-                // If ExecuteScript cleared the elements, hitElement is now invalid
+                // If callback cleared the elements, hitElement is now invalid
                 if (m_Elements.empty()) {
                     m_MouseOverElement = nullptr;
                     return true;
                 }
             }
             m_MouseOverElement = hitElement;
+            
+            // Refresh cursor when element under mouse changes as it might have different action state
+            PostMessage(m_hWnd, WM_SETCURSOR, (WPARAM)m_hWnd, MAKELPARAM(HTCLIENT, WM_MOUSEMOVE));
         }
         
         // Ensure we track mouse leave window events
@@ -1150,18 +1172,16 @@ bool Widget::HandleMouseMessage(UINT message, WPARAM wParam, LPARAM lParam)
         tme.hwndTrack = m_hWnd;
         TrackMouseEvent(&tme);
         
-        handled = true; // Mouse move is generally considered handled if we process hovers? 
-                        // Actually for context menu, only RBUTTONUP handling implies consumption.
-                        // But for function signature satisfaction, we return true if we did logic.
+        handled = true; 
     }
     else if (message == WM_MOUSELEAVE)
     {
         if (m_MouseOverElement)
         {
              m_MouseOverElement->m_IsMouseOver = false;
-             std::wstring leaveAction = m_MouseOverElement->m_OnMouseLeave;
-             if (!leaveAction.empty())
-                 JSApi::ExecuteScript(leaveAction);
+             int leaveId = m_MouseOverElement->m_OnMouseLeaveCallbackId;
+             if (leaveId != -1)
+                 JSApi::CallEventCallback(leaveId);
              m_MouseOverElement = nullptr;
         }
         handled = true;
@@ -1170,45 +1190,46 @@ bool Widget::HandleMouseMessage(UINT message, WPARAM wParam, LPARAM lParam)
     // Dispatch Actions
     if (actionElement)
     {
-        std::wstring action;
+        int actionId = -1;
+
         switch (message)
         {
-        case WM_LBUTTONUP:     action = actionElement->m_OnLeftMouseUp; break;
-        case WM_LBUTTONDOWN:   action = actionElement->m_OnLeftMouseDown; break;
-        case WM_LBUTTONDBLCLK: action = actionElement->m_OnLeftDoubleClick; break;
-        case WM_RBUTTONUP:     action = actionElement->m_OnRightMouseUp; break;
-        case WM_RBUTTONDOWN:   action = actionElement->m_OnRightMouseDown; break;
-        case WM_RBUTTONDBLCLK: action = actionElement->m_OnRightDoubleClick; break;
-        case WM_MBUTTONUP:     action = actionElement->m_OnMiddleMouseUp; break;
-        case WM_MBUTTONDOWN:   action = actionElement->m_OnMiddleMouseDown; break;
-        case WM_MBUTTONDBLCLK: action = actionElement->m_OnMiddleDoubleClick; break;
+        case WM_LBUTTONUP:     actionId = actionElement->m_OnLeftMouseUpCallbackId; break;
+        case WM_LBUTTONDOWN:   actionId = actionElement->m_OnLeftMouseDownCallbackId; break;
+        case WM_LBUTTONDBLCLK: actionId = actionElement->m_OnLeftDoubleClickCallbackId; break;
+        case WM_RBUTTONUP:     actionId = actionElement->m_OnRightMouseUpCallbackId; break;
+        case WM_RBUTTONDOWN:   actionId = actionElement->m_OnRightMouseDownCallbackId; break;
+        case WM_RBUTTONDBLCLK: actionId = actionElement->m_OnRightDoubleClickCallbackId; break;
+        case WM_MBUTTONUP:     actionId = actionElement->m_OnMiddleMouseUpCallbackId; break;
+        case WM_MBUTTONDOWN:   actionId = actionElement->m_OnMiddleMouseDownCallbackId; break;
+        case WM_MBUTTONDBLCLK: actionId = actionElement->m_OnMiddleDoubleClickCallbackId; break;
         case WM_XBUTTONUP:
-            if (GET_XBUTTON_WPARAM(wParam) == XBUTTON1) action = actionElement->m_OnX1MouseUp;
-            else action = actionElement->m_OnX2MouseUp;
+            if (GET_XBUTTON_WPARAM(wParam) == XBUTTON1) { actionId = actionElement->m_OnX1MouseUpCallbackId; }
+            else { actionId = actionElement->m_OnX2MouseUpCallbackId; }
             break;
         case WM_XBUTTONDOWN:
-            if (GET_XBUTTON_WPARAM(wParam) == XBUTTON1) action = actionElement->m_OnX1MouseDown;
-            else action = actionElement->m_OnX2MouseDown;
+            if (GET_XBUTTON_WPARAM(wParam) == XBUTTON1) { actionId = actionElement->m_OnX1MouseDownCallbackId; }
+            else { actionId = actionElement->m_OnX2MouseDownCallbackId; }
             break;
         case WM_XBUTTONDBLCLK:
-            if (GET_XBUTTON_WPARAM(wParam) == XBUTTON1) action = actionElement->m_OnX1DoubleClick;
-            else action = actionElement->m_OnX2DoubleClick;
+            if (GET_XBUTTON_WPARAM(wParam) == XBUTTON1) { actionId = actionElement->m_OnX1DoubleClickCallbackId; }
+            else { actionId = actionElement->m_OnX2DoubleClickCallbackId; }
             break;
         case WM_MOUSEWHEEL:
-            if (GET_WHEEL_DELTA_WPARAM(wParam) > 0) action = actionElement->m_OnScrollUp;
-            else action = actionElement->m_OnScrollDown;
+            if (GET_WHEEL_DELTA_WPARAM(wParam) > 0) { actionId = actionElement->m_OnScrollUpCallbackId; }
+            else { actionId = actionElement->m_OnScrollDownCallbackId; }
             break;
         case WM_MOUSEHWHEEL:
-            if (GET_WHEEL_DELTA_WPARAM(wParam) > 0) action = actionElement->m_OnScrollRight;
-            else action = actionElement->m_OnScrollLeft;
+            if (GET_WHEEL_DELTA_WPARAM(wParam) > 0) { actionId = actionElement->m_OnScrollRightCallbackId; }
+            else { actionId = actionElement->m_OnScrollLeftCallbackId; }
             break;
         }
 
-        if (!action.empty())
+        if (actionId != -1)
         {
-            // ExecuteScript might clear elements, so we must use our local copy of the action string
-            JSApi::ExecuteScript(action);
-            handled = true;
+             // Execute function callback
+             JSApi::CallEventCallback(actionId);
+             handled = true;
         }
     }
     
@@ -1220,29 +1241,28 @@ bool Widget::HandleMouseMessage(UINT message, WPARAM wParam, LPARAM lParam)
 */
 void Widget::OnContextMenu()
 {
+    if (m_ContextMenuDisabled) return;
+
     POINT pt;
     GetCursorPos(&pt);
 
     HMENU hMenu = CreatePopupMenu();
     
-    // Custom Items (IDs 2000+)
-    int customIdStart = 2000;
-    for (size_t i = 0; i < m_ContextMenuItems.size(); ++i)
-    {
-        AppendMenu(hMenu, MF_STRING, customIdStart + i, m_ContextMenuItems[i].label.c_str());
-    }
+    MenuUtils::BuildMenu(hMenu, m_ContextMenu);
 
     if (m_ShowDefaultContextMenuItems)
     {
-        if (!m_ContextMenuItems.empty())
+        if (!m_ContextMenu.empty())
         {
             AppendMenu(hMenu, MF_SEPARATOR, 0, nullptr);
         }
-        // 1001: Refresh, 1002: Exit Widget, 1003: Exit App
-        AppendMenu(hMenu, MF_STRING, 1001, L"Refresh Widget");
-        AppendMenu(hMenu, MF_SEPARATOR, 0, nullptr);
-        AppendMenu(hMenu, MF_STRING, 1002, L"Exit Widget");
-        AppendMenu(hMenu, MF_STRING, 1003, L"Exit App");
+        
+        HMENU hSubMenu = CreatePopupMenu();
+        AppendMenu(hSubMenu, MF_STRING, 1001, L"Refresh");
+        AppendMenu(hSubMenu, MF_STRING, 1003, L"Exit");
+        
+        std::wstring appTitle = Utils::GetAppTitle();
+        AppendMenu(hMenu, MF_POPUP, (UINT_PTR)hSubMenu, appTitle.c_str());
     }
 
     SetForegroundWindow(m_hWnd);
@@ -1251,11 +1271,7 @@ void Widget::OnContextMenu()
 
     if (cmd >= 2000)
     {
-        size_t index = cmd - 2000;
-        if (index < m_ContextMenuItems.size())
-        {
-            JSApi::ExecuteScript(m_ContextMenuItems[index].action);
-        }
+        JSApi::OnWidgetContextCommand(m_Options.id, cmd);
     }
     else if (cmd == 1001)
     {
@@ -1263,17 +1279,12 @@ void Widget::OnContextMenu()
     }
     else if (cmd == 1002)
     {
-        // Safe deletion from system
-        auto it = std::find(widgets.begin(), widgets.end(), this);
-        if (it != widgets.end())
-        {
-            widgets.erase(it);
-        }
-        delete this; // Calls DestroyWindow
+        DestroyWindow(m_hWnd);
     }
     else if (cmd == 1003)
     {
         PostQuitMessage(0);
     }
 }
+
 

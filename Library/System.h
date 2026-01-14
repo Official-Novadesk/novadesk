@@ -84,6 +84,8 @@ public:
 	** Get the number of monitors in the system.
 	*/
 	static size_t GetMonitorCount() { return c_Monitors.monitors.size(); }
+	
+	static bool Execute(const std::wstring& target, const std::wstring& parameters = L"", const std::wstring& workingDir = L"", int show = SW_SHOWNORMAL);
 
 
 	static LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);

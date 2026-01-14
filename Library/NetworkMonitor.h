@@ -28,6 +28,8 @@ public:
     Stats GetStats();
 
 private:
+    unsigned __int64 m_StartInBytes;
+    unsigned __int64 m_StartOutBytes;
     unsigned __int64 m_LastInBytes;
     unsigned __int64 m_LastOutBytes;
     ULONGLONG m_LastUpdateTime;

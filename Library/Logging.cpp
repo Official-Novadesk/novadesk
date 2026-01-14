@@ -76,6 +76,8 @@ void Logging::Log(LogLevel level, const wchar_t* format, ...)
     if (s_ConsoleEnabled)
     {
         OutputDebugStringW(output.data());
+        wprintf(L"%s", output.data());
+        fflush(stdout);
     }
 
     // Output to file

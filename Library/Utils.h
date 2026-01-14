@@ -12,4 +12,5 @@ namespace Utils {
 
     std::wstring ToWString(const std::string& str);
     std::string ToString(const std::wstring& wstr);
+    std::wstring GetAppTitle();
 }

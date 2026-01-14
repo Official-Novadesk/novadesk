@@ -28,7 +28,8 @@
 enum ElementType
 {
     ELEMENT_IMAGE,
-    ELEMENT_TEXT
+    ELEMENT_TEXT,
+    ELEMENT_BAR
 };
 
 class Element
@@ -47,6 +48,9 @@ public:
     int GetWidth();
     int GetHeight();
 
+    bool IsWDefined() const { return m_WDefined; }
+    bool IsHDefined() const { return m_HDefined; }
+
     void SetPosition(int x, int y) { m_X = x; m_Y = y; }
     void SetSize(int w, int h) { 
         m_Width = w; 
@@ -57,6 +61,8 @@ public:
 
     virtual int GetAutoWidth() { return 0; }
     virtual int GetAutoHeight() { return 0; }
+
+    virtual Gdiplus::Rect GetBounds();
 
     virtual bool HitTest(int x, int y);
 
@@ -77,11 +83,11 @@ public:
         m_CornerRadius = radius; 
     }
 
-    void SetBevel(int type, int width, COLORREF color1, BYTE alpha1, COLORREF color2, BYTE alpha2) {
+    void SetBevel(int type, int width, COLORREF color, BYTE alpha, COLORREF color2, BYTE alpha2) {
         m_BevelType = type;
         m_BevelWidth = width;
-        m_BevelColor1 = color1;
-        m_BevelAlpha1 = alpha1;
+        m_BevelColor = color;
+        m_BevelAlpha = alpha;
         m_BevelColor2 = color2;
         m_BevelAlpha2 = alpha2;
     }
@@ -105,8 +111,8 @@ public:
 
     int GetBevelType() const { return m_BevelType; }
     int GetBevelWidth() const { return m_BevelWidth; }
-    COLORREF GetBevelColor1() const { return m_BevelColor1; }
-    BYTE GetBevelAlpha1() const { return m_BevelAlpha1; }
+    COLORREF GetBevelColor() const { return m_BevelColor; }
+    BYTE GetBevelAlpha() const { return m_BevelAlpha; }
     COLORREF GetBevelColor2() const { return m_BevelColor2; }
     BYTE GetBevelAlpha2() const { return m_BevelAlpha2; }
 
@@ -120,29 +126,34 @@ public:
     virtual bool IsTransparentHit() const { return false; }
 
     bool HasAction(UINT message, WPARAM wParam) const;
+    bool HasMouseAction() const;
 
     // Mouse Actions
-    std::wstring m_OnLeftMouseUp;
-    std::wstring m_OnLeftMouseDown;
-    std::wstring m_OnLeftDoubleClick;
-    std::wstring m_OnRightMouseUp;
-    std::wstring m_OnRightMouseDown;
-    std::wstring m_OnRightDoubleClick;
-    std::wstring m_OnMiddleMouseUp;
-    std::wstring m_OnMiddleMouseDown;
-    std::wstring m_OnMiddleDoubleClick;
-    std::wstring m_OnX1MouseUp;
-    std::wstring m_OnX1MouseDown;
-    std::wstring m_OnX1DoubleClick;
-    std::wstring m_OnX2MouseUp;
-    std::wstring m_OnX2MouseDown;
-    std::wstring m_OnX2DoubleClick;
-    std::wstring m_OnScrollUp;
-    std::wstring m_OnScrollDown;
-    std::wstring m_OnScrollLeft;
-    std::wstring m_OnScrollRight;
-    std::wstring m_OnMouseOver;
-    std::wstring m_OnMouseLeave;
+    // Mouse Actions (String based actions removed)
+
+    
+    // Callback IDs (initialized to -1)
+    int m_OnLeftMouseUpCallbackId = -1;
+    int m_OnLeftMouseDownCallbackId = -1;
+    int m_OnLeftDoubleClickCallbackId = -1;
+    int m_OnRightMouseUpCallbackId = -1;
+    int m_OnRightMouseDownCallbackId = -1;
+    int m_OnRightDoubleClickCallbackId = -1;
+    int m_OnMiddleMouseUpCallbackId = -1;
+    int m_OnMiddleMouseDownCallbackId = -1;
+    int m_OnMiddleDoubleClickCallbackId = -1;
+    int m_OnX1MouseUpCallbackId = -1;
+    int m_OnX1MouseDownCallbackId = -1;
+    int m_OnX1DoubleClickCallbackId = -1;
+    int m_OnX2MouseUpCallbackId = -1;
+    int m_OnX2MouseDownCallbackId = -1;
+    int m_OnX2DoubleClickCallbackId = -1;
+    int m_OnScrollUpCallbackId = -1;
+    int m_OnScrollDownCallbackId = -1;
+    int m_OnScrollLeftCallbackId = -1;
+    int m_OnScrollRightCallbackId = -1;
+    int m_OnMouseOverCallbackId = -1;
+    int m_OnMouseLeaveCallbackId = -1;
 
     bool m_IsMouseOver = false;
 
@@ -168,8 +179,8 @@ protected:
     // Bevel properties
     int m_BevelType = 0;
     int m_BevelWidth = 0;
-    COLORREF m_BevelColor1 = RGB(255, 255, 255);
-    BYTE m_BevelAlpha1 = 200;
+    COLORREF m_BevelColor = RGB(255, 255, 255);
+    BYTE m_BevelAlpha = 200;
     COLORREF m_BevelColor2 = RGB(0, 0, 0);
     BYTE m_BevelAlpha2 = 150;
 

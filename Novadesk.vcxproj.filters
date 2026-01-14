@@ -27,9 +27,6 @@
     <ClInclude Include="Library\Novadesk.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Library\duktape\duktape.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="Library\System.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -42,7 +39,25 @@
     <ClInclude Include="Library\Logging.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Library\JSApi.h">
+    <ClInclude Include="Library\JSApi\JSCommon.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Library\JSApi\JSUtils.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Library\JSApi\JSSystem.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Library\JSApi\JSWidget.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Library\JSApi\JSElement.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Library\JSApi\JSContextMenu.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Library\JSApi\JSEvents.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Library\Utils.h">
@@ -51,10 +66,19 @@
     <ClInclude Include="Library\CPUMonitor.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Library\MenuItem.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="Library\MemoryMonitor.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Library\MenuUtils.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="Library\ImageElement.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Library\BarElement.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Library\Element.h">
@@ -93,12 +117,28 @@
     <ClInclude Include="Library\PropertyParser.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Library\JSApi\JSApi.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Library\JSApi\duktape\duktape.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Library\JSApi\JSIPC.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Library\JSApi\JSJson.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Library\JSApi\JSPath.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+
+    <ClInclude Include="Library\JSApi\JSNovadeskTray.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Library\Novadesk.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Library\duktape\duktape.c">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Library\System.cpp">
@@ -107,7 +147,25 @@
     <ClCompile Include="Library\Widget.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Library\JSApi.cpp">
+    <ClCompile Include="Library\JSApi\JSCommon.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Library\JSApi\JSUtils.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Library\JSApi\JSSystem.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Library\JSApi\JSWidget.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Library\JSApi\JSElement.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Library\JSApi\JSContextMenu.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Library\JSApi\JSEvents.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Library\Utils.cpp">
@@ -119,10 +177,16 @@
     <ClCompile Include="Library\MemoryMonitor.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Library\MenuUtils.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="Library\Logging.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Library\ImageElement.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Library\BarElement.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Library\TextElement.cpp">
@@ -156,6 +220,25 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Library\Element.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Library\JSApi\JSApi.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Library\JSApi\duktape\duktape.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Library\JSApi\JSIPC.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Library\JSApi\JSJson.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Library\JSApi\JSPath.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+
+    <ClCompile Include="Library\JSApi\JSNovadeskTray.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

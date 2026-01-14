@@ -9,8 +9,12 @@
 #define __NOVADESK_COLORUTIL_H__
 
 #include <windows.h>
+#undef min
+#undef max
 #include <string>
 #include <cstdio>
+#include <algorithm>
+#include <cwctype>
 
 // Helper macros for color extraction from COLORREF (0x00BBGGRR)
 #ifndef GetRValue
@@ -36,10 +40,15 @@ public:
     {
         if (rgbaStr.empty()) return false;
 
+        // Strip whitespace for easier matching
+        std::wstring s = rgbaStr;
+        s.erase(std::remove_if(s.begin(), s.end(), isspace), s.end());
+        std::transform(s.begin(), s.end(), s.begin(), ::towlower);
+
         // 1. Handle Hex format: #RGB, #RGBA, #RRGGBB, #RRGGBBAA
-        if (rgbaStr[0] == L'#')
+        if (s[0] == L'#')
         {
-            std::wstring hex = rgbaStr.substr(1);
+            std::wstring hex = s.substr(1);
             if (hex.length() == 3) // #RGB
             {
                 int r, g, b;
@@ -83,23 +92,26 @@ public:
             return false;
         }
 
-        // 2. Handle rgba(r, g, b, alpha) or rgb(r, g, b)
-        int r, g, b;
+        // 2. Handle rgba(r,g,b,alpha) or rgb(r,g,b)
+        int r = 0, g = 0, b = 0;
         float af = 1.0f;
-        if (swscanf_s(rgbaStr.c_str(), L"rgba ( %d , %d , %d , %f )", &r, &g, &b, &af) == 4 ||
-            swscanf_s(rgbaStr.c_str(), L"rgba(%d,%d,%d,%f)", &r, &g, &b, &af) == 4)
+        
+        if (swscanf_s(s.c_str(), L"rgba(%d,%d,%d,%f)", &r, &g, &b, &af) == 4)
         {
             color = RGB(r, g, b);
-            alpha = (BYTE)(af * 255.0f);
+            // If af > 1.0, treat it as 0-255. 
+            // This is a common pattern in desk-widgets where transparency is often 0-255.
+            if (af > 1.1f) alpha = (BYTE)std::min(255.0f, af);
+            else alpha = (BYTE)std::max(0.0f, std::min(255.0f, af * 255.0f));
             return true;
         }
-        else if (swscanf_s(rgbaStr.c_str(), L"rgb ( %d , %d , %d )", &r, &g, &b) == 3 ||
-                 swscanf_s(rgbaStr.c_str(), L"rgb(%d,%d,%d)", &r, &g, &b) == 3)
+        else if (swscanf_s(s.c_str(), L"rgb(%d,%d,%d)", &r, &g, &b) == 3)
         {
             color = RGB(r, g, b);
             alpha = 255;
             return true;
         }
+        
         return false;
     }
 

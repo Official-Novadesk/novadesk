@@ -12,3 +12,10 @@
 // Tray icon control functions
 void ShowTrayIconDynamic();
 void HideTrayIconDynamic();
+
+#include "MenuItem.h"
+
+void SetTrayMenu(const std::vector<MenuItem>& menu);
+void ClearTrayMenu();
+void SetShowDefaultTrayItems(bool show);
+

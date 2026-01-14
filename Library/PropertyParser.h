@@ -6,11 +6,12 @@
  * obtain one at <https://www.gnu.org/licenses/gpl-2.0.html>. */
 
 #pragma once
-#include "duktape/duktape.h"
+#include "JSApi/duktape/duktape.h"
 #include "Widget.h"
 #include "Element.h"
 #include "TextElement.h"
 #include "ImageElement.h"
+#include "BarElement.h"
 
 namespace PropertyParser
 {
@@ -38,8 +39,8 @@ namespace PropertyParser
         // Bevel
         int bevelType = 0;
         int bevelWidth = 0;
-        COLORREF bevelColor1 = RGB(255, 255, 255);
-        BYTE bevelAlpha1 = 200;
+        COLORREF bevelColor = RGB(255, 255, 255);
+        BYTE bevelAlpha = 200;
         COLORREF bevelColor2 = RGB(0, 0, 0);
         BYTE bevelAlpha2 = 150;
 
@@ -50,30 +51,34 @@ namespace PropertyParser
         int paddingBottom = 0;
 
         // Mouse Actions
-        std::wstring onLeftMouseUp;
-        std::wstring onLeftMouseDown;
-        std::wstring onLeftDoubleClick;
-        std::wstring onRightMouseUp;
-        std::wstring onRightMouseDown;
-        std::wstring onRightDoubleClick;
-        std::wstring onMiddleMouseUp;
-        std::wstring onMiddleMouseDown;
-        std::wstring onMiddleDoubleClick;
+        // Mouse Actions (String based actions removed)
+
+
+        // Callback IDs
+        int onLeftMouseUpCallbackId = -1;
+        int onLeftMouseDownCallbackId = -1;
+        int onLeftDoubleClickCallbackId = -1;
+        int onRightMouseUpCallbackId = -1;
+        int onRightMouseDownCallbackId = -1;
+        int onRightDoubleClickCallbackId = -1;
+        int onMiddleMouseUpCallbackId = -1;
+        int onMiddleMouseDownCallbackId = -1;
+        int onMiddleDoubleClickCallbackId = -1;
         
-        std::wstring onX1MouseUp;
-        std::wstring onX1MouseDown;
-        std::wstring onX1DoubleClick;
-        std::wstring onX2MouseUp;
-        std::wstring onX2MouseDown;
-        std::wstring onX2DoubleClick;
+        int onX1MouseUpCallbackId = -1;
+        int onX1MouseDownCallbackId = -1;
+        int onX1DoubleClickCallbackId = -1;
+        int onX2MouseUpCallbackId = -1;
+        int onX2MouseDownCallbackId = -1;
+        int onX2DoubleClickCallbackId = -1;
         
-        std::wstring onScrollUp;
-        std::wstring onScrollDown;
-        std::wstring onScrollLeft;
-        std::wstring onScrollRight;
+        int onScrollUpCallbackId = -1;
+        int onScrollDownCallbackId = -1;
+        int onScrollLeftCallbackId = -1;
+        int onScrollRightCallbackId = -1;
         
-        std::wstring onMouseOver;
-        std::wstring onMouseLeave;
+        int onMouseOverCallbackId = -1;
+        int onMouseLeaveCallbackId = -1;
 
         bool antialias = true;
         
@@ -85,7 +90,7 @@ namespace PropertyParser
     */
     struct ImageOptions : public ElementOptions {
         std::wstring path;
-        int preserveAspectRatio = 0;
+        ImageAspectRatio preserveAspectRatio = IMAGE_ASPECT_STRETCH;
         
         bool hasImageTint = false;
         COLORREF imageTint = 0;
@@ -115,20 +120,43 @@ namespace PropertyParser
         bool italic = false;
         TextAlignment textAlign = TEXT_ALIGN_LEFT_TOP;
         TextClipString clip = TEXT_CLIP_NONE;
-        int clipW = -1;
-        int clipH = -1;
     };
 
-    void ParseWidgetOptions(duk_context* ctx, WidgetOptions& options);
-    void ParseImageOptions(duk_context* ctx, ImageOptions& options);
-    void ParseTextOptions(duk_context* ctx, TextOptions& options);
-    void ApplyWidgetProperties(duk_context* ctx, Widget* widget);
+    /*
+    ** Options for creating/updating Bar elements
+    */
+    struct BarOptions : public ElementOptions {
+        float value = 0.0f;
+        BarOrientation orientation = BAR_HORIZONTAL;
+        
+        int barCornerRadius = 0;
+
+        bool hasBarColor = false;
+        COLORREF barColor = RGB(0, 255, 0);
+        BYTE barAlpha = 255;
+
+        bool hasBarGradient = false;
+        COLORREF barColor2 = 0;
+        BYTE barAlpha2 = 255;
+        float barGradientAngle = 0.0f;
+    };
+
+    void ParseWidgetOptions(duk_context* ctx, WidgetOptions& options, const std::wstring& baseDir = L"");
+    void ParseImageOptions(duk_context* ctx, ImageOptions& options, const std::wstring& baseDir = L"");
+    void ParseTextOptions(duk_context* ctx, TextOptions& options, const std::wstring& baseDir = L"");
+    void ParseBarOptions(duk_context* ctx, BarOptions& options, const std::wstring& baseDir = L"");
+    void ApplyWidgetProperties(duk_context* ctx, Widget* widget, const std::wstring& baseDir = L"");
 
     void PushWidgetProperties(duk_context* ctx, Widget* widget);
     void ParseElementOptions(duk_context* ctx, Element* element);
     void PushElementProperties(duk_context* ctx, Element* element);
+    void PreFillElementOptions(ElementOptions& options, Element* element);
+    void PreFillTextOptions(TextOptions& options, TextElement* element);
+    void PreFillImageOptions(ImageOptions& options, ImageElement* element);
+    void PreFillBarOptions(BarOptions& options, BarElement* element);
     void ApplyElementOptions(Element* element, const ElementOptions& options);
 
     void ApplyImageOptions(ImageElement* element, const ImageOptions& options);
     void ApplyTextOptions(TextElement* element, const TextOptions& options);
+    void ApplyBarOptions(BarElement* element, const BarOptions& options);
 }
