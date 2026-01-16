@@ -153,6 +153,10 @@ Section "Uninstall"
   ; Read the installation directory from the registry
   ReadRegStr $INSTDIR HKLM "Software\Novadesk" "Install_Dir"
   
+  ; Kill process if running
+  nsExec::ExecToStack 'taskkill /F /IM "Novadesk.exe"'
+  nsExec::ExecToStack 'taskkill /F /IM "nwm.exe"'
+
   ; Remove from PATH
   EnVar::SetHKLM
   EnVar::DeleteValue "PATH" "$INSTDIR\nwm"
