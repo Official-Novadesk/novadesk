@@ -108,6 +108,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp23</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -143,7 +144,6 @@
     <ClInclude Include="Library\JSApi\JSIPC.h" />
     <ClInclude Include="Library\JSApi\JSJson.h" />
     <ClInclude Include="Library\JSApi\JSPath.h" />
-
     <ClInclude Include="Library\JSApi\JSNovadeskTray.h" />
     <ClInclude Include="Library\MouseMonitor.h" />
     <ClInclude Include="Library\NetworkMonitor.h" />
@@ -187,7 +187,6 @@
     <ClCompile Include="Library\JSApi\JSIPC.cpp" />
     <ClCompile Include="Library\JSApi\JSJson.cpp" />
     <ClCompile Include="Library\JSApi\JSPath.cpp" />
-
     <ClCompile Include="Library\JSApi\JSNovadeskTray.cpp" />
     <ClCompile Include="Library\MouseMonitor.cpp" />
     <ClCompile Include="Library\NetworkMonitor.cpp" />
