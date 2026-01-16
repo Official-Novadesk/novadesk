@@ -137,6 +137,9 @@ bool Widget::Create()
         SetTimer(m_hWnd, TIMER_TOPMOST, 500, nullptr);
     }
 
+    // Initialize tooltip
+    m_Tooltip.Initialize(m_hWnd, hInstance);
+
     return true;
 }
 
@@ -510,6 +513,9 @@ LRESULT CALLBACK Widget::WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
             widget->HandleMouseMessage(message, wParam, lParam);
         }
         return 0;
+        
+
+        
     case WM_SETCURSOR:
         if (LOWORD(lParam) == HTCLIENT && widget)
         {
@@ -576,11 +582,39 @@ LRESULT CALLBACK Widget::WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
         return HTCLIENT; // We handle everything in client area to get mouse messages
         
     case WM_TIMER:
-        if (wParam == TIMER_TOPMOST)
+        if (widget)
         {
-            if (widget && widget->m_WindowZPosition == ZPOSITION_ONTOPMOST)
+            if (wParam == TIMER_TOPMOST)
             {
-                widget->ChangeZPos(ZPOSITION_ONTOPMOST);
+                if (widget->m_WindowZPosition == ZPOSITION_ONTOPMOST)
+                {
+                    widget->ChangeZPos(ZPOSITION_ONTOPMOST);
+                }
+            }
+            else if (wParam == TIMER_TOOLTIP)
+            {
+                widget->m_Tooltip.CheckVisibility();
+                // If tooltip is no longer active after check, kill the timer
+                if (!widget->m_Tooltip.IsActive())
+                {
+                    KillTimer(hWnd, TIMER_TOOLTIP);
+                    
+                    // If we hid the tooltip, we likely lost mouse focus or are covered.
+                    // Reset mouse over element state so that when we return, we trigger a fresh enter.
+                    if (widget->m_MouseOverElement)
+                    {
+
+                        widget->m_MouseOverElement->m_IsMouseOver = false;
+                        
+                        // Optional: Trigger leave event? 
+                        // Rainmeter seems to trigger leave when covered. Let's do it.
+                        int leaveId = widget->m_MouseOverElement->m_OnMouseLeaveCallbackId;
+                        if (leaveId != -1)
+                             JSApi::CallEventCallback(leaveId);
+                             
+                        widget->m_MouseOverElement = nullptr;
+                    }
+                }
             }
         }
         return 0;
@@ -1106,6 +1140,11 @@ bool Widget::HandleMouseMessage(UINT message, WPARAM wParam, LPARAM lParam)
     int x = GET_X_LPARAM(lParam);
     int y = GET_Y_LPARAM(lParam);
 
+    if (message == WM_MOUSEMOVE)
+    {
+        m_Tooltip.Move();
+    }
+
     // For mouse wheel, coordinates are screen relative
     if (message == WM_MOUSEWHEEL || message == WM_MOUSEHWHEEL)
     {
@@ -1141,8 +1180,10 @@ bool Widget::HandleMouseMessage(UINT message, WPARAM wParam, LPARAM lParam)
     {
         if (hitElement != m_MouseOverElement)
         {
+
             if (m_MouseOverElement)
             {
+
                 m_MouseOverElement->m_IsMouseOver = false;
                 int leaveId = m_MouseOverElement->m_OnMouseLeaveCallbackId;
                 if (leaveId != -1)
@@ -1157,6 +1198,7 @@ bool Widget::HandleMouseMessage(UINT message, WPARAM wParam, LPARAM lParam)
 
             if (hitElement)
             {
+
                 hitElement->m_IsMouseOver = true;
                 int overId = hitElement->m_OnMouseOverCallbackId;
                 if (overId != -1)
@@ -1170,6 +1212,15 @@ bool Widget::HandleMouseMessage(UINT message, WPARAM wParam, LPARAM lParam)
             }
             m_MouseOverElement = hitElement;
             
+            // Tooltip Update
+            m_Tooltip.Update(m_MouseOverElement);
+            
+            // Start timer to periodically check if tooltip should be hidden (e.g., another window covers)
+            if (m_Tooltip.IsActive())
+            {
+                SetTimer(m_hWnd, TIMER_TOOLTIP, 100, nullptr);  // Check every 100ms
+            }
+
             // Refresh cursor when element under mouse changes as it might have different action state
             PostMessage(m_hWnd, WM_SETCURSOR, (WPARAM)m_hWnd, MAKELPARAM(HTCLIENT, WM_MOUSEMOVE));
         }
@@ -1187,11 +1238,16 @@ bool Widget::HandleMouseMessage(UINT message, WPARAM wParam, LPARAM lParam)
     {
         if (m_MouseOverElement)
         {
+
              m_MouseOverElement->m_IsMouseOver = false;
              int leaveId = m_MouseOverElement->m_OnMouseLeaveCallbackId;
              if (leaveId != -1)
                  JSApi::CallEventCallback(leaveId);
              m_MouseOverElement = nullptr;
+
+             // Tooltip Update and kill timer
+             m_Tooltip.Update(nullptr);
+             KillTimer(m_hWnd, TIMER_TOOLTIP);
         }
         handled = true;
     }

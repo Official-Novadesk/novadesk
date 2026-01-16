@@ -277,6 +277,14 @@ namespace PropertyParser {
         reader.GetEvent("onMouseOver", options.onMouseOverCallbackId);
         reader.GetEvent("onMouseLeave", options.onMouseLeaveCallbackId);
         
+        // Tooltip properties
+        reader.GetString("tooltipText", options.tooltipText);
+        reader.GetString("tooltipTitle", options.tooltipTitle);
+        reader.GetString("tooltipIcon", options.tooltipIcon);
+        reader.GetInt("tooltipMaxWidth", options.tooltipMaxWidth);
+        reader.GetInt("tooltipMaxHeight", options.tooltipMaxHeight);
+        reader.GetBool("tooltipBalloon", options.tooltipBalloon);
+
         reader.GetBool("antiAlias", options.antialias);
     }
 
@@ -735,6 +743,11 @@ namespace PropertyParser {
         if (options.onMouseOverCallbackId != -1) element->m_OnMouseOverCallbackId = options.onMouseOverCallbackId;
         if (options.onMouseLeaveCallbackId != -1) element->m_OnMouseLeaveCallbackId = options.onMouseLeaveCallbackId;
         
+        // Tooltip properties
+        if (!options.tooltipText.empty()) {
+            element->SetToolTip(options.tooltipText, options.tooltipTitle, options.tooltipIcon, options.tooltipMaxWidth, options.tooltipMaxHeight, options.tooltipBalloon);
+        }
+
         element->SetAntiAlias(options.antialias);
     }
 

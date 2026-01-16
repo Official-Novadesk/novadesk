@@ -80,6 +80,14 @@ namespace PropertyParser
         int onMouseOverCallbackId = -1;
         int onMouseLeaveCallbackId = -1;
 
+        // Tooltip properties
+        std::wstring tooltipText;
+        std::wstring tooltipTitle;
+        std::wstring tooltipIcon;
+        int tooltipMaxWidth = 0;
+        int tooltipMaxHeight = 0;
+        bool tooltipBalloon = false;
+
         bool antialias = true;
         
         float rotate = 0.0f;

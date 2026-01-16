@@ -9,6 +9,7 @@
 #define __NOVADESK_WIDGET_H__
 
 #include <windows.h>
+#include <commctrl.h>
 #include <string>
 #include <vector>
 #include "System.h"
@@ -16,6 +17,9 @@
 #include "TextElement.h"
 #include "ImageElement.h"
 #include "BarElement.h"
+#include "Tooltip.h"
+
+#pragma comment(lib, "comctl32.lib")
 
 struct duk_hthread;
 typedef struct duk_hthread duk_context;
@@ -110,6 +114,7 @@ private:
     void OnContextMenu();
 
     HWND m_hWnd;
+    Tooltip m_Tooltip;
     WidgetOptions m_Options;
     ZPOSITION m_WindowZPosition;
     std::vector<Element*> m_Elements;
@@ -128,6 +133,7 @@ private:
     POINT m_DragStartWindow = { 0, 0 };
 
     static const UINT_PTR TIMER_TOPMOST = 2;
+    static const UINT_PTR TIMER_TOOLTIP = 3;
 };
 
 #endif

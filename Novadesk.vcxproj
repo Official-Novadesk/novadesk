@@ -149,6 +149,7 @@
     <ClInclude Include="Library\NetworkMonitor.h" />
     <ClInclude Include="Library\System.h" />
     <ClInclude Include="Library\TextElement.h" />
+    <ClInclude Include="Library\Tooltip.h" />
     <ClInclude Include="Library\Widget.h" />
     <ClInclude Include="Library\ColorUtil.h" />
     <ClInclude Include="Library\Logging.h" />
@@ -192,6 +193,7 @@
     <ClCompile Include="Library\NetworkMonitor.cpp" />
     <ClCompile Include="Library\System.cpp" />
     <ClCompile Include="Library\TextElement.cpp" />
+    <ClCompile Include="Library\Tooltip.cpp" />
     <ClCompile Include="Library\Widget.cpp" />
     <ClCompile Include="Library\JSApi\JSApi.cpp" />
     <ClCompile Include="Library\JSApi\JSCommon.cpp" />
@@ -219,6 +221,9 @@
   </ItemGroup>
   <ItemGroup>
     <Image Include="assets\Novadesk.ico" />
+  </ItemGroup>
+  <ItemGroup>
+    <Manifest Include="Novadesk.exe.manifest" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

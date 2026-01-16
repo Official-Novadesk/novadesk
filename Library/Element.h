@@ -128,9 +128,26 @@ public:
     bool HasAction(UINT message, WPARAM wParam) const;
     bool HasMouseAction() const;
 
-    // Mouse Actions
-    // Mouse Actions (String based actions removed)
+    // Tooltip properties
+    void SetToolTip(const std::wstring& text, const std::wstring& title = L"", const std::wstring& icon = L"", int maxWidth = 0, int maxHeight = 0, bool balloon = false) {
+        m_ToolTipText = text;
+        m_ToolTipTitle = title;
+        m_ToolTipIcon = icon;
+        m_ToolTipMaxWidth = maxWidth;
+        m_ToolTipMaxHeight = maxHeight;
+        m_ToolTipBalloon = balloon;
+    }
 
+    const std::wstring& GetToolTipText() const { return m_ToolTipText; }
+    const std::wstring& GetToolTipTitle() const { return m_ToolTipTitle; }
+    const std::wstring& GetToolTipIcon() const { return m_ToolTipIcon; }
+    int GetToolTipMaxWidth() const { return m_ToolTipMaxWidth; }
+    int GetToolTipMaxHeight() const { return m_ToolTipMaxHeight; }
+    bool GetToolTipBalloon() const { return m_ToolTipBalloon; }
+
+    bool HasToolTip() const { return !m_ToolTipText.empty(); }
+
+    // Mouse Actions
     
     // Callback IDs (initialized to -1)
     int m_OnLeftMouseUpCallbackId = -1;
@@ -195,6 +212,14 @@ protected:
 
     // Transformation properties
     float m_Rotate = 0.0f;
+
+    // Tooltip properties
+    std::wstring m_ToolTipText;
+    std::wstring m_ToolTipTitle;
+    std::wstring m_ToolTipIcon;
+    int m_ToolTipMaxWidth = 0;
+    int m_ToolTipMaxHeight = 0;
+    bool m_ToolTipBalloon = false;
 
     void RenderBackground(Gdiplus::Graphics& graphics);
     void RenderBevel(Gdiplus::Graphics& graphics);
