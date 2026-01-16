@@ -19,6 +19,7 @@ namespace JSApi {
     // System API
     duk_ret_t js_system_execute(duk_context* ctx);
     duk_ret_t js_system_get_display_metrics(duk_context* ctx);
+    duk_ret_t js_system_load_addon(duk_context* ctx);
 
     // Monitor Constructors/Methods
     duk_ret_t js_cpu_constructor(duk_context* ctx);
@@ -49,4 +50,5 @@ namespace JSApi {
     // Binding functions
     void BindSystemBaseMethods(duk_context* ctx);
     void BindSystemMonitors(duk_context* ctx);
+    void CleanupAddons();
 }

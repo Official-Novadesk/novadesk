@@ -9,28 +9,18 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "nwm", "nwm\nwm.vcxproj", "{
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
-		Debug|x64 = Debug|x64
-		Debug|x86 = Debug|x86
-		Release|x64 = Release|x64
-		Release|x86 = Release|x86
+		Debug|Win32 = Debug|Win32
+		Release|Win32 = Release|Win32
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{58809BD0-217B-4F83-8881-27E2746EC1A2}.Debug|x64.ActiveCfg = Debug|x64
-		{58809BD0-217B-4F83-8881-27E2746EC1A2}.Debug|x64.Build.0 = Debug|x64
-		{58809BD0-217B-4F83-8881-27E2746EC1A2}.Debug|x86.ActiveCfg = Debug|Win32
-		{58809BD0-217B-4F83-8881-27E2746EC1A2}.Debug|x86.Build.0 = Debug|Win32
-		{58809BD0-217B-4F83-8881-27E2746EC1A2}.Release|x64.ActiveCfg = Release|x64
-		{58809BD0-217B-4F83-8881-27E2746EC1A2}.Release|x64.Build.0 = Release|x64
-		{58809BD0-217B-4F83-8881-27E2746EC1A2}.Release|x86.ActiveCfg = Release|Win32
-		{58809BD0-217B-4F83-8881-27E2746EC1A2}.Release|x86.Build.0 = Release|Win32
-		{AABBCCDD-1122-3344-5566-77889900AABB}.Debug|x64.ActiveCfg = Debug|x64
-		{AABBCCDD-1122-3344-5566-77889900AABB}.Debug|x64.Build.0 = Debug|x64
-		{AABBCCDD-1122-3344-5566-77889900AABB}.Debug|x86.ActiveCfg = Debug|Win32
-		{AABBCCDD-1122-3344-5566-77889900AABB}.Debug|x86.Build.0 = Debug|Win32
-		{AABBCCDD-1122-3344-5566-77889900AABB}.Release|x64.ActiveCfg = Release|x64
-		{AABBCCDD-1122-3344-5566-77889900AABB}.Release|x64.Build.0 = Release|x64
-		{AABBCCDD-1122-3344-5566-77889900AABB}.Release|x86.ActiveCfg = Release|Win32
-		{AABBCCDD-1122-3344-5566-77889900AABB}.Release|x86.Build.0 = Release|Win32
+		{58809BD0-217B-4F83-8881-27E2746EC1A2}.Debug|Win32.ActiveCfg = Debug|Win32
+		{58809BD0-217B-4F83-8881-27E2746EC1A2}.Debug|Win32.Build.0 = Debug|Win32
+		{58809BD0-217B-4F83-8881-27E2746EC1A2}.Release|Win32.ActiveCfg = Release|Win32
+		{58809BD0-217B-4F83-8881-27E2746EC1A2}.Release|Win32.Build.0 = Release|Win32
+		{AABBCCDD-1122-3344-5566-77889900AABB}.Debug|Win32.ActiveCfg = Debug|Win32
+		{AABBCCDD-1122-3344-5566-77889900AABB}.Debug|Win32.Build.0 = Debug|Win32
+		{AABBCCDD-1122-3344-5566-77889900AABB}.Release|Win32.ActiveCfg = Release|Win32
+		{AABBCCDD-1122-3344-5566-77889900AABB}.Release|Win32.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

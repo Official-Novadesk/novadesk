@@ -173,6 +173,8 @@ namespace JSApi {
         duk_del_prop_string(ctx, -1, "__trayCallbacks");
         duk_pop(ctx);
  
+        CleanupAddons();
+
         s_NextTempId = 1;
         s_NextTimerId = 1;
         s_NextImmId = 1;
