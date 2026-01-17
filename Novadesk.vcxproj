@@ -9,14 +9,6 @@
       <Configuration>Release</Configuration>
       <Platform>Win32</Platform>
     </ProjectConfiguration>
-    <ProjectConfiguration Include="Debug|x64">
-      <Configuration>Debug</Configuration>
-      <Platform>x64</Platform>
-    </ProjectConfiguration>
-    <ProjectConfiguration Include="Release|x64">
-      <Configuration>Release</Configuration>
-      <Platform>x64</Platform>
-    </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
@@ -39,19 +31,6 @@
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
-    <ConfigurationType>Application</ConfigurationType>
-    <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v143</PlatformToolset>
-    <CharacterSet>Unicode</CharacterSet>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
-    <ConfigurationType>Application</ConfigurationType>
-    <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v143</PlatformToolset>
-    <WholeProgramOptimization>true</WholeProgramOptimization>
-    <CharacterSet>Unicode</CharacterSet>
-  </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
   </ImportGroup>
@@ -63,12 +42,6 @@
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
-  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-  </ImportGroup>
-  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-  </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -76,6 +49,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp20</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -93,38 +67,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-    </ClCompile>
-    <Link>
-      <SubSystem>Windows</SubSystem>
-      <GenerateDebugInformation>true</GenerateDebugInformation>
-    </Link>
-    <PostBuildEvent>
-      <Command>xcopy /S /I /Y "$(ProjectDir)Widgets" "$(OutDir)Widgets"</Command>
-    </PostBuildEvent>
-  </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <ClCompile>
-      <WarningLevel>Level3</WarningLevel>
-      <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <ConformanceMode>true</ConformanceMode>
-    </ClCompile>
-    <Link>
-      <SubSystem>Windows</SubSystem>
-      <GenerateDebugInformation>true</GenerateDebugInformation>
-    </Link>
-    <PostBuildEvent>
-      <Command>xcopy /S /I /Y "$(ProjectDir)Widgets" "$(OutDir)Widgets"</Command>
-    </PostBuildEvent>
-  </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <ClCompile>
-      <WarningLevel>Level3</WarningLevel>
-      <FunctionLevelLinking>true</FunctionLevelLinking>
-      <IntrinsicFunctions>true</IntrinsicFunctions>
-      <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp20</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -143,12 +86,14 @@
     <ClInclude Include="Library\JSApi\JSIPC.h" />
     <ClInclude Include="Library\JSApi\JSJson.h" />
     <ClInclude Include="Library\JSApi\JSPath.h" />
-
+    <ClInclude Include="Library\JSApi\JSWebFetch.h" />
+    <ClInclude Include="Library\JSApi\JSAudio.h" />
     <ClInclude Include="Library\JSApi\JSNovadeskTray.h" />
     <ClInclude Include="Library\MouseMonitor.h" />
     <ClInclude Include="Library\NetworkMonitor.h" />
     <ClInclude Include="Library\System.h" />
     <ClInclude Include="Library\TextElement.h" />
+    <ClInclude Include="Library\Tooltip.h" />
     <ClInclude Include="Library\Widget.h" />
     <ClInclude Include="Library\ColorUtil.h" />
     <ClInclude Include="Library\Logging.h" />
@@ -176,6 +121,7 @@
     <ClInclude Include="Library\TimerManager.h" />
     <ClInclude Include="Library\PropertyParser.h" />
     <ClInclude Include="Library\json\json.hpp" />
+    <ClInclude Include="Library\Version.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Library\Element.cpp" />
@@ -186,12 +132,14 @@
     <ClCompile Include="Library\JSApi\JSIPC.cpp" />
     <ClCompile Include="Library\JSApi\JSJson.cpp" />
     <ClCompile Include="Library\JSApi\JSPath.cpp" />
-
+    <ClCompile Include="Library\JSApi\JSWebFetch.cpp" />
+    <ClCompile Include="Library\JSApi\JSAudio.cpp" />
     <ClCompile Include="Library\JSApi\JSNovadeskTray.cpp" />
     <ClCompile Include="Library\MouseMonitor.cpp" />
     <ClCompile Include="Library\NetworkMonitor.cpp" />
     <ClCompile Include="Library\System.cpp" />
     <ClCompile Include="Library\TextElement.cpp" />
+    <ClCompile Include="Library\Tooltip.cpp" />
     <ClCompile Include="Library\Widget.cpp" />
     <ClCompile Include="Library\JSApi\JSApi.cpp" />
     <ClCompile Include="Library\JSApi\JSCommon.cpp" />
@@ -219,6 +167,9 @@
   </ItemGroup>
   <ItemGroup>
     <Image Include="assets\Novadesk.ico" />
+  </ItemGroup>
+  <ItemGroup>
+    <Manifest Include="Novadesk.exe.manifest" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

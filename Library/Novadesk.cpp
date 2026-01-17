@@ -23,6 +23,9 @@
 #include "MenuUtils.h"
 #include "Utils.h"
 #include "PathUtils.h"
+#include <commctrl.h>
+
+#pragma comment(lib, "comctl32.lib")
 
 #pragma comment(lib, "gdiplus.lib")
 
@@ -102,6 +105,13 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     }
 
     Logging::Log(LogLevel::Info, L"Application starting...");
+
+    // Initialize Common Controls
+    INITCOMMONCONTROLSEX icce;
+    icce.dwSize = sizeof(INITCOMMONCONTROLSEX);
+    icce.dwICC = ICC_WIN95_CLASSES;
+    InitCommonControlsEx(&icce);
+
     System::Initialize(hInstance);
     
     // Initialize GDI+

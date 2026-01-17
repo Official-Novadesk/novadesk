@@ -6,17 +6,30 @@
  * obtain one at <https://www.gnu.org/licenses/gpl-2.0.html>. */
 
 #include "JSSystem.h"
+#include "../Logging.h"
 #include "../PathUtils.h"
 #include "../Utils.h"
 #include "../Hotkey.h"
+#include "novadesk_addon.h"
+#include "JSApi.h"
 #include "../System.h"
 #include "../CPUMonitor.h"
 #include "../MemoryMonitor.h"
 #include "../NetworkMonitor.h"
 #include "../MouseMonitor.h"
 #include "../DiskMonitor.h"
+#include "JSUtils.h"
+#include <map>
+#include <vector>
 
 namespace JSApi {
+
+    struct AddonInfo {
+        HMODULE handle;
+        NovadeskAddonUnloadFn unloadFn;
+    };
+
+    static std::map<std::wstring, AddonInfo> s_LoadedAddons;
 
 
     duk_ret_t js_get_env(duk_context* ctx) {
@@ -107,7 +120,7 @@ namespace JSApi {
     duk_ret_t js_system_get_display_metrics(duk_context* ctx) {
         const MultiMonitorInfo& info = System::GetMultiMonitorInfo();
         duk_push_object(ctx);
-        const MonitorInfo* primary = (info.primaryIndex < info.monitors.size()) ? &info.monitors[info.primaryIndex] : (info.monitors.empty() ? nullptr : &info.monitors[0]);
+        const MonitorInfo* primary = (info.primaryIndex < (int)info.monitors.size()) ? &info.monitors[info.primaryIndex] : (info.monitors.empty() ? nullptr : &info.monitors[0]);
 
         auto pushRect = [&](const RECT& r) {
             duk_push_object(ctx);
@@ -177,6 +190,96 @@ namespace JSApi {
         
         duk_push_boolean(ctx, success);
         return 1;
+    }
+
+    duk_ret_t js_system_load_addon(duk_context* ctx) {
+        if (duk_get_top(ctx) < 1) return DUK_RET_TYPE_ERROR;
+        std::wstring addonPath = Utils::ToWString(duk_get_string(ctx, 0));
+
+        if (PathUtils::IsPathRelative(addonPath)) {
+            addonPath = PathUtils::ResolvePath(addonPath, PathUtils::GetParentDir(s_CurrentScriptPath));
+        }
+
+        auto it = s_LoadedAddons.find(addonPath);
+        if (it != s_LoadedAddons.end()) {
+            // Addon already loaded. For now, we don't re-initialize.
+            // If the addon pushed something to the stack, we might need a way to track that.
+            // But usually, an addon registers things globally.
+            return 0;
+        }
+
+        HMODULE hModule = LoadLibraryW(addonPath.c_str());
+        if (!hModule) {
+            Logging::Log(LogLevel::Error, L"Failed to load addon: %s (Error: %d)", addonPath.c_str(), GetLastError());
+            duk_push_null(ctx);
+            return 1;
+        }
+
+        NovadeskAddonInitFn initFn = (NovadeskAddonInitFn)GetProcAddress(hModule, "NovadeskAddonInit");
+        if (!initFn) {
+            Logging::Log(LogLevel::Error, L"Addon %s is missing NovadeskAddonInit export", addonPath.c_str());
+            FreeLibrary(hModule);
+            duk_push_null(ctx);
+            return 1;
+        }
+
+        AddonInfo info;
+        info.handle = hModule;
+        info.unloadFn = (void(*)())GetProcAddress(hModule, "NovadeskAddonUnload");
+        
+        s_LoadedAddons[addonPath] = info;
+
+        // Call initialization. The addon may push a return value.
+        int topBefore = duk_get_top(ctx);
+        initFn(ctx, JSApi::GetMessageWindow(), JSApi::GetHostAPI());
+        int topAfter = duk_get_top(ctx);
+
+        if (topAfter > topBefore) {
+            // Addon pushed one or more values. Return the top one.
+            return 1;
+        }
+
+        return 0;
+    }
+
+    duk_ret_t js_system_unload_addon(duk_context* ctx) {
+        if (duk_get_top(ctx) < 1) return DUK_RET_TYPE_ERROR;
+        std::wstring addonPath = Utils::ToWString(duk_get_string(ctx, 0));
+
+        if (PathUtils::IsPathRelative(addonPath)) {
+            addonPath = PathUtils::ResolvePath(addonPath, PathUtils::GetParentDir(s_CurrentScriptPath));
+        }
+
+        auto it = s_LoadedAddons.find(addonPath);
+        if (it != s_LoadedAddons.end()) {
+            if (it->second.unloadFn) {
+                try {
+                    it->second.unloadFn();
+                } catch (...) {
+                    Logging::Log(LogLevel::Error, L"Crash in NovadeskAddonUnload for %s", addonPath.c_str());
+                }
+            }
+            FreeLibrary(it->second.handle);
+            s_LoadedAddons.erase(it);
+            duk_push_boolean(ctx, true);
+        } else {
+            duk_push_boolean(ctx, false);
+        }
+        return 1;
+    }
+
+    void CleanupAddons() {
+        for (auto const& [path, info] : s_LoadedAddons) {
+            if (info.unloadFn) {
+                try {
+                    info.unloadFn();
+                } catch (...) {
+                    Logging::Log(LogLevel::Error, L"Crash in NovadeskAddonUnload for %s", path.c_str());
+                }
+            }
+            FreeLibrary(info.handle);
+        }
+        s_LoadedAddons.clear();
     }
 
     // Monitor Implementations
@@ -410,6 +513,10 @@ namespace JSApi {
         duk_put_prop_string(ctx, -2, "execute");
         duk_push_c_function(ctx, js_system_get_display_metrics, 0);
         duk_put_prop_string(ctx, -2, "getDisplayMetrics");
+        duk_push_c_function(ctx, js_system_load_addon, 1);
+        duk_put_prop_string(ctx, -2, "loadAddon");
+        duk_push_c_function(ctx, js_system_unload_addon, 1);
+        duk_put_prop_string(ctx, -2, "unloadAddon");
     }
 
     void BindSystemMonitors(duk_context* ctx) {

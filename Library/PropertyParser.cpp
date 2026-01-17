@@ -12,6 +12,7 @@
 #include "PathUtils.h"
 #include <string>
 #include "JSApi/JSEvents.h"
+#include "JSApi/JSUtils.h"
 
 namespace PropertyParser {
 
@@ -30,15 +31,9 @@ namespace PropertyParser {
             }
             duk_pop(m_Ctx);
 
-            // Try lowercase fallback if original was not lowercase
-            std::string lowerKey = key;
-            std::transform(lowerKey.begin(), lowerKey.end(), lowerKey.begin(), ::tolower);
-            if (lowerKey != key) {
-                return GetString(lowerKey.c_str(), outStr);
-            }
-            return false;
-        }
-
+        return false;
+    }
+        
         bool GetInt(const char* key, int& outInt) {
             if (duk_get_prop_string(m_Ctx, -1, key)) {
                 if (duk_is_number(m_Ctx, -1)) {
@@ -48,12 +43,6 @@ namespace PropertyParser {
                 }
             }
             duk_pop(m_Ctx);
-
-            std::string lowerKey = key;
-            std::transform(lowerKey.begin(), lowerKey.end(), lowerKey.begin(), ::tolower);
-            if (lowerKey != key) {
-                return GetInt(lowerKey.c_str(), outInt);
-            }
             return false;
         }
 
@@ -66,51 +55,29 @@ namespace PropertyParser {
                 }
             }
             duk_pop(m_Ctx);
-
-            std::string lowerKey = key;
-            std::transform(lowerKey.begin(), lowerKey.end(), lowerKey.begin(), ::tolower);
-            if (lowerKey != key) {
-                return GetFloat(lowerKey.c_str(), outFloat);
-            }
             return false;
         }
 
         bool GetBool(const char* key, bool& outBool) {
             if (duk_get_prop_string(m_Ctx, -1, key)) {
-                outBool = duk_get_boolean(m_Ctx, -1);
-                duk_pop(m_Ctx);
-                return true;
+                if (duk_is_boolean(m_Ctx, -1)) {
+                    outBool = duk_get_boolean(m_Ctx, -1) != 0;
+                    duk_pop(m_Ctx);
+                    return true;
+                }
             }
             duk_pop(m_Ctx);
-
-            std::string lowerKey = key;
-            std::transform(lowerKey.begin(), lowerKey.end(), lowerKey.begin(), ::tolower);
-            if (lowerKey != key) {
-                return GetBool(lowerKey.c_str(), outBool);
-            }
             return false;
         }
 
         bool GetColor(const char* key, COLORREF& outColor, BYTE& outAlpha) {
-            if (duk_get_prop_string(m_Ctx, -1, key)) {
-                if (duk_is_string(m_Ctx, -1)) {
-                    std::wstring colorStr = Utils::ToWString(duk_get_string(m_Ctx, -1));
-                    if (ColorUtil::ParseRGBA(colorStr, outColor, outAlpha)) {
-                        duk_pop(m_Ctx);
-                        return true;
-                    }
-                }
-            }
-            duk_pop(m_Ctx);
-
-            std::string lowerKey = key;
-            std::transform(lowerKey.begin(), lowerKey.end(), lowerKey.begin(), ::tolower);
-            if (lowerKey != key) {
-                return GetColor(lowerKey.c_str(), outColor, outAlpha);
+            std::wstring colorStr;
+            if (GetString(key, colorStr)) {
+                return ColorUtil::ParseRGBA(colorStr, outColor, outAlpha);
             }
             return false;
         }
-        
+
         bool GetFloatArray(const char* key, std::vector<float>& outArray, int minSize) {
             if (duk_get_prop_string(m_Ctx, -1, key)) {
                 if (duk_is_array(m_Ctx, -1)) {
@@ -135,9 +102,6 @@ namespace PropertyParser {
             if (duk_get_prop_string(m_Ctx, -1, key)) {
                 if (duk_is_function(m_Ctx, -1)) {
                     outId = JSApi::RegisterEventCallback(m_Ctx, -1);
-                } else if (duk_is_string(m_Ctx, -1)) {
-                    // String event handlers are no longer supported
-                    // Logging::Log(LogLevel::Warning, L"String event handler '%S' ignored. Use function reference.", key);
                 }
             }
             duk_pop(m_Ctx);
@@ -168,11 +132,8 @@ namespace PropertyParser {
         if (reader.GetInt("width", options.width)) options.m_WDefined = (options.width > 0);
         if (reader.GetInt("height", options.height)) options.m_HDefined = (options.height > 0);
         
-        reader.GetColor("backgroundcolor", options.color, options.bgAlpha);
-        // Sync string version for now until WidgetOptions is fully refactored
-        // options.backgroundColor = ... (We might need to reverse construct string or just keep it sync if needed)
-        // For now let's re-read string if we really need it, or just rely on color/alpha
-        if (duk_get_prop_string(ctx, -1, "backgroundcolor")) {
+        reader.GetColor("backgroundColor", options.color, options.bgAlpha);
+        if (duk_get_prop_string(ctx, -1, "backgroundColor")) {
              options.backgroundColor = Utils::ToWString(duk_get_string(ctx, -1));
         }
         duk_pop(ctx);
@@ -194,7 +155,7 @@ namespace PropertyParser {
         duk_pop(ctx);
 
         std::wstring zPosStr;
-        if (reader.GetString("zpos", zPosStr)) {
+        if (reader.GetString("zPos", zPosStr)) {
             // Simple mapping
             std::string s = Utils::ToString(zPosStr); // efficient enough
             if (s == "ondesktop") options.zPos = ZPOSITION_ONDESKTOP;
@@ -205,14 +166,16 @@ namespace PropertyParser {
         }
 
         reader.GetBool("draggable", options.draggable);
-        reader.GetBool("clickthrough", options.clickThrough);
-        reader.GetBool("keeponscreen", options.keepOnScreen);
-        reader.GetBool("snapedges", options.snapEdges);
+        reader.GetBool("clickThrough", options.clickThrough);
+        reader.GetBool("keepOnScreen", options.keepOnScreen);
+        reader.GetBool("snapEdges", options.snapEdges);
         reader.GetInt("x", options.x);
         reader.GetInt("y", options.y);
+        reader.GetBool("show", options.show);
+        reader.GetBool("dynamicWindowSize", options.dynamicWindowSize);
 
         if (reader.GetString("script", options.scriptPath)) {
-            options.scriptPath = PathUtils::ResolvePath(options.scriptPath, finalBaseDir);
+            options.scriptPath = JSApi::ResolveScriptPath(ctx, options.scriptPath);
         }
     }
 
@@ -232,24 +195,24 @@ namespace PropertyParser {
 
         // Background / Gradient
         std::wstring solidColorStr;
-        if (reader.GetString("solidcolor", solidColorStr)) {
+        if (reader.GetString("solidColor", solidColorStr)) {
              if (ColorUtil::ParseRGBA(solidColorStr, options.solidColor, options.solidAlpha)) {
                  options.hasSolidColor = true;
              }
         }
-        reader.GetInt("solidcolorradius", options.solidColorRadius);
+        reader.GetInt("solidColorRadius", options.solidColorRadius);
         
         std::wstring solidColor2Str;
-        if (reader.GetString("solidcolor2", solidColor2Str)) {
+        if (reader.GetString("solidColor2", solidColor2Str)) {
              if (ColorUtil::ParseRGBA(solidColor2Str, options.solidColor2, options.solidAlpha2)) {
                  options.hasGradient = true;
              }
         }
-        reader.GetFloat("gradientangle", options.gradientAngle);
+        reader.GetFloat("gradientAngle", options.gradientAngle);
 
         // Bevel
         std::wstring bevelStr;
-        if (reader.GetString("beveltype", bevelStr)) {
+        if (reader.GetString("bevelType", bevelStr)) {
             if (bevelStr == L"none") options.bevelType = 0;
             else if (bevelStr == L"raised") options.bevelType = 1;
             else if (bevelStr == L"sunken") options.bevelType = 2;
@@ -262,11 +225,11 @@ namespace PropertyParser {
 
         if (options.bevelType > 0) {
             options.bevelWidth = 1; // Default to 1
-            reader.GetInt("bevelwidth", options.bevelWidth);
+            reader.GetInt("bevelWidth", options.bevelWidth);
             
-            // bevelcolor is the property for the primary bevel color
-            reader.GetColor("bevelcolor", options.bevelColor, options.bevelAlpha);
-            reader.GetColor("bevelcolor2", options.bevelColor2, options.bevelAlpha2);
+            // bevelColor is the property for the primary bevel color
+            reader.GetColor("bevelColor", options.bevelColor, options.bevelAlpha);
+            reader.GetColor("bevelColor2", options.bevelColor2, options.bevelAlpha2);
         }
 
         // Padding
@@ -290,33 +253,40 @@ namespace PropertyParser {
         duk_pop(ctx); // Pop 'padding' property
 
         // Mouse Actions
-        // Mouse Actions
-        reader.GetEvent("onleftmouseup", options.onLeftMouseUpCallbackId);
-        reader.GetEvent("onleftmousedown", options.onLeftMouseDownCallbackId);
-        reader.GetEvent("onleftdoubleclick", options.onLeftDoubleClickCallbackId);
-        reader.GetEvent("onrightmouseup", options.onRightMouseUpCallbackId);
-        reader.GetEvent("onrightmousedown", options.onRightMouseDownCallbackId);
-        reader.GetEvent("onrightdoubleclick", options.onRightDoubleClickCallbackId);
-        reader.GetEvent("onmiddlemouseup", options.onMiddleMouseUpCallbackId);
-        reader.GetEvent("onmiddlemousedown", options.onMiddleMouseDownCallbackId);
-        reader.GetEvent("onmiddledoubleclick", options.onMiddleDoubleClickCallbackId);
+        reader.GetEvent("onLeftMouseUp", options.onLeftMouseUpCallbackId);
+        reader.GetEvent("onLeftMouseDown", options.onLeftMouseDownCallbackId);
+        reader.GetEvent("onLeftDoubleClick", options.onLeftDoubleClickCallbackId);
+        reader.GetEvent("onRightMouseUp", options.onRightMouseUpCallbackId);
+        reader.GetEvent("onRightMouseDown", options.onRightMouseDownCallbackId);
+        reader.GetEvent("onRightDoubleClick", options.onRightDoubleClickCallbackId);
+        reader.GetEvent("onMiddleMouseUp", options.onMiddleMouseUpCallbackId);
+        reader.GetEvent("onMiddleMouseDown", options.onMiddleMouseDownCallbackId);
+        reader.GetEvent("onMiddleDoubleClick", options.onMiddleDoubleClickCallbackId);
         
-        reader.GetEvent("onx1mouseup", options.onX1MouseUpCallbackId);
-        reader.GetEvent("onx1mousedown", options.onX1MouseDownCallbackId);
-        reader.GetEvent("onx1doubleclick", options.onX1DoubleClickCallbackId);
-        reader.GetEvent("onx2mouseup", options.onX2MouseUpCallbackId);
-        reader.GetEvent("onx2mousedown", options.onX2MouseDownCallbackId);
-        reader.GetEvent("onx2doubleclick", options.onX2DoubleClickCallbackId);
+        reader.GetEvent("onX1MouseUp", options.onX1MouseUpCallbackId);
+        reader.GetEvent("onX1MouseDown", options.onX1MouseDownCallbackId);
+        reader.GetEvent("onX1DoubleClick", options.onX1DoubleClickCallbackId);
+        reader.GetEvent("onX2MouseUp", options.onX2MouseUpCallbackId);
+        reader.GetEvent("onX2MouseDown", options.onX2MouseDownCallbackId);
+        reader.GetEvent("onX2DoubleClick", options.onX2DoubleClickCallbackId);
         
-        reader.GetEvent("onscrollup", options.onScrollUpCallbackId);
-        reader.GetEvent("onscrolldown", options.onScrollDownCallbackId);
-        reader.GetEvent("onscrollleft", options.onScrollLeftCallbackId);
-        reader.GetEvent("onscrollright", options.onScrollRightCallbackId);
+        reader.GetEvent("onScrollUp", options.onScrollUpCallbackId);
+        reader.GetEvent("onScrollDown", options.onScrollDownCallbackId);
+        reader.GetEvent("onScrollLeft", options.onScrollLeftCallbackId);
+        reader.GetEvent("onScrollRight", options.onScrollRightCallbackId);
         
-        reader.GetEvent("onmouseover", options.onMouseOverCallbackId);
-        reader.GetEvent("onmouseleave", options.onMouseLeaveCallbackId);
+        reader.GetEvent("onMouseOver", options.onMouseOverCallbackId);
+        reader.GetEvent("onMouseLeave", options.onMouseLeaveCallbackId);
         
-        reader.GetBool("antialias", options.antialias);
+        // Tooltip properties
+        reader.GetString("tooltipText", options.tooltipText);
+        reader.GetString("tooltipTitle", options.tooltipTitle);
+        reader.GetString("tooltipIcon", options.tooltipIcon);
+        reader.GetInt("tooltipMaxWidth", options.tooltipMaxWidth);
+        reader.GetInt("tooltipMaxHeight", options.tooltipMaxHeight);
+        reader.GetBool("tooltipBalloon", options.tooltipBalloon);
+
+        reader.GetBool("antiAlias", options.antialias);
     }
 
     /*
@@ -334,12 +304,12 @@ namespace PropertyParser {
 
         // Path
         if (reader.GetString("path", options.path)) {
-            options.path = PathUtils::ResolvePath(options.path, finalBaseDir);
+            options.path = JSApi::ResolveScriptPath(ctx, options.path);
         }
 
         // Image specific
         std::wstring aspectStr;
-        if (reader.GetString("preserveaspectratio", aspectStr)) {
+        if (reader.GetString("preserveAspectRatio", aspectStr)) {
             if (aspectStr == L"preserve") options.preserveAspectRatio = IMAGE_ASPECT_PRESERVE;
             else if (aspectStr == L"crop") options.preserveAspectRatio = IMAGE_ASPECT_CROP;
             else if (aspectStr == L"stretch") options.preserveAspectRatio = IMAGE_ASPECT_STRETCH;
@@ -347,20 +317,20 @@ namespace PropertyParser {
         reader.GetBool("grayscale", options.grayscale);
         reader.GetBool("tile", options.tile);
         int alpha = 255;
-        if (reader.GetInt("imagealpha", alpha)) options.imageAlpha = (BYTE)alpha;
+        if (reader.GetInt("imageAlpha", alpha)) options.imageAlpha = (BYTE)alpha;
 
         std::wstring tintStr;
-        if (reader.GetString("imagetint", tintStr)) {
+        if (reader.GetString("imageTint", tintStr)) {
              if (ColorUtil::ParseRGBA(tintStr, options.imageTint, options.imageTintAlpha)) {
                  options.hasImageTint = true;
              }
         }
         
-        if (reader.GetFloatArray("transformmatrix", options.transformMatrix, 6)) {
+        if (reader.GetFloatArray("transformMatrix", options.transformMatrix, 6)) {
             options.hasTransformMatrix = true;
         }
 
-        if (reader.GetFloatArray("colormatrix", options.colorMatrix, 20)) { 
+        if (reader.GetFloatArray("colorMatrix", options.colorMatrix, 20)) { 
              options.hasColorMatrix = true;
         }
     }
@@ -378,19 +348,19 @@ namespace PropertyParser {
         PropertyReader reader(ctx);
 
         reader.GetString("text", options.text);
-        reader.GetString("fontface", options.fontFace);
-        reader.GetInt("fontsize", options.fontSize);
+        reader.GetString("fontFace", options.fontFace);
+        reader.GetInt("fontSize", options.fontSize);
         
-        reader.GetColor("fontcolor", options.fontColor, options.alpha);
+        reader.GetColor("fontColor", options.fontColor, options.alpha);
         
         std::wstring weight;
-        if (reader.GetString("fontweight", weight) && weight == L"bold") options.bold = true;
+        if (reader.GetString("fontWeight", weight) && weight == L"bold") options.bold = true;
         
         std::wstring style;
-        if (reader.GetString("fontstyle", style) && style == L"italic") options.italic = true;
+        if (reader.GetString("fontStyle", style) && style == L"italic") options.italic = true;
 
         std::wstring alignStr;
-        if (reader.GetString("textalign", alignStr) || reader.GetString("align", alignStr)) {
+        if (reader.GetString("textAlign", alignStr) || reader.GetString("align", alignStr)) {
             // Convert to lowercase for comparison
             std::transform(alignStr.begin(), alignStr.end(), alignStr.begin(), ::towlower);
 
@@ -406,7 +376,7 @@ namespace PropertyParser {
         }
         
         std::wstring clipStr;
-        if (reader.GetString("clipstring", clipStr)) {
+        if (reader.GetString("clipString", clipStr)) {
             if (clipStr == L"none") options.clip = TEXT_CLIP_NONE;
             else if (clipStr == L"on" || clipStr == L"clip") options.clip = TEXT_CLIP_ON;
             else if (clipStr == L"ellipsis") options.clip = TEXT_CLIP_ELLIPSIS;
@@ -436,22 +406,22 @@ namespace PropertyParser {
             if (reader.GetInt("orientation", orient)) options.orientation = (BarOrientation)orient;
         }
 
-        reader.GetInt("barcornerradius", options.barCornerRadius);
+        reader.GetInt("barCornerRadius", options.barCornerRadius);
 
         std::wstring barColorStr;
-        if (reader.GetString("barcolor", barColorStr)) {
+        if (reader.GetString("barColor", barColorStr)) {
             if (ColorUtil::ParseRGBA(barColorStr, options.barColor, options.barAlpha)) {
                 options.hasBarColor = true;
             }
         }
 
         std::wstring barColor2Str;
-        if (reader.GetString("barcolor2", barColor2Str)) {
+        if (reader.GetString("barColor2", barColor2Str)) {
             if (ColorUtil::ParseRGBA(barColor2Str, options.barColor2, options.barAlpha2)) {
                 options.hasBarGradient = true;
             }
         }
-        reader.GetFloat("bargradientangle", options.barGradientAngle);
+        reader.GetFloat("barGradientAngle", options.barGradientAngle);
     }
 
     /*
@@ -492,7 +462,7 @@ namespace PropertyParser {
 
         // Z-Pos
         std::wstring zPosStr;
-        if (reader.GetString("zpos", zPosStr)) {
+        if (reader.GetString("zPos", zPosStr)) {
             std::string s = Utils::ToString(zPosStr);
             ZPOSITION zPos = widget->GetWindowZPosition();
             bool found = true;
@@ -508,22 +478,32 @@ namespace PropertyParser {
 
         // Background Color
         std::wstring bgColor;
-        if (reader.GetString("backgroundcolor", bgColor)) {
+        if (reader.GetString("backgroundColor", bgColor)) {
             widget->SetBackgroundColor(bgColor);
         }
 
+        // Visibility
+        bool show;
+        if (reader.GetBool("show", show)) {
+            if (show) widget->Show();
+            else widget->Hide();
+        }
+
         // Boolean toggles
+        bool dynamicWindowSize;
+        if (reader.GetBool("dynamicWindowSize", dynamicWindowSize)) widget->SetDynamicWindowSize(dynamicWindowSize);
+        
         bool draggable;
         if (reader.GetBool("draggable", draggable)) widget->SetDraggable(draggable);
         
         bool clickThrough;
-        if (reader.GetBool("clickthrough", clickThrough)) widget->SetClickThrough(clickThrough);
+        if (reader.GetBool("clickThrough", clickThrough)) widget->SetClickThrough(clickThrough);
         
         bool keepOnScreen;
-        if (reader.GetBool("keeponscreen", keepOnScreen)) widget->SetKeepOnScreen(keepOnScreen);
+        if (reader.GetBool("keepOnScreen", keepOnScreen)) widget->SetKeepOnScreen(keepOnScreen);
         
         bool snapEdges;
-        if (reader.GetBool("snapedges", snapEdges)) widget->SetSnapEdges(snapEdges);
+        if (reader.GetBool("snapEdges", snapEdges)) widget->SetSnapEdges(snapEdges);
     }
 
     /*
@@ -547,14 +527,16 @@ namespace PropertyParser {
             case ZPOSITION_ONBOTTOM:  zPosStr = "onbottom";  break;
             case ZPOSITION_ONTOPMOST: zPosStr = "ontopmost"; break;
         }
-        duk_push_string(ctx, zPosStr); duk_put_prop_string(ctx, -2, "zpos");
+        duk_push_string(ctx, zPosStr); duk_put_prop_string(ctx, -2, "zPos");
         
         duk_push_number(ctx, opt.windowOpacity / 255.0); duk_put_prop_string(ctx, -2, "opacity");
         duk_push_boolean(ctx, opt.draggable); duk_put_prop_string(ctx, -2, "draggable");
-        duk_push_boolean(ctx, opt.clickThrough); duk_put_prop_string(ctx, -2, "clickthrough");
-        duk_push_boolean(ctx, opt.keepOnScreen); duk_put_prop_string(ctx, -2, "keeponscreen");
-        duk_push_boolean(ctx, opt.snapEdges); duk_put_prop_string(ctx, -2, "snapedges");
-        duk_push_string(ctx, Utils::ToString(opt.backgroundColor).c_str()); duk_put_prop_string(ctx, -2, "backgroundcolor");
+        duk_push_boolean(ctx, opt.clickThrough); duk_put_prop_string(ctx, -2, "clickThrough");
+        duk_push_boolean(ctx, opt.keepOnScreen); duk_put_prop_string(ctx, -2, "keepOnScreen");
+        duk_push_boolean(ctx, opt.snapEdges); duk_put_prop_string(ctx, -2, "snapEdges");
+        duk_push_string(ctx, Utils::ToString(opt.backgroundColor).c_str()); duk_put_prop_string(ctx, -2, "backgroundColor");
+        duk_push_boolean(ctx, opt.show); duk_put_prop_string(ctx, -2, "show");
+        duk_push_boolean(ctx, opt.dynamicWindowSize); duk_put_prop_string(ctx, -2, "dynamicWindowSize");
     }
 
     /*
@@ -571,24 +553,24 @@ namespace PropertyParser {
         duk_push_int(ctx, element->GetWidth()); duk_put_prop_string(ctx, -2, "width");
         duk_push_int(ctx, element->GetHeight()); duk_put_prop_string(ctx, -2, "height");
         duk_push_number(ctx, element->GetRotate()); duk_put_prop_string(ctx, -2, "rotate");
-        duk_push_boolean(ctx, element->GetAntiAlias()); duk_put_prop_string(ctx, -2, "antialias");
+        duk_push_boolean(ctx, element->GetAntiAlias()); duk_put_prop_string(ctx, -2, "antiAlias");
 
         // Background
         if (element->HasSolidColor()) {
             COLORREF c = element->GetSolidColor();
             BYTE a = element->GetSolidAlpha();
             std::wstring colorStr = ColorUtil::ToRGBAString(c, a);
-            duk_push_string(ctx, Utils::ToString(colorStr).c_str()); duk_put_prop_string(ctx, -2, "solidcolor");
+            duk_push_string(ctx, Utils::ToString(colorStr).c_str()); duk_put_prop_string(ctx, -2, "solidColor");
         }
-        duk_push_int(ctx, element->GetCornerRadius()); duk_put_prop_string(ctx, -2, "solidcolorradius");
+        duk_push_int(ctx, element->GetCornerRadius()); duk_put_prop_string(ctx, -2, "solidColorRadius");
 
         // Gradient
         if (element->HasGradient()) {
             COLORREF c2 = element->GetSolidColor2();
             BYTE a2 = element->GetSolidAlpha2();
             std::wstring color2Str = ColorUtil::ToRGBAString(c2, a2);
-            duk_push_string(ctx, Utils::ToString(color2Str).c_str()); duk_put_prop_string(ctx, -2, "solidcolor2");
-            duk_push_number(ctx, element->GetGradientAngle()); duk_put_prop_string(ctx, -2, "gradientangle");
+            duk_push_string(ctx, Utils::ToString(color2Str).c_str()); duk_put_prop_string(ctx, -2, "solidColor2");
+            duk_push_number(ctx, element->GetGradientAngle()); duk_put_prop_string(ctx, -2, "gradientAngle");
         }
 
         // Bevel
@@ -600,16 +582,16 @@ namespace PropertyParser {
             case 3: bevStr = "emboss"; break;
             case 4: bevStr = "pillow"; break;
         }
-        duk_push_string(ctx, bevStr); duk_put_prop_string(ctx, -2, "beveltype");
+        duk_push_string(ctx, bevStr); duk_put_prop_string(ctx, -2, "bevelType");
 
         if (bt > 0) {
-            duk_push_int(ctx, element->GetBevelWidth()); duk_put_prop_string(ctx, -2, "bevelwidth");
+            duk_push_int(ctx, element->GetBevelWidth()); duk_put_prop_string(ctx, -2, "bevelWidth");
             
             std::wstring bc1 = ColorUtil::ToRGBAString(element->GetBevelColor(), element->GetBevelAlpha());
-            duk_push_string(ctx, Utils::ToString(bc1).c_str()); duk_put_prop_string(ctx, -2, "bevelcolor");
+            duk_push_string(ctx, Utils::ToString(bc1).c_str()); duk_put_prop_string(ctx, -2, "bevelColor");
             
             std::wstring bc2 = ColorUtil::ToRGBAString(element->GetBevelColor2(), element->GetBevelAlpha2());
-            duk_push_string(ctx, Utils::ToString(bc2).c_str()); duk_put_prop_string(ctx, -2, "bevelcolor2");
+            duk_push_string(ctx, Utils::ToString(bc2).c_str()); duk_put_prop_string(ctx, -2, "bevelColor2");
         }
 
         // Padding
@@ -633,11 +615,11 @@ namespace PropertyParser {
         if (element->GetType() == ELEMENT_TEXT) {
             TextElement* t = static_cast<TextElement*>(element);
             duk_push_string(ctx, Utils::ToString(t->GetText()).c_str()); duk_put_prop_string(ctx, -2, "text");
-            duk_push_string(ctx, Utils::ToString(t->GetFontFace()).c_str()); duk_put_prop_string(ctx, -2, "fontface");
-            duk_push_int(ctx, t->GetFontSize()); duk_put_prop_string(ctx, -2, "fontsize");
+            duk_push_string(ctx, Utils::ToString(t->GetFontFace()).c_str()); duk_put_prop_string(ctx, -2, "fontFace");
+            duk_push_int(ctx, t->GetFontSize()); duk_put_prop_string(ctx, -2, "fontSize");
             
             std::wstring fc = ColorUtil::ToRGBAString(t->GetFontColor(), t->GetFontAlpha());
-            duk_push_string(ctx, Utils::ToString(fc).c_str()); duk_put_prop_string(ctx, -2, "fontcolor");
+            duk_push_string(ctx, Utils::ToString(fc).c_str()); duk_put_prop_string(ctx, -2, "fontColor");
             
             duk_push_boolean(ctx, t->IsBold()); duk_put_prop_string(ctx, -2, "bold");
             duk_push_boolean(ctx, t->IsItalic()); duk_put_prop_string(ctx, -2, "italic");
@@ -655,13 +637,13 @@ namespace PropertyParser {
                 case TEXT_ALIGN_CENTER_BOTTOM: alStr = "centerbottom"; break;
                 case TEXT_ALIGN_RIGHT_BOTTOM: alStr = "rightbottom"; break;
             }
-            duk_push_string(ctx, alStr); duk_put_prop_string(ctx, -2, "textalign");
+            duk_push_string(ctx, alStr); duk_put_prop_string(ctx, -2, "textAlign");
             const char* clipStr = "none";
             switch (t->GetClipString()) {
                 case TEXT_CLIP_ON: clipStr = "clip"; break;
                 case TEXT_CLIP_ELLIPSIS: clipStr = "ellipsis"; break;
             }
-            duk_push_string(ctx, clipStr); duk_put_prop_string(ctx, -2, "clipstring");
+            duk_push_string(ctx, clipStr); duk_put_prop_string(ctx, -2, "clipString");
 
             
         } else if (element->GetType() == ELEMENT_IMAGE) {
@@ -673,14 +655,14 @@ namespace PropertyParser {
                 case IMAGE_ASPECT_PRESERVE: aspectStr = "preserve"; break;
                 case IMAGE_ASPECT_CROP:     aspectStr = "crop";     break;
             }
-            duk_push_string(ctx, aspectStr); duk_put_prop_string(ctx, -2, "preserveaspectratio");
+            duk_push_string(ctx, aspectStr); duk_put_prop_string(ctx, -2, "preserveAspectRatio");
             duk_push_boolean(ctx, img->IsGrayscale()); duk_put_prop_string(ctx, -2, "grayscale");
             duk_push_boolean(ctx, img->IsTile()); duk_put_prop_string(ctx, -2, "tile");
-            duk_push_int(ctx, img->GetImageAlpha()); duk_put_prop_string(ctx, -2, "imagealpha");
+            duk_push_int(ctx, img->GetImageAlpha()); duk_put_prop_string(ctx, -2, "imageAlpha");
             
             if (img->HasImageTint()) {
                 std::wstring itStr = ColorUtil::ToRGBAString(img->GetImageTint(), img->GetImageTintAlpha());
-                duk_push_string(ctx, Utils::ToString(itStr).c_str()); duk_put_prop_string(ctx, -2, "imagetint");
+                duk_push_string(ctx, Utils::ToString(itStr).c_str()); duk_put_prop_string(ctx, -2, "imageTint");
             }
         } else if (element->GetType() == ELEMENT_BAR) {
             BarElement* bar = static_cast<BarElement*>(element);
@@ -689,8 +671,8 @@ namespace PropertyParser {
             const char* orientStr = (bar->GetOrientation() == BAR_VERTICAL) ? "vertical" : "horizontal";
             duk_push_string(ctx, orientStr); duk_put_prop_string(ctx, -2, "orientation");
             
-            duk_push_int(ctx, bar->GetBarCornerRadius()); duk_put_prop_string(ctx, -2, "barcornerradius");
-            duk_push_number(ctx, bar->GetBarGradientAngle()); duk_put_prop_string(ctx, -2, "bargradientangle");
+            duk_push_int(ctx, bar->GetBarCornerRadius()); duk_put_prop_string(ctx, -2, "barCornerRadius");
+            duk_push_number(ctx, bar->GetBarGradientAngle()); duk_put_prop_string(ctx, -2, "barGradientAngle");
         }
     }
 
@@ -762,6 +744,11 @@ namespace PropertyParser {
         if (options.onMouseOverCallbackId != -1) element->m_OnMouseOverCallbackId = options.onMouseOverCallbackId;
         if (options.onMouseLeaveCallbackId != -1) element->m_OnMouseLeaveCallbackId = options.onMouseLeaveCallbackId;
         
+        // Tooltip properties
+        if (!options.tooltipText.empty()) {
+            element->SetToolTip(options.tooltipText, options.tooltipTitle, options.tooltipIcon, options.tooltipMaxWidth, options.tooltipMaxHeight, options.tooltipBalloon);
+        }
+
         element->SetAntiAlias(options.antialias);
     }
 

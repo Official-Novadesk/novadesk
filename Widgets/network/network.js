@@ -35,10 +35,10 @@ function addLabel(id, text, y) {
         text: text,
         x: PAD,
         y: y,
-        fontsize: CONFIG.font.text,
-        textalign: "left",
-        fontweight: "bold",
-        fontcolor: CONFIG.colors.font
+        fontSize: CONFIG.font.text,
+        textAlign: "left",
+        fontWeight: "bold",
+        fontColor: CONFIG.colors.font
     });
 }
 
@@ -48,10 +48,10 @@ function addValue(id, suffix, y) {
         text: "-- " + suffix,
         x: WIDTH - PAD,
         y: y,
-        fontsize: CONFIG.font.text,
-        textalign: "right",
-        fontweight: "bold",
-        fontcolor: CONFIG.colors.font
+        fontSize: CONFIG.font.text,
+        textAlign: "right",
+        fontWeight: "bold",
+        fontColor: CONFIG.colors.font
     });
 }
 
@@ -85,10 +85,10 @@ ui.addText({
     text: "Network",
     x: WIDTH / 2,
     y: PAD,
-    fontsize: CONFIG.font.title,
-    textalign: "center",
-    fontweight: "bold",
-    fontcolor: CONFIG.colors.accent
+    fontSize: CONFIG.font.title,
+    textAlign: "center",
+    fontWeight: "bold",
+    fontColor: CONFIG.colors.accent
 });
 
 // =====================

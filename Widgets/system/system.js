@@ -42,10 +42,10 @@ function addLabel(id, text, y) {
         text: text,
         x: PAD,
         y: y,
-        fontsize: CONFIG.font.text,
-        textalign: "left",
-        fontweight: "bold",
-        fontcolor: CONFIG.colors.font
+        fontSize: CONFIG.font.text,
+        textAlign: "left",
+        fontWeight: "bold",
+        fontColor: CONFIG.colors.font
     });
 }
 
@@ -55,10 +55,10 @@ function addValue(id, y) {
         text: "--%",
         x: WIDTH - PAD,
         y: y,
-        fontsize: CONFIG.font.text,
-        textalign: "right",
-        fontweight: "bold",
-        fontcolor: CONFIG.colors.font
+        fontSize: CONFIG.font.text,
+        textAlign: "right",
+        fontWeight: "bold",
+        fontColor: CONFIG.colors.font
     });
 }
 
@@ -70,12 +70,12 @@ function addBar(id, y) {
         value: 0,
         width: BAR_WIDTH,
         height: CONFIG.bar.height,
-        barcolor: CONFIG.colors.accent,
-        barcolor2: CONFIG.colors.accent2,
-        bargradientangle: CONFIG.bar.gradientAngle,
-        barcornerradius: CONFIG.bar.radius,
-        solidcolor: CONFIG.colors.subaccent,
-        solidcolorradius: CONFIG.bar.radius
+        barColor: CONFIG.colors.accent,
+        barColor2: CONFIG.colors.accent2,
+        barGradientAngle: CONFIG.bar.gradientAngle,
+        barCornerRadius: CONFIG.bar.radius,
+        solidColor: CONFIG.colors.subaccent,
+        solidColorRadius: CONFIG.bar.radius
     });
 }
 
@@ -113,10 +113,10 @@ ui.addText({
     text: "System",
     x: WIDTH / 2,
     y: PAD,
-    fontsize: CONFIG.font.title,
-    textalign: "center",
-    fontweight: "bold",
-    fontcolor: CONFIG.colors.accent
+    fontSize: CONFIG.font.title,
+    textAlign: "center",
+    fontWeight: "bold",
+    fontColor: CONFIG.colors.accent
 });
 
 // =====================

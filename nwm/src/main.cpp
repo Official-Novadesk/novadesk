@@ -6,6 +6,8 @@
 #include <windows.h>
 #include "rescle.h"
 
+#pragma comment(lib, "version.lib")
+
 namespace fs = std::filesystem;
 
 // Constants
@@ -40,6 +42,51 @@ void PrintUsage() {
     std::cout << "  nwm init <widget-name>    - Create a new widget in current directory" << std::endl;
     std::cout << "  nwm run                   - Run widget in current directory" << std::endl;
     std::cout << "  nwm build                 - Build widget in current directory" << std::endl;
+    std::cout << "  nwm -v, --version         - Show version information" << std::endl;
+    std::cout << "  nwm -h, --help            - Show this help message" << std::endl;
+}
+
+// Helper for string conversion
+std::string ToString(const std::wstring& wstr) {
+    if (wstr.empty()) return "";
+    int size_needed = WideCharToMultiByte(CP_UTF8, 0, &wstr[0], (int)wstr.size(), NULL, 0, NULL, NULL);
+    std::string strTo(size_needed, 0);
+    WideCharToMultiByte(CP_UTF8, 0, &wstr[0], (int)wstr.size(), &strTo[0], size_needed, NULL, NULL);
+    return strTo;
+}
+
+std::string GetProductVersion() {
+    wchar_t szExePath[MAX_PATH];
+    GetModuleFileNameW(NULL, szExePath, MAX_PATH);
+
+    DWORD dwHandle = 0;
+    DWORD dwSize = GetFileVersionInfoSizeW(szExePath, &dwHandle);
+    if (dwSize == 0) return "Unknown";
+
+    std::vector<BYTE> data(dwSize);
+    if (!GetFileVersionInfoW(szExePath, dwHandle, dwSize, data.data())) return "Unknown";
+
+    struct LANGANDCODEPAGE {
+        WORD wLanguage;
+        WORD wCodePage;
+    } *lpTranslate;
+    UINT cbTranslate;
+
+    if (!VerQueryValueW(data.data(), L"\\VarFileInfo\\Translation", (LPVOID*)&lpTranslate, &cbTranslate))
+        return "Unknown";
+
+    wchar_t szSubBlock[100];
+    swprintf_s(szSubBlock, L"\\StringFileInfo\\%04x%04x\\ProductVersion",
+               lpTranslate[0].wLanguage, lpTranslate[0].wCodePage);
+
+    LPVOID lpBuffer;
+    UINT dwLen;
+    if (VerQueryValueW(data.data(), szSubBlock, &lpBuffer, &dwLen)) {
+        std::wstring wversion((wchar_t*)lpBuffer);
+        return ToString(wversion);
+    }
+
+    return "Unknown";
 }
 
 // Helper for string conversion
@@ -295,6 +342,12 @@ int main(int argc, char* argv[]) {
         return RunWidget() ? 0 : 1;
     } else if (command == "build") {
         return BuildWidget() ? 0 : 1;
+    } else if (command == "-v" || command == "--version") {
+        std::cout << "nwm version " << GetProductVersion() << std::endl;
+        return 0;
+    } else if (command == "-h" || command == "--help") {
+        PrintUsage();
+        return 0;
     } else {
         PrintUsage();
         return 1;

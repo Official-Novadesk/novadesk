@@ -14,6 +14,9 @@
 #include "../FileUtils.h"
 #include "../Settings.h"
 #include "../Novadesk.h"
+#include "../Version.h"
+
+#pragma comment(lib, "version.lib")
 
 namespace JSApi {
 
@@ -114,21 +117,7 @@ namespace JSApi {
     duk_ret_t js_include(duk_context* ctx) {
         std::wstring filename = Utils::ToWString(duk_require_string(ctx, 0));
         
-        // Determine the base directory for path resolution
-        std::wstring baseDir = PathUtils::GetWidgetsDir();
-        
-        // Check if __dirname is available in the global scope
-        duk_get_global_string(ctx, "__dirname");
-        if (duk_is_string(ctx, -1)) {
-            std::wstring dirname = Utils::ToWString(duk_get_string(ctx, -1));
-            if (!dirname.empty()) {
-                baseDir = dirname;
-                if (baseDir.back() != L'\\') baseDir += L'\\';
-            }
-        }
-        duk_pop(ctx);
-        
-        std::wstring fullPath = PathUtils::ResolvePath(filename, baseDir);
+        std::wstring fullPath = ResolveScriptPath(ctx, filename);
 
         std::string content = FileUtils::ReadFileContent(fullPath);
         if (content.empty()) {
@@ -197,6 +186,56 @@ namespace JSApi {
         return 0;
     }
 
+    std::wstring GetVersionProperty(const std::wstring& propertyName) {
+        wchar_t szExePath[MAX_PATH];
+        GetModuleFileNameW(NULL, szExePath, MAX_PATH);
+
+        DWORD dwHandle = 0;
+        DWORD dwSize = GetFileVersionInfoSizeW(szExePath, &dwHandle);
+        if (dwSize == 0) return L"Unknown";
+
+        std::vector<BYTE> data(dwSize);
+        if (!GetFileVersionInfoW(szExePath, dwHandle, dwSize, data.data())) return L"Unknown";
+
+        struct LANGANDCODEPAGE {
+            WORD wLanguage;
+            WORD wCodePage;
+        } *lpTranslate;
+        UINT cbTranslate;
+
+        if (!VerQueryValueW(data.data(), L"\\VarFileInfo\\Translation", (LPVOID*)&lpTranslate, &cbTranslate))
+            return L"Unknown";
+
+        wchar_t szSubBlock[100];
+        swprintf_s(szSubBlock, L"\\StringFileInfo\\%04x%04x\\%ls",
+                   lpTranslate[0].wLanguage, lpTranslate[0].wCodePage, propertyName.c_str());
+
+        LPVOID lpBuffer;
+        UINT dwLen;
+        if (VerQueryValueW(data.data(), szSubBlock, &lpBuffer, &dwLen)) {
+            return std::wstring((wchar_t*)lpBuffer);
+        }
+
+        return L"Unknown";
+    }
+
+    duk_ret_t js_novadesk_getProductVersion(duk_context* ctx) {
+        std::wstring version = GetVersionProperty(L"ProductVersion");
+        duk_push_string(ctx, Utils::ToString(version).c_str());
+        return 1;
+    }
+
+    duk_ret_t js_novadesk_getFileVersion(duk_context* ctx) {
+        std::wstring version = GetVersionProperty(L"FileVersion");
+        duk_push_string(ctx, Utils::ToString(version).c_str());
+        return 1;
+    }
+
+    duk_ret_t js_novadesk_getNovadeskVersion(duk_context* ctx) {
+        duk_push_string(ctx, NOVADESK_VERSION);
+        return 1;
+    }
+
     void BindConsoleMethods(duk_context* ctx) {
         duk_push_c_function(ctx, js_log, DUK_VARARGS);
         duk_put_prop_string(ctx, -2, "log");
@@ -219,5 +258,30 @@ namespace JSApi {
         duk_put_prop_string(ctx, -2, "refresh");
         duk_push_c_function(ctx, js_novadesk_exit, 0);
         duk_put_prop_string(ctx, -2, "exit");
+        duk_push_c_function(ctx, js_novadesk_getProductVersion, 0);
+        duk_put_prop_string(ctx, -2, "getProductVersion");
+        duk_push_c_function(ctx, js_novadesk_getFileVersion, 0);
+        duk_put_prop_string(ctx, -2, "getFileVersion");
+        duk_push_c_function(ctx, js_novadesk_getNovadeskVersion, 0);
+        duk_put_prop_string(ctx, -2, "getNovadeskVersion");
+    }
+
+    std::wstring ResolveScriptPath(duk_context* ctx, const std::wstring& path) {
+        if (path.empty()) return L"";
+        if (!PathUtils::IsPathRelative(path)) return PathUtils::NormalizePath(path);
+
+        std::wstring baseDir = PathUtils::GetWidgetsDir();
+        
+        duk_get_global_string(ctx, "__dirname");
+        if (duk_is_string(ctx, -1)) {
+            std::wstring dirname = Utils::ToWString(duk_get_string(ctx, -1));
+            if (!dirname.empty()) {
+                baseDir = dirname;
+                if (baseDir.back() != L'\\') baseDir += L'\\';
+            }
+        }
+        duk_pop(ctx);
+
+        return PathUtils::ResolvePath(path, baseDir);
     }
 }

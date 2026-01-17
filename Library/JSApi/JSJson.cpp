@@ -12,6 +12,7 @@
 #include "../Utils.h"
 #include "../Logging.h"
 #include <fstream>
+#include "JSUtils.h"
 
 using json = nlohmann::json;
 
@@ -88,13 +89,7 @@ namespace JSApi {
     }
 
     duk_ret_t js_read_json(duk_context* ctx) {
-        const char* path = duk_get_string(ctx, 0);
-        if (!path) return 0;
-
-        std::wstring wpath = Utils::ToWString(path);
-        if (PathUtils::IsPathRelative(wpath)) {
-            wpath = PathUtils::ResolvePath(wpath, PathUtils::GetParentDir(s_CurrentScriptPath));
-        }
+        std::wstring wpath = ResolveScriptPath(ctx, Utils::ToWString(duk_get_string(ctx, 0)));
 
         try {
             std::ifstream f(wpath);
@@ -119,16 +114,7 @@ namespace JSApi {
     }
 
     duk_ret_t js_write_json(duk_context* ctx) {
-        const char* path = duk_get_string(ctx, 0);
-        if (!path) return 0;
-
-        // Ensure second argument is present
-        if (duk_is_undefined(ctx, 1)) return 0;
-
-        std::wstring wpath = Utils::ToWString(path);
-        if (PathUtils::IsPathRelative(wpath)) {
-            wpath = PathUtils::ResolvePath(wpath, PathUtils::GetParentDir(s_CurrentScriptPath));
-        }
+        std::wstring wpath = ResolveScriptPath(ctx, Utils::ToWString(duk_get_string(ctx, 0)));
 
         try {
             // Convert Duktape object to json

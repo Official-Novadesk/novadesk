@@ -9,6 +9,7 @@
 #include <string>
 #include <Windows.h>
 #include "duktape/duktape.h"
+#include "novadesk_addon.h"
 
 class Widget;
 
@@ -26,4 +27,9 @@ namespace JSApi {
     void OnTimer(UINT_PTR id);
     void OnMessage(UINT message, WPARAM wParam, LPARAM lParam);
     void SetMessageWindow(HWND hWnd);
+    HWND GetMessageWindow();
+
+    const NovadeskHostAPI* GetHostAPI();
+
+    static const UINT WM_NOVADESK_DISPATCH = WM_USER + 101;
 }

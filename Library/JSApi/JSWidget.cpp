@@ -83,7 +83,11 @@
   
          Widget* widget = new Widget(options);
          if (widget->Create()) {
-             widget->Show();
+             if (options.show) {
+                 widget->Show();
+             } else {
+                 widget->Hide();
+             }
              widgets.push_back(widget);
          } else {
              Logging::Log(LogLevel::Error, L"Failed to create widget.");

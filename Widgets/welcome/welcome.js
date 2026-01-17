@@ -51,10 +51,10 @@ win.addText({
     text: "Welcome to Novadesk",
     x: 160,
     y: 25,
-    fontsize: CONFIG.font.title,
-    fontweight: "bold",
-    fontcolor: CONFIG.colors.accent,
-    textalign: "left"
+    fontSize: CONFIG.font.title,
+    fontWeight: "bold",
+    fontColor: CONFIG.colors.accent,
+    textAlign: "left"
 });
 
 win.addText({
@@ -62,12 +62,12 @@ win.addText({
     text: "Novadesk a desktop app for windows.Customize your desktop with widgets.Make widgets for your needs.",
     x: 160,
     y: 70,
-    fontsize: CONFIG.font.text,
-    clipstring: "clip",
+    fontSize: CONFIG.font.text,
+    clipString: "clip",
     width: 220,
-    fontweight: "bold",
-    fontcolor: CONFIG.colors.font,
-    textalign: "left"
+    fontWeight: "bold",
+    fontColor: CONFIG.colors.font,
+    textAlign: "left"
 });
 
 win.addText({
@@ -75,14 +75,14 @@ win.addText({
     text: "Website",
     x: 210,
     y: 170,
-    fontsize: CONFIG.font.text,
-    fontweight: "bold",
-    fontcolor: CONFIG.colors.font,
+    fontSize: CONFIG.font.text,
+    fontWeight: "bold",
+    fontColor: CONFIG.colors.font,
     width: 100,
     height: 25,
-    solidcolor: CONFIG.colors.accent,
-    solidcolorradius: 5,
-    textalign: "centercenter"
+    solidColor: CONFIG.colors.accent,
+    solidColorRadius: 5,
+    textAlign: "centercenter"
 });
 
 win.addText({
@@ -90,12 +90,12 @@ win.addText({
     text: "Docs",
     x: 320,
     y: 170,
-    fontsize: CONFIG.font.text,
-    fontweight: "bold",
-    fontcolor: CONFIG.colors.font,
+    fontSize: CONFIG.font.text,
+    fontWeight: "bold",
+    fontColor: CONFIG.colors.font,
     width: 100,
     height: 25,
-    solidcolor: CONFIG.colors.accent,
-    solidcolorradius: 5,
-    textalign: "centercenter"
+    solidColor: CONFIG.colors.accent,
+    solidColorRadius: 5,
+    textAlign: "centercenter"
 });

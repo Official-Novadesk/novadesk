@@ -9,6 +9,7 @@
 #define __NOVADESK_WIDGET_H__
 
 #include <windows.h>
+#include <commctrl.h>
 #include <string>
 #include <vector>
 #include "System.h"
@@ -16,6 +17,9 @@
 #include "TextElement.h"
 #include "ImageElement.h"
 #include "BarElement.h"
+#include "Tooltip.h"
+
+#pragma comment(lib, "comctl32.lib")
 
 struct duk_hthread;
 typedef struct duk_hthread duk_context;
@@ -46,6 +50,8 @@ struct WidgetOptions
     bool snapEdges = true;
     bool m_WDefined = false;
     bool m_HDefined = false;
+    bool show = true;
+    bool dynamicWindowSize = false;
     std::wstring scriptPath;
 };
 
@@ -59,6 +65,7 @@ public:
     bool Create();
 
     void Show();
+    void Hide();
     void Refresh();
 
     void ChangeZPos(ZPOSITION zPos, bool all = false);
@@ -68,6 +75,7 @@ public:
     void SetBackgroundColor(const std::wstring& colorStr);
     void SetDraggable(bool enable) { m_Options.draggable = enable; }
     void SetClickThrough(bool enable);
+    void SetDynamicWindowSize(bool dynamicWindowSize);
     void SetKeepOnScreen(bool enable) { m_Options.keepOnScreen = enable; }
     void SetSnapEdges(bool enable) { m_Options.snapEdges = enable; }
 
@@ -106,6 +114,7 @@ private:
     void OnContextMenu();
 
     HWND m_hWnd;
+    Tooltip m_Tooltip;
     WidgetOptions m_Options;
     ZPOSITION m_WindowZPosition;
     std::vector<Element*> m_Elements;
@@ -124,6 +133,7 @@ private:
     POINT m_DragStartWindow = { 0, 0 };
 
     static const UINT_PTR TIMER_TOPMOST = 2;
+    static const UINT_PTR TIMER_TOOLTIP = 3;
 };
 
 #endif

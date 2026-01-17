@@ -40,10 +40,10 @@ ui.addText({
     text: "--:--:--",
     x: CONFIG.background.width / 2,
     y: 10,
-    fontsize: CONFIG.font.time,
-    textalign: "center",
-    fontweight: "bold",
-    fontcolor: CONFIG.colors.accent
+    fontSize: CONFIG.font.time,
+    textAlign: "center",
+    fontWeight: "bold",
+    fontColor: CONFIG.colors.accent
 });
 
 ui.addText({
@@ -51,10 +51,10 @@ ui.addText({
     text: "-----",
     x: 10,
     y: 40,
-    fontsize: CONFIG.font.text,
-    textalign: "left",
-    fontweight: "bold",
-    fontcolor: CONFIG.colors.font
+    fontSize: CONFIG.font.text,
+    textAlign: "left",
+    fontWeight: "bold",
+    fontColor: CONFIG.colors.font
 });
 
 ui.addText({
@@ -62,10 +62,10 @@ ui.addText({
     text: "--/--/----",
     x: CONFIG.background.width - 10,
     y: 40,
-    fontsize: CONFIG.font.text,
-    textalign: "right",
-    fontweight: "bold",
-    fontcolor: CONFIG.colors.font
+    fontSize: CONFIG.font.text,
+    textAlign: "right",
+    fontWeight: "bold",
+    fontColor: CONFIG.colors.font
 });
 
 // =====================
