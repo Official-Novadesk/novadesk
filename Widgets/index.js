@@ -1,79 +1,373 @@
+// =====================
+// Load Configuration
+// =====================
+var config = system.readJson("config.json");
+
+if (!config) {
+  console.log("Failed to load config.json, using defaults");
+  config = {
+    clock_widget_active: true,
+    system_widget_active: true,
+    network_widget_active: true,
+    welcome_widget_active: true,
+    is_first_launch: true
+  };
+}
+
 var metrics = system.getDisplayMetrics();
 
-// =====================
-// Clock Widget
-// =====================
+// Global Widget References
+var clockWindow = null;
+var clockWindowProperties = null;
 
-var clockWindow = new widgetWindow({
-  id: "clock_Widget",
-  script: "clock/clock.js"
-});
+var systemWindow = null;
+var systemWindowProperties = null;
+var overallCPU = null;
+var memory = null;
 
+var networkWindow = null;
+var networkWindowProperties = null;
+var network = null;
 
-var clockWindowProperties = clockWindow.getProperties();
-clockWindow.setProperties({
-  x: metrics.primary.screenArea.width - clockWindowProperties.width - 20,
-  y: 20
-});
-
-// Update properties variable after modification to get new position
-clockWindowProperties = clockWindow.getProperties();
+var welcomeWindow = null;
+var welcomeProps = null;
 
 
 // =====================
-// System Widget
+// Helper Functions
 // =====================
-var systemWindow = new widgetWindow({
-  id: "system_Widget",
-  script: "system/system.js"
-});
 
-var overallCPU = new system.cpu();
-var memory = new system.memory();
+// Save current config to file
+function saveConfig() {
+  if (system.writeJson("config.json", config)) {
+    console.log("Configuration saved successfully");
+    return true;
+  } else {
+    console.log("Failed to save configuration");
+    return false;
+  }
+}
 
-var systemWindowProperties = systemWindow.getProperties();
-systemWindow.setProperties({
-  x: metrics.primary.screenArea.width - systemWindowProperties.width - 20,
-  y: clockWindowProperties.y + clockWindowProperties.height + 20
-});
+// Update tray menu to reflect current widget states
+function updateTrayMenu() {
+  app.setTrayMenu([
+    {
+      text: "Widgets",
+      items: [
+        {
+          text: "Clock Widget",
+          checked: config.clock_widget_active ? true : false,
+          action: function() {
+            toggleWidget('clock');
+          }
+        },
+        {
+          text: "System Widget",
+          checked: config.system_widget_active ? true : false,
+          action: function() {
+            toggleWidget('system');
+          }
+        },
+        {
+          text: "Network Widget",
+          checked: config.network_widget_active ? true : false,
+          action: function() {
+            toggleWidget('network');
+          }
+        },
+        {
+          text: "Welcome Widget",
+          checked: config.welcome_widget_active ? true : false,
+          action: function() {
+            toggleWidget('welcome');
+          }
+        }
+      ]
+    },
+  ]);
+}
 
-// Update properties variable after modification to get new position
-systemWindowProperties = systemWindow.getProperties();
+// Toggle widget on/off
+function toggleWidget(widgetName) {
+  var configKey = widgetName + '_widget_active';
+  var isActive = !config[configKey]; // Toggle
+  
+  config[configKey] = isActive;
+  saveConfig();
+  
+  if (isActive) {
+    // Create the widget
+    if (widgetName === 'clock') createClockWidget();
+    else if (widgetName === 'system') createSystemWidget();
+    else if (widgetName === 'network') createNetworkWidget();
+    else if (widgetName === 'welcome') createWelcomeWidget();
+  } else {
+    // Destroy the widget
+    if (widgetName === 'clock') destroyClockWidget();
+    else if (widgetName === 'system') destroySystemWidget();
+    else if (widgetName === 'network') destroyNetworkWidget();
+    else if (widgetName === 'welcome') destroyWelcomeWidget();
+  }
+  
+  updateTrayMenu();
+}
+
 
 // =====================
-// Network Widget
+// Widget Creation/Destruction Functions
 // =====================
-var networkWindow = new widgetWindow({
-  id: "network_Widget",
-  script: "network/network.js"
-});
 
-var networkWindowProperties = networkWindow.getProperties();
-networkWindow.setProperties({
-  x: metrics.primary.screenArea.width - networkWindowProperties.width - 20,
-  y: systemWindowProperties.y + systemWindowProperties.height + 20
-});
+function createClockWidget() {
+  if (clockWindow) return;
 
-var network = new system.network();
+  clockWindow = new widgetWindow({
+    id: "clock_Widget",
+    script: "clock/clock.js",
+    show: false
+  });
+
+  // Position Logic
+  var defaultX = metrics.primary.screenArea.width - 210 - 20; // Approx width
+  var defaultY = 20;
+
+  if (config.is_first_launch) {
+      clockWindow.setProperties({ x: defaultX, y: defaultY });
+  } else if (config.clock_widget_position) {
+      clockWindow.setProperties(config.clock_widget_position);
+  } else {
+      clockWindow.setProperties({ x: defaultX, y: defaultY });
+  }
+
+  clockWindow.setContextMenu([
+    {
+      text: "Refresh",
+      action: function() { clockWindow.refresh(); }
+    },
+    {
+      text: "Close",
+      action: function() {
+        config.clock_widget_active = false;
+        saveConfig();
+        destroyClockWidget();
+        updateTrayMenu();
+      }
+    }
+  ]);
+
+  clockWindow.setProperties({ show: true });
+  clockWindowProperties = clockWindow.getProperties();
+}
+
+function destroyClockWidget() {
+  if (clockWindow) {
+    clockWindow.close();
+    clockWindow = null;
+    clockWindowProperties = null;
+  }
+}
+
+function createSystemWidget() {
+  if (systemWindow) return;
+
+  systemWindow = new widgetWindow({
+    id: "system_Widget",
+    script: "system/system.js",
+    show: false
+  });
+
+  overallCPU = new system.cpu();
+  memory = new system.memory();
+
+  // Position Logic
+  var defaultX = metrics.primary.screenArea.width - 210 - 20;
+  // Calculate Y based on clock if present, else default
+  var prevProps = clockWindow ? clockWindow.getProperties() : null;
+  var defaultY = prevProps ? (prevProps.y + prevProps.height + 20) : 20;
+
+  if (config.is_first_launch) {
+      systemWindow.setProperties({ x: defaultX, y: defaultY });
+  } else if (config.system_widget_position) {
+      systemWindow.setProperties(config.system_widget_position);
+  } else {
+      systemWindow.setProperties({ x: defaultX, y: defaultY });
+  }
+
+  systemWindow.setContextMenu([
+    {
+      text: "Refresh",
+      action: function() { systemWindow.refresh(); }
+    },
+    {
+      text: "Close",
+      action: function() {
+        config.system_widget_active = false;
+        saveConfig();
+        destroySystemWidget();
+        updateTrayMenu();
+      }
+    }
+  ]);
+
+  systemWindow.setProperties({ show: true });
+  systemWindowProperties = systemWindow.getProperties();
+}
+
+function destroySystemWidget() {
+  if (systemWindow) {
+    systemWindow.close();
+    systemWindow = null;
+    systemWindowProperties = null;
+    overallCPU = null;
+    memory = null;
+  }
+}
+
+function createNetworkWidget() {
+  if (networkWindow) return;
+
+  networkWindow = new widgetWindow({
+    id: "network_Widget",
+    script: "network/network.js",
+    show: false
+  });
+
+  network = new system.network();
+
+  // Position Logic
+  var defaultX = metrics.primary.screenArea.width - 210 - 20;
+  // Calculate Y based on system if present, else check clock, else default
+  var prevProps = systemWindow ? systemWindow.getProperties() : (clockWindow ? clockWindow.getProperties() : null);
+  // Note: If falling back to clock, we should add clock's height. If purely default (no prev widgets), just 20.
+  // Actually, strictly following previous logic: it was based on systemWindow.
+  // If systemWindow is missing, it should probably go under clock, or top if neither.
+  // Let's try to be smart but simple consistently.
+  
+  var defaultY = 20;
+  if (systemWindow) {
+      var p = systemWindow.getProperties();
+      defaultY = p.y + p.height + 20;
+  } else if (clockWindow) {
+      var p = clockWindow.getProperties();
+      defaultY = p.y + p.height + 20; // Fallback to under clock if system is missing
+  }
+
+  if (config.is_first_launch) {
+      networkWindow.setProperties({ x: defaultX, y: defaultY });
+  } else if (config.network_widget_position) {
+      networkWindow.setProperties(config.network_widget_position);
+  } else {
+      networkWindow.setProperties({ x: defaultX, y: defaultY });
+  }
+
+  networkWindow.setContextMenu([
+    {
+      text: "Refresh",
+      action: function() { networkWindow.refresh(); }
+    },
+    {
+      text: "Close",
+      action: function() {
+        config.network_widget_active = false;
+        saveConfig();
+        destroyNetworkWidget();
+        updateTrayMenu();
+      }
+    }
+  ]);
+
+  networkWindow.setProperties({ show: true });
+  networkWindowProperties = networkWindow.getProperties();
+}
+
+function destroyNetworkWidget() {
+  if (networkWindow) {
+    networkWindow.close();
+    networkWindow = null;
+    networkWindowProperties = null;
+    network = null;
+  }
+}
+
+function createWelcomeWidget() {
+  if (welcomeWindow) return;
+
+  welcomeWindow = new widgetWindow({
+    id: "welcome_Widget",
+    script: "welcome/welcome.js",
+    show: false
+  });
+
+  // Position Logic
+  // We can't get properties before setting properties if we want to center it accurately using defaults
+  // But wait, we can get default size from the window creation if we didn't specify it?
+  // The original code did: welcomeWindow = new...; props = getProperties(); setProperties(...);
+  
+  // We need to temporarily force a property update to get dimensions if we want to center based on content.
+  // But `getProperties` should work immediately after creation.
+  var tempProps = welcomeWindow.getProperties();
+  
+  var defaultX = (metrics.primary.screenArea.width - tempProps.width) / 2;
+  var defaultY = (metrics.primary.screenArea.height - tempProps.height) / 2;
+
+  if (config.is_first_launch) {
+      welcomeWindow.setProperties({ x: defaultX, y: defaultY });
+  } else if (config.welcome_widget_position) {
+      welcomeWindow.setProperties(config.welcome_widget_position);
+  } else {
+      welcomeWindow.setProperties({ x: defaultX, y: defaultY });
+  }
+
+  welcomeWindow.setContextMenu([
+    {
+      text: "Refresh",
+      action: function() { welcomeWindow.refresh(); }
+    },
+    {
+      text: "Close",
+      action: function() {
+        config.welcome_widget_active = false;
+        saveConfig();
+        destroyWelcomeWidget();
+        updateTrayMenu();
+      }
+    }
+  ]);
+
+  welcomeWindow.setProperties({ show: true });
+  welcomeProps = welcomeWindow.getProperties();
+}
+
+function destroyWelcomeWidget() {
+  if (welcomeWindow) {
+    welcomeWindow.close();
+    welcomeWindow = null;
+    welcomeProps = null;
+  }
+}
 
 
 // =====================
-// Welcome Widget
+// Initial Startup
 // =====================
-var welcomeWindow = new widgetWindow({
-  id: "welcome_Widget",
-  script: "welcome/welcome.js",
-});
 
-// var welcomeProps = welcomeWindow.getProperties();
-// welcomeWindow.setProperties({
-//   x: (metrics.primary.screenArea.width - welcomeProps.width) / 2,
-//   y: (metrics.primary.screenArea.height - welcomeProps.height) / 2
-// });
+if (config.clock_widget_active) createClockWidget();
+if (config.system_widget_active) createSystemWidget();
+if (config.network_widget_active) createNetworkWidget();
+if (config.welcome_widget_active) createWelcomeWidget();
 
-// // Update properties variable after modification to get new position
-// welcomeProps = welcomeWindow.getProperties();
 
+// =====================
+// First Launch Post-Setup
+// =====================
+if (config.is_first_launch) {
+  config.is_first_launch = false;
+  saveConfig();
+}
+
+// =====================
+// Initialize Tray Menu
+// =====================
+updateTrayMenu();
 
 // =====================
 // Global Management Loop
@@ -81,17 +375,23 @@ var welcomeWindow = new widgetWindow({
 setInterval(function () {
   ipc.send('update_Elements');
 
-  var stats = overallCPU.usage();
-  var memStats = memory.stats();
-  var netStats = network.stats()
+  if (overallCPU && memory) {
+    var stats = overallCPU.usage();
+    var memStats = memory.stats();
 
-  // Convert bytes to KB/s for display
-  var netInKB = (netStats.netIn / 1024).toFixed(2);
-  var netOutKB = (netStats.netOut / 1024).toFixed(2);
+    ipc.send('cpu-usage', stats);
+    ipc.send('memory-usage', memStats.percent);
+  }
 
-  ipc.send('cpu-usage', stats);
-  ipc.send('memory-usage', memStats.percent);
-  ipc.send('net-in', netInKB);
-  ipc.send('net-out', netOutKB);
+  if (network) {
+    var netStats = network.stats();
+
+    // Convert bytes to KB/s for display
+    var netInKB = (netStats.netIn / 1024).toFixed(2);
+    var netOutKB = (netStats.netOut / 1024).toFixed(2);
+
+    ipc.send('net-in', netInKB);
+    ipc.send('net-out', netOutKB);
+  }
 
 }, 1000);
