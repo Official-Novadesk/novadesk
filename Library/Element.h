@@ -10,7 +10,6 @@
 
 #include <windows.h>
 #include <objidl.h>
-#include <gdiplus.h>
 #include <d2d1_1.h>
 #include <string>
 #include <vector>
@@ -31,6 +30,12 @@ enum ElementType
     ELEMENT_IMAGE,
     ELEMENT_TEXT,
     ELEMENT_BAR
+};
+
+struct GfxRect {
+    int X, Y, Width, Height;
+    GfxRect() : X(0), Y(0), Width(0), Height(0) {}
+    GfxRect(int x, int y, int w, int h) : X(x), Y(y), Width(w), Height(h) {}
 };
 
 class Element
@@ -63,7 +68,7 @@ public:
     virtual int GetAutoWidth() { return 0; }
     virtual int GetAutoHeight() { return 0; }
 
-    virtual Gdiplus::Rect GetBounds();
+    virtual GfxRect GetBounds();
 
     virtual bool HitTest(int x, int y);
 

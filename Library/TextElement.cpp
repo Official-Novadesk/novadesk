@@ -9,8 +9,6 @@
 #include "Logging.h"
 #include "Direct2DHelper.h"
 
-using namespace Gdiplus;
-
 TextElement::TextElement(const std::wstring& id, int x, int y, int w, int h,
      const std::wstring& text, const std::wstring& fontFace,
      int fontSize, COLORREF fontColor, BYTE alpha,
@@ -120,13 +118,13 @@ void TextElement::Render(ID2D1DeviceContext* context)
     context->GetTransform(&originalTransform);
     if (m_Rotate != 0.0f)
     {
-        Gdiplus::Rect bounds = GetBounds();
+        GfxRect bounds = GetBounds();
         D2D1_POINT_2F center = D2D1::Point2F(bounds.X + bounds.Width / 2.0f, bounds.Y + bounds.Height / 2.0f);
         context->SetTransform(D2D1::Matrix3x2F::Rotation(m_Rotate, center) * originalTransform);
     }
     
     // Apply padding to layout rectangle
-    Gdiplus::Rect bounds = GetBounds();
+    GfxRect bounds = GetBounds();
     float layoutX = (float)bounds.X + m_PaddingLeft;
     float layoutY = (float)bounds.Y + m_PaddingTop;
     float layoutW = (float)bounds.Width - m_PaddingLeft - m_PaddingRight;
@@ -248,7 +246,7 @@ int TextElement::GetAutoHeight()
     return height;
 }
 
-Gdiplus::Rect TextElement::GetBounds() {
+GfxRect TextElement::GetBounds() {
     int w = GetWidth();
     int h = GetHeight();
     int x = m_X;
@@ -270,7 +268,7 @@ Gdiplus::Rect TextElement::GetBounds() {
         y -= h;
     }
 
-    return Gdiplus::Rect(x, y, w, h);
+    return GfxRect(x, y, w, h);
 }
 
 bool TextElement::HitTest(int x, int y)
@@ -292,7 +290,7 @@ bool TextElement::HitTest(int x, int y)
     );
     if (FAILED(hr)) return false;
 
-    Gdiplus::Rect bounds = GetBounds();
+    GfxRect bounds = GetBounds();
     float layoutW = (float)bounds.Width - m_PaddingLeft - m_PaddingRight;
     float layoutH = (float)bounds.Height - m_PaddingTop - m_PaddingBottom;
     if (layoutW < 0) layoutW = 1;

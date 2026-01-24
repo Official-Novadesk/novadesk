@@ -24,9 +24,6 @@
 #include "JSApi/JSCommon.h"
 #include "JSApi/JSEvents.h"
 #include "ColorUtil.h"
-#pragma comment(lib, "gdiplus.lib")
-
-using namespace Gdiplus;
 
 #define WIDGET_CLASS_NAME L"NovadeskWidget"
 #define ZPOS_FLAGS (SWP_NOMOVE | SWP_NOSIZE | SWP_NOOWNERZORDER | SWP_NOACTIVATE | SWP_NOSENDCHANGING)
@@ -1032,7 +1029,7 @@ void Widget::UpdateLayeredWindowContent()
         int maxY = 0;
         for (Element* element : m_Elements)
         {
-            Gdiplus::Rect bounds = element->GetBounds();
+            GfxRect bounds = element->GetBounds();
             maxX = (std::max)(maxX, bounds.X + bounds.Width);
             maxY = (std::max)(maxY, bounds.Y + bounds.Height);
         }

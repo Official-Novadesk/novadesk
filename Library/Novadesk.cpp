@@ -17,7 +17,6 @@
 #include "Resource.h"
 #include <vector>
 #include <shellapi.h>
-#include <gdiplus.h>
 #include <fcntl.h>
 #include <io.h>
 #include "MenuUtils.h"
@@ -28,10 +27,6 @@
 
 #pragma comment(lib, "comctl32.lib")
 
-#pragma comment(lib, "gdiplus.lib")
-
-using namespace Gdiplus;
-
 #define MAX_LOADSTRING 100
 
 // Global Variables:
@@ -40,7 +35,6 @@ WCHAR szTitle[MAX_LOADSTRING];                  // The title bar text
 duk_context *ctx = nullptr;
 std::vector<Widget*> widgets;
 NOTIFYICONDATA nid = {};
-ULONG_PTR gdiplusToken;
 
 // Forward declarations of functions included in this code module:
 void InitTrayIcon(HWND hWnd);
@@ -111,10 +105,6 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     InitCommonControlsEx(&icce);
 
     System::Initialize(hInstance);
-    
-    // Initialize GDI+
-    GdiplusStartupInput gdiplusStartupInput;
-    GdiplusStartup(&gdiplusToken, &gdiplusStartupInput, NULL);
 
     // Initialize Direct2D
     Direct2D::Initialize();
@@ -252,7 +242,6 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     
     // Convert GDI+ shutdown
     Direct2D::Cleanup();
-    GdiplusShutdown(gdiplusToken);
 
     // Close mutex
     if (hMutex) CloseHandle(hMutex);

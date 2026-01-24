@@ -38,15 +38,15 @@ int Element::GetHeight() {
 /*
 ** Get the bounding box of the element.
 */
-Gdiplus::Rect Element::GetBounds() {
-    return Gdiplus::Rect(m_X, m_Y, GetWidth(), GetHeight());
+GfxRect Element::GetBounds() {
+    return GfxRect(m_X, m_Y, GetWidth(), GetHeight());
 }
 
 /*
 ** Check if a point is within the element's bounds.
 */
 bool Element::HitTest(int x, int y) {
-    Gdiplus::Rect bounds = GetBounds();
+    GfxRect bounds = GetBounds();
     return (x >= bounds.X && x < bounds.X + bounds.Width &&
             y >= bounds.Y && y < bounds.Y + bounds.Height);
 }
@@ -133,7 +133,7 @@ void Element::RenderBackground(ID2D1DeviceContext* context) {
 
     context->SetAntialiasMode(m_AntiAlias ? D2D1_ANTIALIAS_MODE_PER_PRIMITIVE : D2D1_ANTIALIAS_MODE_ALIASED);
 
-    Gdiplus::Rect bounds = GetBounds();
+    GfxRect bounds = GetBounds();
     D2D1_RECT_F rect = D2D1::RectF((float)bounds.X, (float)bounds.Y, (float)(bounds.X + bounds.Width), (float)(bounds.Y + bounds.Height));
     
     if (rect.right <= rect.left || rect.bottom <= rect.top) return;
@@ -170,7 +170,7 @@ void Element::RenderBevel(ID2D1DeviceContext* context) {
 
     context->SetAntialiasMode(m_AntiAlias ? D2D1_ANTIALIAS_MODE_PER_PRIMITIVE : D2D1_ANTIALIAS_MODE_ALIASED);
 
-    Gdiplus::Rect bounds = GetBounds();
+    GfxRect bounds = GetBounds();
     D2D1_RECT_F rect = D2D1::RectF((float)bounds.X, (float)bounds.Y, (float)(bounds.X + bounds.Width), (float)(bounds.Y + bounds.Height));
     
     Microsoft::WRL::ComPtr<ID2D1SolidColorBrush> highlightBrush;

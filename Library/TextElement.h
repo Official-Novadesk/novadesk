@@ -11,7 +11,6 @@
 #include "Element.h"
 #include <string>
 #include <windows.h>
-#include <gdiplus.h>
 
 enum TextAlignment
 {
@@ -68,7 +67,7 @@ public:
 
     virtual int GetAutoWidth() override;
     virtual int GetAutoHeight() override;
-    virtual Gdiplus::Rect GetBounds() override; // Keeping ROI as Gdiplus::Rect for now as it's used for layout, but internally use D2D
+    virtual GfxRect GetBounds() override; // Keeping ROI as GfxRect for now as it's used for layout, but internally use D2D
     virtual bool HitTest(int x, int y) override;
 
 private:
