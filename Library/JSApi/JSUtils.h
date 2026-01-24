@@ -25,6 +25,7 @@ namespace JSApi {
     duk_ret_t js_novadesk_enableDebugging(duk_context* ctx);
     duk_ret_t js_novadesk_disableLogging(duk_context* ctx);
     duk_ret_t js_novadesk_hideTrayIcon(duk_context* ctx);
+    duk_ret_t js_novadesk_useHardwareAcceleration(duk_context* ctx);
     duk_ret_t js_novadesk_refresh(duk_context* ctx);
     duk_ret_t js_novadesk_exit(duk_context* ctx);
     duk_ret_t js_novadesk_getProductVersion(duk_context* ctx);

@@ -20,7 +20,7 @@ public:
     BarElement(const std::wstring& id, int x, int y, int w, int h, float value, BarOrientation orientation);
     virtual ~BarElement() {}
 
-    virtual void Render(Gdiplus::Graphics& graphics) override;
+    virtual void Render(ID2D1DeviceContext* context) override;
 
     float GetValue() const { return m_Value; }
     BarOrientation GetOrientation() const { return m_Orientation; }

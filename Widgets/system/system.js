@@ -20,7 +20,7 @@ var CONFIG = {
     },
     bar: {
         height: 8,
-        radius: 8,
+        radius: 4,
         gradientAngle: 45
     }
 };

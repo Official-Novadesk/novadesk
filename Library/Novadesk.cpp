@@ -17,19 +17,15 @@
 #include "Resource.h"
 #include <vector>
 #include <shellapi.h>
-#include <gdiplus.h>
 #include <fcntl.h>
 #include <io.h>
 #include "MenuUtils.h"
 #include "Utils.h"
 #include "PathUtils.h"
 #include <commctrl.h>
+#include "Direct2DHelper.h"
 
 #pragma comment(lib, "comctl32.lib")
-
-#pragma comment(lib, "gdiplus.lib")
-
-using namespace Gdiplus;
 
 #define MAX_LOADSTRING 100
 
@@ -39,7 +35,6 @@ WCHAR szTitle[MAX_LOADSTRING];                  // The title bar text
 duk_context *ctx = nullptr;
 std::vector<Widget*> widgets;
 NOTIFYICONDATA nid = {};
-ULONG_PTR gdiplusToken;
 
 // Forward declarations of functions included in this code module:
 void InitTrayIcon(HWND hWnd);
@@ -58,13 +53,10 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
         FILE* fDummy;
         freopen_s(&fDummy, "CONOUT$", "w", stdout);
         freopen_s(&fDummy, "CONOUT$", "w", stderr);
-        // Also enable wide output for stdout
         _setmode(_fileno(stdout), _O_U16TEXT);
     }
 
     // Clear log file on startup
-    // This ensures a fresh log for the new session, while subsequent refreshes 
-    // (handled in Settings.cpp/JSUtils.cpp) will append to preserve history.
     std::wstring logPath = PathUtils::GetExeDir() + L"logs.log";
     DeleteFileW(logPath.c_str());
 
@@ -113,10 +105,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     InitCommonControlsEx(&icce);
 
     System::Initialize(hInstance);
-    
-    // Initialize GDI+
-    GdiplusStartupInput gdiplusStartupInput;
-    GdiplusStartup(&gdiplusToken, &gdiplusStartupInput, NULL);
+
+    // Initialize Direct2D
+    Direct2D::Initialize();
 
     // Initialize Settings
     Settings::Initialize();
@@ -250,7 +241,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     System::Finalize();
     
     // Convert GDI+ shutdown
-    GdiplusShutdown(gdiplusToken);
+    Direct2D::Cleanup();
 
     // Close mutex
     if (hMutex) CloseHandle(hMutex);

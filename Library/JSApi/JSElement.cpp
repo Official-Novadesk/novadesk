@@ -111,7 +111,7 @@ namespace JSApi {
         return 1;
     }
 
-    duk_ret_t js_widget_get_element_properties(duk_context* ctx) {
+    duk_ret_t js_widget_get_element_property(duk_context* ctx) {
         duk_push_this(ctx);
         duk_get_prop_string(ctx, -1, "\xFF" "widgetPtr");
         Widget* widget = (Widget*)duk_get_pointer(ctx, -1);
@@ -119,12 +119,23 @@ namespace JSApi {
 
         if (!widget) return DUK_RET_TYPE_ERROR;
         std::wstring id = Utils::ToWString(duk_get_string(ctx, 0));
+        std::string propertyName = duk_get_string(ctx, 1);
+
         Element* element = widget->FindElementById(id);
         if (!element) {
             duk_push_null(ctx);
             return 1;
         }
+        
+        // Push all properties to a temporary object and get the requested one
         PropertyParser::PushElementProperties(ctx, element);
+        if (duk_get_prop_string(ctx, -1, propertyName.c_str())) {
+            duk_remove(ctx, -2); // Remove the properties object, leaving the property value
+            return 1;
+        }
+        
+        duk_pop_2(ctx); // Pop undefined and the properties object
+        duk_push_undefined(ctx);
         return 1;
     }
 
@@ -140,7 +151,7 @@ namespace JSApi {
         duk_put_prop_string(ctx, -2, "removeElements");
         duk_push_c_function(ctx, js_widget_set_element_properties, 2);
         duk_put_prop_string(ctx, -2, "setElementProperties");
-        duk_push_c_function(ctx, js_widget_get_element_properties, 1);
-        duk_put_prop_string(ctx, -2, "getElementProperties");
+        duk_push_c_function(ctx, js_widget_get_element_property, 2);
+        duk_put_prop_string(ctx, -2, "getElementProperty");
     }
 }

@@ -10,7 +10,7 @@
 
 #include <windows.h>
 #include <objidl.h>
-#include <gdiplus.h>
+#include <d2d1_1.h>
 #include <string>
 #include <vector>
 
@@ -32,13 +32,19 @@ enum ElementType
     ELEMENT_BAR
 };
 
+struct GfxRect {
+    int X, Y, Width, Height;
+    GfxRect() : X(0), Y(0), Width(0), Height(0) {}
+    GfxRect(int x, int y, int w, int h) : X(x), Y(y), Width(w), Height(h) {}
+};
+
 class Element
 {
 public:
     Element(ElementType type, const std::wstring& id, int x, int y, int width, int height);
     virtual ~Element() {}
 
-    virtual void Render(Gdiplus::Graphics& graphics) = 0;
+    virtual void Render(ID2D1DeviceContext* context) = 0;
 
     ElementType GetType() const { return m_Type; }
     const std::wstring& GetId() const { return m_Id; }
@@ -62,7 +68,7 @@ public:
     virtual int GetAutoWidth() { return 0; }
     virtual int GetAutoHeight() { return 0; }
 
-    virtual Gdiplus::Rect GetBounds();
+    virtual GfxRect GetBounds();
 
     virtual bool HitTest(int x, int y);
 
@@ -221,8 +227,8 @@ protected:
     int m_ToolTipMaxHeight = 0;
     bool m_ToolTipBalloon = false;
 
-    void RenderBackground(Gdiplus::Graphics& graphics);
-    void RenderBevel(Gdiplus::Graphics& graphics);
+    void RenderBackground(ID2D1DeviceContext* context);
+    void RenderBevel(ID2D1DeviceContext* context);
 };
 
 #endif

@@ -40,7 +40,7 @@ bool Tooltip::Initialize(HWND parentHWnd, HINSTANCE hInstance)
 
     if (m_ToolTipHWnd || m_ToolTipBalloonHWnd)
     {
-        Logging::Log(LogLevel::Debug, L"Tooltip controls created successfully");
+        // Logging::Log(LogLevel::Debug, L"Tooltip controls created successfully");
         return true;
     }
 
@@ -83,8 +83,8 @@ void Tooltip::Update(Element* element)
         ti.hwnd = m_ParentHWnd;
         ti.uId = 0;
 
-        Logging::Log(LogLevel::Debug, L"UpdateToolTip: id=%s, text=%s, balloon=%d",
-            element->GetId().c_str(), element->GetToolTipText().c_str(), element->GetToolTipBalloon());
+        // Logging::Log(LogLevel::Debug, L"UpdateToolTip: id=%s, text=%s, balloon=%d",
+        //     element->GetId().c_str(), element->GetToolTipText().c_str(), element->GetToolTipBalloon());
 
         // Update Text
         ti.lpszText = (LPWSTR)element->GetToolTipText().c_str();

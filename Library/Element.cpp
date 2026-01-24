@@ -7,6 +7,7 @@
 
 #include "Element.h"
 #include "Logging.h"
+#include "Direct2DHelper.h"
 #include <algorithm>
 
 Element::Element(ElementType type, const std::wstring& id, int x, int y, int width, int height)
@@ -37,17 +38,43 @@ int Element::GetHeight() {
 /*
 ** Get the bounding box of the element.
 */
-Gdiplus::Rect Element::GetBounds() {
-    return Gdiplus::Rect(m_X, m_Y, GetWidth(), GetHeight());
+GfxRect Element::GetBounds() {
+    return GfxRect(m_X, m_Y, GetWidth(), GetHeight());
 }
 
 /*
 ** Check if a point is within the element's bounds.
 */
 bool Element::HitTest(int x, int y) {
-    Gdiplus::Rect bounds = GetBounds();
-    return (x >= bounds.X && x < bounds.X + bounds.Width &&
-            y >= bounds.Y && y < bounds.Y + bounds.Height);
+    if (m_Rotate == 0.0f) {
+        GfxRect bounds = GetBounds();
+        return (x >= bounds.X && x < bounds.X + bounds.Width &&
+                y >= bounds.Y && y < bounds.Y + bounds.Height);
+    }
+
+    // Transform point (x, y) by the inverse of the rotation transform
+    GfxRect bounds = GetBounds();
+    float centerX = bounds.X + bounds.Width / 2.0f;
+    float centerY = bounds.Y + bounds.Height / 2.0f;
+
+    D2D1::Matrix3x2F rotation = D2D1::Matrix3x2F::Rotation(m_Rotate, D2D1::Point2F(centerX, centerY));
+    D2D1::Matrix3x2F inverse;
+    
+    // If inversion fails (degenerate matrix), fallback to standard bounds
+    if (!rotation.Invert()) {
+        return (x >= bounds.X && x < bounds.X + bounds.Width &&
+                y >= bounds.Y && y < bounds.Y + bounds.Height);
+    }
+
+    D2D1_POINT_2F p = D2D1::Point2F((float)x, (float)y);
+    D2D1_POINT_2F transformed = rotation.TransformPoint(p); // Actually transforms by the matrix itself
+
+    // Wait, D2D1::Matrix3x2F::TransformPoint applies the matrix. 
+    // rotation.Invert() MODIFIES the matrix to be the inverse.
+    // So 'rotation' IS now the inverse matrix.
+    
+    return (transformed.x >= bounds.X && transformed.x < bounds.X + bounds.Width &&
+            transformed.y >= bounds.Y && transformed.y < bounds.Y + bounds.Height);
 }
 
 /*
@@ -127,132 +154,89 @@ void Element::SetPadding(int left, int top, int right, int bottom) {
 /*
 ** Render the background of the element.
 */
-void Element::RenderBackground(Gdiplus::Graphics& graphics) {
+void Element::RenderBackground(ID2D1DeviceContext* context) {
     if (!m_HasSolidColor) return;
 
-    Gdiplus::Rect bounds = GetBounds();
-    int w = bounds.Width;
-    int h = bounds.Height;
-    if (w <= 0 || h <= 0) return;
+    context->SetAntialiasMode(m_AntiAlias ? D2D1_ANTIALIAS_MODE_PER_PRIMITIVE : D2D1_ANTIALIAS_MODE_ALIASED);
+
+    GfxRect bounds = GetBounds();
+    D2D1_RECT_F rect = D2D1::RectF((float)bounds.X, (float)bounds.Y, (float)(bounds.X + bounds.Width), (float)(bounds.Y + bounds.Height));
     
-    Gdiplus::Brush* brush = nullptr;
-    Gdiplus::GraphicsPath* path = nullptr;
+    if (rect.right <= rect.left || rect.bottom <= rect.top) return;
 
-    // Create gradient or solid brush
+    Microsoft::WRL::ComPtr<ID2D1Brush> brush;
     if (m_HasGradient) {
-        auto FindEdgePoint = [&](float angle, float left, float top, float width, float height) -> Gdiplus::PointF {
-            float base_angle = angle;
-            while (base_angle < 0.0f) base_angle += 360.0f;
-            base_angle = fmodf(base_angle, 360.0f);
+        D2D1_POINT_2F p1 = Direct2D::FindEdgePoint(m_GradientAngle + 180.0f, rect);
+        D2D1_POINT_2F p2 = Direct2D::FindEdgePoint(m_GradientAngle, rect);
 
-            const float M_PI_F = 3.14159265f;
-            const float base_radians = base_angle * (M_PI_F / 180.0f);
-            const float rectangle_tangent = atan2f(height, width);
-            const int quadrant = (int)fmodf(base_angle / 90.0f, 4.0f) + 1;
-
-            const float axis_angle = [&]() -> float {
-                switch (quadrant) {
-                    default:
-                    case 1: return base_radians - M_PI_F * 0.0f;
-                    case 2: return M_PI_F * 1.0f - base_radians;
-                    case 3: return base_radians - M_PI_F * 1.0f;
-                    case 4: return M_PI_F * 2.0f - base_radians;
-                }
-            }();
-
-            const float half_area = sqrtf(powf(width, 2.0f) + powf(height, 2.0f)) / 2.0f;
-            const float cos_axis = cosf(fabsf(axis_angle - rectangle_tangent));
-
-            return Gdiplus::PointF(
-                left + (width / 2.0f) + (half_area * cos_axis * cosf(base_radians)),
-                top + (height / 2.0f) + (half_area * cos_axis * sinf(base_radians))
-            );
-        };
-
-       
-        Gdiplus::PointF p1 = FindEdgePoint(m_GradientAngle + 180.0f, (float)bounds.X, (float)bounds.Y, (float)w, (float)h);
-        Gdiplus::PointF p2 = FindEdgePoint(m_GradientAngle, (float)bounds.X, (float)bounds.Y, (float)w, (float)h);
-        
-        Gdiplus::Color color1(m_SolidAlpha, GetRValue(m_SolidColor), GetGValue(m_SolidColor), GetBValue(m_SolidColor));
-        Gdiplus::Color color2(m_SolidAlpha2, GetRValue(m_SolidColor2), GetGValue(m_SolidColor2), GetBValue(m_SolidColor2));
-        
-        Gdiplus::LinearGradientBrush* lgBrush = new Gdiplus::LinearGradientBrush(p1, p2, color1, color2);
-        lgBrush->SetWrapMode(Gdiplus::WrapModeClamp);
+        Microsoft::WRL::ComPtr<ID2D1LinearGradientBrush> lgBrush;
+        Direct2D::CreateLinearGradientBrush(context, p1, p2, m_SolidColor, m_SolidAlpha / 255.0f, m_SolidColor2, m_SolidAlpha2 / 255.0f, lgBrush.GetAddressOf());
         brush = lgBrush;
     } else {
-        Gdiplus::Color backColor(m_SolidAlpha, GetRValue(m_SolidColor), GetGValue(m_SolidColor), GetBValue(m_SolidColor));
-        brush = new Gdiplus::SolidBrush(backColor);
+        Microsoft::WRL::ComPtr<ID2D1SolidColorBrush> sBrush;
+        Direct2D::CreateSolidBrush(context, m_SolidColor, m_SolidAlpha / 255.0f, sBrush.GetAddressOf());
+        brush = sBrush;
     }
-    
-    if (m_CornerRadius > 0) {
-        path = new Gdiplus::GraphicsPath();
-        int d = m_CornerRadius * 2;
-        if (d > w) d = w;
-        if (d > h) d = h;
 
-        path->AddArc(bounds.X, bounds.Y, d, d, 180, 90);
-        path->AddArc(bounds.X + bounds.Width - d, bounds.Y, d, d, 270, 90);
-        path->AddArc(bounds.X + bounds.Width - d, bounds.Y + bounds.Height - d, d, d, 0, 90);
-        path->AddArc(bounds.X, bounds.Y + bounds.Height - d, d, d, 90, 90);
-        path->CloseFigure();
-        
-        graphics.FillPath(brush, path);
-        delete path;
-    } else {
-        graphics.FillRectangle(brush, (Gdiplus::REAL)bounds.X, (Gdiplus::REAL)bounds.Y, (Gdiplus::REAL)w, (Gdiplus::REAL)h);
+    if (brush) {
+        if (m_CornerRadius > 0) {
+            D2D1_ROUNDED_RECT roundedRect = D2D1::RoundedRect(rect, (float)m_CornerRadius, (float)m_CornerRadius);
+            context->FillRoundedRectangle(roundedRect, brush.Get());
+        } else {
+            context->FillRectangle(rect, brush.Get());
+        }
     }
-    
-    delete brush;
 }
 
 /*
 ** Render the bevel of the element.
 */
-void Element::RenderBevel(Gdiplus::Graphics& graphics) {
+void Element::RenderBevel(ID2D1DeviceContext* context) {
     if (m_BevelType == 0 || m_BevelWidth <= 0) return;
 
-    Gdiplus::Rect bounds = GetBounds();
-    int w = bounds.Width;
-    int h = bounds.Height;
+    context->SetAntialiasMode(m_AntiAlias ? D2D1_ANTIALIAS_MODE_PER_PRIMITIVE : D2D1_ANTIALIAS_MODE_ALIASED);
+
+    GfxRect bounds = GetBounds();
+    D2D1_RECT_F rect = D2D1::RectF((float)bounds.X, (float)bounds.Y, (float)(bounds.X + bounds.Width), (float)(bounds.Y + bounds.Height));
     
-    Gdiplus::Color highlight(m_BevelAlpha, GetRValue(m_BevelColor), GetGValue(m_BevelColor), GetBValue(m_BevelColor));
-    Gdiplus::Color shadow(m_BevelAlpha2, GetRValue(m_BevelColor2), GetGValue(m_BevelColor2), GetBValue(m_BevelColor2));
-    
-    Gdiplus::Pen highlightPen(highlight, (Gdiplus::REAL)m_BevelWidth);
-    Gdiplus::Pen shadowPen(shadow, (Gdiplus::REAL)m_BevelWidth);
-    
-    int offset = m_BevelWidth / 2;
+    Microsoft::WRL::ComPtr<ID2D1SolidColorBrush> highlightBrush;
+    Microsoft::WRL::ComPtr<ID2D1SolidColorBrush> shadowBrush;
+    Direct2D::CreateSolidBrush(context, m_BevelColor, m_BevelAlpha / 255.0f, highlightBrush.GetAddressOf());
+    Direct2D::CreateSolidBrush(context, m_BevelColor2, m_BevelAlpha2 / 255.0f, shadowBrush.GetAddressOf());
+
+    float offset = m_BevelWidth / 2.0f;
     
     switch (m_BevelType) {
     case 1: // Raised
-        graphics.DrawLine(&highlightPen, bounds.X + offset, bounds.Y + offset, bounds.X + w - offset, bounds.Y + offset);
-        graphics.DrawLine(&highlightPen, bounds.X + offset, bounds.Y + offset, bounds.X + offset, bounds.Y + h - offset);
-        graphics.DrawLine(&shadowPen, bounds.X + w - offset, bounds.Y + offset, bounds.X + w - offset, bounds.Y + h - offset);
-        graphics.DrawLine(&shadowPen, bounds.X + offset, bounds.Y + h - offset, bounds.X + w - offset, bounds.Y + h - offset);
+        context->DrawLine(D2D1::Point2F(rect.left + offset, rect.top + offset), D2D1::Point2F(rect.right - offset, rect.top + offset), highlightBrush.Get(), (float)m_BevelWidth);
+        context->DrawLine(D2D1::Point2F(rect.left + offset, rect.top + offset), D2D1::Point2F(rect.left + offset, rect.bottom - offset), highlightBrush.Get(), (float)m_BevelWidth);
+        context->DrawLine(D2D1::Point2F(rect.right - offset, rect.top + offset), D2D1::Point2F(rect.right - offset, rect.bottom - offset), shadowBrush.Get(), (float)m_BevelWidth);
+        context->DrawLine(D2D1::Point2F(rect.left + offset, rect.bottom - offset), D2D1::Point2F(rect.right - offset, rect.bottom - offset), shadowBrush.Get(), (float)m_BevelWidth);
         break;
         
     case 2: // Sunken
-        graphics.DrawLine(&shadowPen, bounds.X + offset, bounds.Y + offset, bounds.X + w - offset, bounds.Y + offset);
-        graphics.DrawLine(&shadowPen, bounds.X + offset, bounds.Y + offset, bounds.X + offset, bounds.Y + h - offset);
-        graphics.DrawLine(&highlightPen, bounds.X + w - offset, bounds.Y + offset, bounds.X + w - offset, bounds.Y + h - offset);
-        graphics.DrawLine(&highlightPen, bounds.X + offset, bounds.Y + h - offset, bounds.X + w - offset, bounds.Y + h - offset);
+        context->DrawLine(D2D1::Point2F(rect.left + offset, rect.top + offset), D2D1::Point2F(rect.right - offset, rect.top + offset), shadowBrush.Get(), (float)m_BevelWidth);
+        context->DrawLine(D2D1::Point2F(rect.left + offset, rect.top + offset), D2D1::Point2F(rect.left + offset, rect.bottom - offset), shadowBrush.Get(), (float)m_BevelWidth);
+        context->DrawLine(D2D1::Point2F(rect.right - offset, rect.top + offset), D2D1::Point2F(rect.right - offset, rect.bottom - offset), highlightBrush.Get(), (float)m_BevelWidth);
+        context->DrawLine(D2D1::Point2F(rect.left + offset, rect.bottom - offset), D2D1::Point2F(rect.right - offset, rect.bottom - offset), highlightBrush.Get(), (float)m_BevelWidth);
         break;
         
     case 3: // Emboss
         {
-            Gdiplus::Color midHighlight(m_BevelAlpha / 2, GetRValue(m_BevelColor), GetGValue(m_BevelColor), GetBValue(m_BevelColor));
-            Gdiplus::Pen midPen(midHighlight, (Gdiplus::REAL)m_BevelWidth);
-            graphics.DrawLine(&highlightPen, bounds.X + offset, bounds.Y + offset, bounds.X + w - offset, bounds.Y + offset);
-            graphics.DrawLine(&midPen, bounds.X + offset, bounds.Y + offset, bounds.X + offset, bounds.Y + h - offset);
+            Microsoft::WRL::ComPtr<ID2D1SolidColorBrush> midBrush;
+            Direct2D::CreateSolidBrush(context, m_BevelColor, (m_BevelAlpha / 2.0f) / 255.0f, midBrush.GetAddressOf());
+            context->DrawLine(D2D1::Point2F(rect.left + offset, rect.top + offset), D2D1::Point2F(rect.right - offset, rect.top + offset), highlightBrush.Get(), (float)m_BevelWidth);
+            context->DrawLine(D2D1::Point2F(rect.left + offset, rect.top + offset), D2D1::Point2F(rect.left + offset, rect.bottom - offset), midBrush.Get(), (float)m_BevelWidth);
         }
         break;
         
     case 4: // Pillow
         for (int i = 0; i < m_BevelWidth; i++) {
-            int alpha = (int)(m_BevelAlpha * (1.0f - (float)i / m_BevelWidth));
-            Gdiplus::Color fadeColor(alpha, GetRValue(m_BevelColor), GetGValue(m_BevelColor), GetBValue(m_BevelColor));
-            Gdiplus::Pen fadePen(fadeColor, 1.0f);
-            graphics.DrawRectangle(&fadePen, bounds.X + i, bounds.Y + i, w - i * 2, h - i * 2);
+            float alpha = (m_BevelAlpha / 255.0f) * (1.0f - (float)i / m_BevelWidth);
+            Microsoft::WRL::ComPtr<ID2D1SolidColorBrush> fadeBrush;
+            Direct2D::CreateSolidBrush(context, m_BevelColor, alpha, fadeBrush.GetAddressOf());
+            D2D1_RECT_F r = D2D1::RectF(rect.left + i, rect.top + i, rect.right - i, rect.bottom - i);
+            context->DrawRectangle(r, fadeBrush.Get(), 1.0f);
         }
         break;
     }

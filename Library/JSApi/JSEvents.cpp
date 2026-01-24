@@ -280,14 +280,60 @@ namespace JSApi {
         
         duk_pop_2(ctx); // pop __events, stash
 
-        Logging::Log(LogLevel::Debug, L"Event callback registered: %d", id);
+        // Logging::Log(LogLevel::Debug, L"Event callback registered: %d", id);
         return id;
     }
 
-    void CallEventCallback(int id) {
+    void CallEventCallback(int id, Widget* contextWidget) {
         if (!s_JsContext || id < 0) return;
         
-        Logging::Log(LogLevel::Debug, L"Calling event callback: %d", id);
+        // Logging::Log(LogLevel::Debug, L"Calling event callback: %d", id);
+
+        // If we have a context widget, set up the environment
+        if (contextWidget) {
+            duk_push_global_stash(s_JsContext);
+            if (duk_get_prop_string(s_JsContext, -1, "widget_objects")) {
+                std::string idStr = Utils::ToString(contextWidget->GetOptions().id);
+                if (duk_get_prop_string(s_JsContext, -1, idStr.c_str())) {
+                    if (duk_is_object(s_JsContext, -1)) {
+                        duk_get_global_string(s_JsContext, "win"); // Save original win
+                        duk_dup(s_JsContext, -2); // Duplicate widget object
+                        duk_put_global_string(s_JsContext, "win"); // Set new win
+                        
+                        // Stack: [stash, widget_objects, widget_obj, original_win]
+                    } else {
+                        duk_pop(s_JsContext); // Pop undefined/null
+                    }
+                } else {
+                    duk_pop(s_JsContext); // Pop undefined
+                }
+            }
+            duk_pop_2(s_JsContext); // Pop widget_objects, stash (Wait, we kept original_win on stack if success)
+        }
+
+        // Wait, stack management above is tricky. Let's simplify.
+        bool contextSwitched = false;
+        if (contextWidget) {
+             duk_push_global_stash(s_JsContext);
+             if (duk_get_prop_string(s_JsContext, -1, "widget_objects")) {
+                 std::string idStr = Utils::ToString(contextWidget->GetOptions().id);
+                 if (duk_get_prop_string(s_JsContext, -1, idStr.c_str())) {
+                     // Stack: [stash, widget_objects, widget_obj]
+                     duk_get_global_string(s_JsContext, "win"); // [..., original_win]
+                     duk_dup(s_JsContext, -2); // [..., original_win, widget_obj]
+                     duk_put_global_string(s_JsContext, "win");
+                     contextSwitched = true;
+                 } else {
+                     duk_pop(s_JsContext);
+                 }
+             }
+             if (!contextSwitched) {
+                 duk_pop_2(s_JsContext); // pop widget_objects, stash if failed
+             } else {
+                 // Leave items on stack to restore later
+                 // Stack: [stash, widget_objects, widget_obj, original_win]
+             }
+        }
 
         duk_push_global_stash(s_JsContext);
         if (duk_get_prop_string(s_JsContext, -1, "__events")) {
@@ -307,5 +353,11 @@ namespace JSApi {
             }
         }
         duk_pop_2(s_JsContext);
+
+        if (contextSwitched) {
+            // Restore win
+            duk_put_global_string(s_JsContext, "win"); // Pops original_win
+            duk_pop_3(s_JsContext); // widget_obj, widget_objects, stash
+        }
     }
 }

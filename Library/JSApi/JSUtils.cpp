@@ -176,6 +176,13 @@ namespace JSApi {
         return 0;
     }
 
+    duk_ret_t js_novadesk_useHardwareAcceleration(duk_context* ctx) {
+        if (duk_get_top(ctx) == 0) return DUK_RET_TYPE_ERROR;
+        bool enable = duk_get_boolean(ctx, 0);
+        Settings::SetGlobalBool("useHardwareAcceleration", enable);
+        return 0;
+    }
+
     duk_ret_t js_novadesk_refresh(duk_context* ctx) {
         ReloadScripts(ctx);
         return 0;
@@ -254,6 +261,8 @@ namespace JSApi {
         duk_put_prop_string(ctx, -2, "disableLogging");
         duk_push_c_function(ctx, js_novadesk_hideTrayIcon, 1);
         duk_put_prop_string(ctx, -2, "hideTrayIcon");
+        duk_push_c_function(ctx, js_novadesk_useHardwareAcceleration, 1);
+        duk_put_prop_string(ctx, -2, "useHardwareAcceleration");
         duk_push_c_function(ctx, js_novadesk_refresh, 0);
         duk_put_prop_string(ctx, -2, "refresh");
         duk_push_c_function(ctx, js_novadesk_exit, 0);

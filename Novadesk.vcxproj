@@ -88,6 +88,9 @@
     <ClInclude Include="Library\JSApi\JSPath.h" />
     <ClInclude Include="Library\JSApi\JSWebFetch.h" />
     <ClInclude Include="Library\JSApi\JSAudio.h" />
+    <ClInclude Include="Library\JSApi\JSRegistry.h" />
+    <ClInclude Include="Library\JSApi\JSClipboard.h" />
+    <ClInclude Include="Library\JSApi\JSPower.h" />
     <ClInclude Include="Library\JSApi\JSNovadeskTray.h" />
     <ClInclude Include="Library\MouseMonitor.h" />
     <ClInclude Include="Library\NetworkMonitor.h" />
@@ -122,6 +125,7 @@
     <ClInclude Include="Library\PropertyParser.h" />
     <ClInclude Include="Library\json\json.hpp" />
     <ClInclude Include="Library\Version.h" />
+    <ClInclude Include="Library\Direct2DHelper.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Library\Element.cpp" />
@@ -134,6 +138,9 @@
     <ClCompile Include="Library\JSApi\JSPath.cpp" />
     <ClCompile Include="Library\JSApi\JSWebFetch.cpp" />
     <ClCompile Include="Library\JSApi\JSAudio.cpp" />
+    <ClCompile Include="Library\JSApi\JSRegistry.cpp" />
+    <ClCompile Include="Library\JSApi\JSClipboard.cpp" />
+    <ClCompile Include="Library\JSApi\JSPower.cpp" />
     <ClCompile Include="Library\JSApi\JSNovadeskTray.cpp" />
     <ClCompile Include="Library\MouseMonitor.cpp" />
     <ClCompile Include="Library\NetworkMonitor.cpp" />
@@ -161,6 +168,7 @@
     <ClCompile Include="Library\TimerManager.cpp" />
     <ClCompile Include="Library\PropertyParser.cpp" />
     <ClCompile Include="Library\Logging.cpp" />
+    <ClCompile Include="Library\Direct2DHelper.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="Novadesk.rc" />

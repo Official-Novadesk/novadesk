@@ -16,15 +16,14 @@
 #include <vector>
 #include <windowsx.h>
 #include <algorithm>
-#include <gdiplus.h>
-
+#include "Direct2DHelper.h"
+#include "ImageElement.h"
+#include "TextElement.h"
+#include "BarElement.h"
 #include "JSApi/JSApi.h"
 #include "JSApi/JSCommon.h"
 #include "JSApi/JSEvents.h"
 #include "ColorUtil.h"
-#pragma comment(lib, "gdiplus.lib")
-
-using namespace Gdiplus;
 
 #define WIDGET_CLASS_NAME L"NovadeskWidget"
 #define ZPOS_FLAGS (SWP_NOMOVE | SWP_NOSIZE | SWP_NOOWNERZORDER | SWP_NOACTIVATE | SWP_NOSENDCHANGING)
@@ -74,7 +73,7 @@ bool Widget::Register()
     HINSTANCE hInstance = GetModuleHandle(nullptr);
 
     WNDCLASSEXW wcex = { sizeof(WNDCLASSEX) };
-    wcex.style = CS_HREDRAW | CS_VREDRAW;
+    wcex.style = CS_HREDRAW | CS_VREDRAW | CS_DBLCLKS;
     wcex.lpfnWndProc = WndProc;
     wcex.hInstance = hInstance;
     wcex.hCursor = LoadCursor(nullptr, IDC_ARROW);
@@ -217,7 +216,7 @@ void Widget::ChangeZPos(ZPOSITION zPos, bool all)
         break;
 
     case ZPOSITION_NORMAL:
-        if (all || !System::GetShowDesktop()) break;
+        if (all) break;
         // Fallthrough
 
     case ZPOSITION_ONDESKTOP:
@@ -278,7 +277,7 @@ timer_check:
 */
 void Widget::ChangeSingleZPos(ZPOSITION zPos, bool all)
 {
-    if (zPos == ZPOSITION_NORMAL && System::GetShowDesktop())
+    if (zPos == ZPOSITION_NORMAL && (!all || System::GetShowDesktop()))
     {
         m_WindowZPosition = zPos;
         SetWindowPos(m_hWnd, System::GetBackmostTopWindow(), 0, 0, 0, 0, ZPOS_FLAGS);
@@ -432,8 +431,11 @@ LRESULT CALLBACK Widget::WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
         {
             widget->HandleMouseMessage(message, wParam, lParam);
             
-            // Bring widget to front when clicked (for ondesktop/normal)
-            widget->ChangeSingleZPos(widget->m_WindowZPosition);
+            // Bring widget to front when clicked (for normal)
+            if (widget->m_WindowZPosition != ZPOSITION_ONDESKTOP && widget->m_WindowZPosition != ZPOSITION_ONBOTTOM)
+            {
+                widget->ChangeSingleZPos(widget->m_WindowZPosition);
+            }
             
             if (widget->m_Options.draggable)
             {
@@ -513,9 +515,7 @@ LRESULT CALLBACK Widget::WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
             widget->HandleMouseMessage(message, wParam, lParam);
         }
         return 0;
-        
 
-        
     case WM_SETCURSOR:
         if (LOWORD(lParam) == HTCLIENT && widget)
         {
@@ -578,6 +578,16 @@ LRESULT CALLBACK Widget::WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
         }
         return 0;
 
+    case WM_MOUSEACTIVATE:
+        if (widget)
+        {
+            if (widget->m_WindowZPosition == ZPOSITION_ONDESKTOP || widget->m_WindowZPosition == ZPOSITION_ONBOTTOM)
+            {
+                return MA_NOACTIVATE;
+            }
+        }
+        return MA_ACTIVATE;
+
     case WM_NCHITTEST:
         return HTCLIENT; // We handle everything in client area to get mouse messages
         
@@ -606,8 +616,6 @@ LRESULT CALLBACK Widget::WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
 
                         widget->m_MouseOverElement->m_IsMouseOver = false;
                         
-                        // Optional: Trigger leave event? 
-                        // Rainmeter seems to trigger leave when covered. Let's do it.
                         int leaveId = widget->m_MouseOverElement->m_OnMouseLeaveCallbackId;
                         if (leaveId != -1)
                              JSApi::CallEventCallback(leaveId);
@@ -631,7 +639,7 @@ LRESULT CALLBACK Widget::WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
                     wp->hwndInsertAfter = System::GetBackmostTopWindow();
                 }
             }
-            else if (widget->m_WindowZPosition == ZPOSITION_ONBOTTOM)
+            else if (widget->m_WindowZPosition == ZPOSITION_ONBOTTOM || widget->m_WindowZPosition == ZPOSITION_ONDESKTOP)
             {
                 wp->flags |= SWP_NOZORDER;
             }
@@ -799,7 +807,6 @@ LRESULT CALLBACK Widget::WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
 // Content Management Methods
 // ============================================================================
 
-// Helper to apply common element options
 /*
 ** Add an image content item to the widget.
 ** The image will be loaded and cached for rendering.
@@ -864,7 +871,7 @@ void Widget::AddText(const PropertyParser::TextOptions& options)
                              options.text, options.fontFace, options.fontSize, options.fontColor, options.alpha,
                              options.bold, options.italic, options.textAlign, options.clip);
                              
-    Logging::Log(LogLevel::Debug, L"Widget::AddText: Created TextElement id='%s', text='%s', x=%d, y=%d", element->GetId().c_str(), element->GetText().c_str(), element->GetX(), element->GetY());
+    // Logging::Log(LogLevel::Debug, L"Widget::AddText: Created TextElement id='%s', text='%s', x=%d, y=%d", element->GetId().c_str(), element->GetText().c_str(), element->GetX(), element->GetY());
 
     PropertyParser::ApplyElementOptions(element, options);
 
@@ -1013,8 +1020,8 @@ void Widget::UpdateLayeredWindowContent()
     int calcW = m_Options.width;
     int calcH = m_Options.height;
 
-    bool shouldCalcW = m_Options.dynamicWindowSize || (!m_Options.m_WDefined && m_Options.width <= 1);
-    bool shouldCalcH = m_Options.dynamicWindowSize || (!m_Options.m_HDefined && m_Options.height <= 1);
+    bool shouldCalcW = !m_Options.m_WDefined;
+    bool shouldCalcH = !m_Options.m_HDefined;
 
     if (shouldCalcW || shouldCalcH)
     {
@@ -1022,9 +1029,12 @@ void Widget::UpdateLayeredWindowContent()
         int maxY = 0;
         for (Element* element : m_Elements)
         {
-            Gdiplus::Rect bounds = element->GetBounds();
+            GfxRect bounds = element->GetBounds();
             maxX = (std::max)(maxX, bounds.X + bounds.Width);
             maxY = (std::max)(maxY, bounds.Y + bounds.Height);
+            
+        //     Logging::Log(LogLevel::Debug, L"Widget::UpdateSize: Element '%s' contributing to bounds: [X:%d, Y:%d, W:%d, H:%d] -> TargetMax: [%d, %d]", 
+        //         element->GetId().c_str(), bounds.X, bounds.Y, bounds.Width, bounds.Height, maxX, maxY);
         }
         
         if (shouldCalcW) calcW = maxX;
@@ -1037,6 +1047,8 @@ void Widget::UpdateLayeredWindowContent()
         // If size changed, update window and options
         if (calcW != m_Options.width || calcH != m_Options.height)
         {
+            // Logging::Log(LogLevel::Info, L"Widget::UpdateSize: Resizing window '%s' from %dx%d to %dx%d", 
+            //     m_Options.id.c_str(), m_Options.width, m_Options.height, calcW, calcH);
             m_Options.width = calcW;
             m_Options.height = calcH;
             SetWindowPos(m_hWnd, NULL, 0, 0, calcW, calcH, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
@@ -1056,7 +1068,7 @@ void Widget::UpdateLayeredWindowContent()
     ZeroMemory(&bmi, sizeof(BITMAPINFO));
     bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
     bmi.bmiHeader.biWidth = w;
-    bmi.bmiHeader.biHeight = h;
+    bmi.bmiHeader.biHeight = -h; // Top-down DIB
     bmi.bmiHeader.biPlanes = 1;
     bmi.bmiHeader.biBitCount = 32;
     bmi.bmiHeader.biCompression = BI_RGB;
@@ -1070,26 +1082,71 @@ void Widget::UpdateLayeredWindowContent()
     }
     HBITMAP hOldBitmap = (HBITMAP)SelectObject(hdcMem, hBitmap);
 
-    // Draw GDI+
+    // Draw Direct2D
     {
-        Graphics graphics(hdcMem);
-        graphics.SetSmoothingMode(SmoothingModeAntiAlias);
-        graphics.SetPixelOffsetMode(PixelOffsetModeHalf);
-        graphics.SetTextRenderingHint(TextRenderingHintAntiAlias);
-        graphics.SetCompositingMode(CompositingModeSourceOver);
-
-        // Clear with 0 alpha (fully transparent)
-        graphics.Clear(Color(0, 0, 0, 0));
-
-        // Draw Background
-        Color backColor(m_Options.bgAlpha, GetRValue(m_Options.color), GetGValue(m_Options.color), GetBValue(m_Options.color));
-        SolidBrush backBrush(backColor);
-        graphics.FillRectangle(&backBrush, 0, 0, w, h);
-
-        // Draw Elements
-        for (Element* element : m_Elements)
+        if (!m_pContext)
         {
-            element->Render(graphics);
+            bool useHW = Settings::GetGlobalBool("useHardwareAcceleration", false);
+            D2D1_RENDER_TARGET_TYPE rtType = useHW ? D2D1_RENDER_TARGET_TYPE_DEFAULT : D2D1_RENDER_TARGET_TYPE_SOFTWARE;
+            
+            // Logging::Log(LogLevel::Info, L"Creating Direct2D Context: Hardware Acceleration = %s", useHW ? L"ON" : L"OFF");
+
+            D2D1_RENDER_TARGET_PROPERTIES props = D2D1::RenderTargetProperties(
+                rtType,
+                D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_PREMULTIPLIED),
+                0, 0,
+                D2D1_RENDER_TARGET_USAGE_GDI_COMPATIBLE
+            );
+
+            Microsoft::WRL::ComPtr<ID2D1DCRenderTarget> pDCRT;
+            HRESULT hr = Direct2D::GetFactory()->CreateDCRenderTarget(&props, pDCRT.GetAddressOf());
+            if (SUCCEEDED(hr)) {
+                hr = pDCRT.As<ID2D1DeviceContext>(&m_pContext);
+            }
+            
+            if (FAILED(hr)) {
+                Logging::Log(LogLevel::Error, L"Failed to create D2D Context (0x%08X)", hr);
+            }
+        }
+
+        if (m_pContext)
+        {
+            Microsoft::WRL::ComPtr<ID2D1DCRenderTarget> pDCRT;
+            if (SUCCEEDED(m_pContext.As(&pDCRT)))
+            {
+                RECT renderRect = { 0, 0, w, h };
+                HRESULT hr = pDCRT->BindDC(hdcMem, &renderRect);
+                if (FAILED(hr)) {
+                    Logging::Log(LogLevel::Error, L"BindDC failed (0x%08X)", hr);
+                }
+            }
+
+            m_pContext->BeginDraw();
+            m_pContext->Clear(D2D1::ColorF(0, 0, 0, 0));
+
+            // Draw Background
+            D2D1_RECT_F backRect = D2D1::RectF(0, 0, (float)w, (float)h);
+            Microsoft::WRL::ComPtr<ID2D1SolidColorBrush> pBackBrush;
+            Direct2D::CreateSolidBrush(m_pContext.Get(), m_Options.color, m_Options.bgAlpha / 255.0f, pBackBrush.GetAddressOf());
+            if (pBackBrush)
+            {
+                m_pContext->FillRectangle(backRect, pBackBrush.Get());
+            }
+
+            // Draw Elements
+            for (Element* element : m_Elements)
+            {
+                element->Render(m_pContext.Get());
+            }
+
+            HRESULT hr = m_pContext->EndDraw();
+            if (hr == D2DERR_RECREATE_TARGET) {
+                m_pContext.Reset();
+                Logging::Log(LogLevel::Error, L"D2D Device lost, resetting RenderContext");
+            }
+            else if (FAILED(hr)) {
+                Logging::Log(LogLevel::Error, L"D2D EndDraw failed (0x%08X)", hr);
+            }
         }
     }
 
@@ -1109,7 +1166,12 @@ void Widget::UpdateLayeredWindowContent()
     bf.SourceConstantAlpha = m_Options.windowOpacity; // Master opacity
     bf.AlphaFormat = AC_SRC_ALPHA; // Pre-multiplied alpha
 
-    UpdateLayeredWindow(m_hWnd, hdcScreen, &pptDst, &size, hdcMem, &pptSrc, 0, &bf, ULW_ALPHA);
+    BOOL success = UpdateLayeredWindow(m_hWnd, hdcScreen, &pptDst, &size, hdcMem, &pptSrc, 0, &bf, ULW_ALPHA);
+    if (!success) {
+        DWORD err = GetLastError();
+        Logging::Log(LogLevel::Error, L"UpdateLayeredWindow failed for widget %s (Error: %d). Size: %dx%d, Pos: %d,%d", 
+                      m_Options.id.c_str(), err, w, h, pptDst.x, pptDst.y);
+    }
 
     SelectObject(hdcMem, hOldBitmap);
     DeleteObject(hBitmap);
@@ -1293,7 +1355,7 @@ bool Widget::HandleMouseMessage(UINT message, WPARAM wParam, LPARAM lParam)
         if (actionId != -1)
         {
              // Execute function callback
-             JSApi::CallEventCallback(actionId);
+             JSApi::CallEventCallback(actionId, this);
              handled = true;
         }
     }
@@ -1349,18 +1411,6 @@ void Widget::OnContextMenu()
     else if (cmd == 1003)
     {
         PostQuitMessage(0);
-    }
-}
-
-void Widget::SetDynamicWindowSize(bool dynamicWindowSize)
-{
-    if (m_Options.dynamicWindowSize != dynamicWindowSize)
-    {
-        m_Options.dynamicWindowSize = dynamicWindowSize;
-        if (m_hWnd)
-        {
-            Redraw();
-        }
     }
 }
 

@@ -6,70 +6,75 @@
  * obtain one at <https://www.gnu.org/licenses/gpl-2.0.html>. */
 
 #include "BarElement.h"
+#include "Direct2DHelper.h"
 
 BarElement::BarElement(const std::wstring& id, int x, int y, int w, int h, float value, BarOrientation orientation)
     : Element(ELEMENT_BAR, id, x, y, w, h), m_Value(value), m_Orientation(orientation)
 {
 }
 
-void BarElement::Render(Gdiplus::Graphics& graphics) {
+void BarElement::Render(ID2D1DeviceContext* context) {
+    context->SetAntialiasMode(m_AntiAlias ? D2D1_ANTIALIAS_MODE_PER_PRIMITIVE : D2D1_ANTIALIAS_MODE_ALIASED);
+    
     int w = GetWidth();
     int h = GetHeight();
     if (w <= 0 || h <= 0) return;
 
-    // 1. Render Background (Base Element)
-    RenderBackground(graphics);
+    D2D1_MATRIX_3X2_F originalTransform;
+    context->GetTransform(&originalTransform);
 
-    // 2. Calculate Bar Area
+    // Apply rotation around center
+    if (m_Rotate != 0.0f) {
+        GfxRect bounds = GetBounds();
+        float centerX = bounds.X + bounds.Width / 2.0f;
+        float centerY = bounds.Y + bounds.Height / 2.0f;
+        context->SetTransform(D2D1::Matrix3x2F::Rotation(m_Rotate, D2D1::Point2F(centerX, centerY)) * originalTransform);
+    }
+
+    // Draw background first
+    RenderBackground(context);
+
     if (m_HasBarColor || m_HasBarGradient) {
         float val = (m_Value < 0.0f) ? 0.0f : (m_Value > 1.0f) ? 1.0f : m_Value;
         
-        Gdiplus::RectF barRect;
+        D2D1_RECT_F barRect;
         if (m_Orientation == BAR_HORIZONTAL) {
-            barRect = Gdiplus::RectF((Gdiplus::REAL)m_X, (Gdiplus::REAL)m_Y, (Gdiplus::REAL)(w * val), (Gdiplus::REAL)h);
+            barRect = D2D1::RectF((float)m_X, (float)m_Y, (float)(m_X + w * val), (float)(m_Y + h));
         } else {
             float barH = h * val;
-            barRect = Gdiplus::RectF((Gdiplus::REAL)m_X, (Gdiplus::REAL)(m_Y + h - barH), (Gdiplus::REAL)w, (Gdiplus::REAL)barH);
+            barRect = D2D1::RectF((float)m_X, (float)(m_Y + h - barH), (float)(m_X + w), (float)(m_Y + h));
         }
 
-        if (barRect.Width > 0 && barRect.Height > 0) {
-            Gdiplus::Brush* barBrush = nullptr;
+        if (barRect.right > barRect.left && barRect.bottom > barRect.top) {
+            Microsoft::WRL::ComPtr<ID2D1Brush> barBrush;
             
             if (m_HasBarGradient) {
-                Gdiplus::Color color1(m_BarAlpha, GetRValue(m_BarColor), GetGValue(m_BarColor), GetBValue(m_BarColor));
-                Gdiplus::Color color2(m_BarAlpha2, GetRValue(m_BarColor2), GetGValue(m_BarColor2), GetBValue(m_BarColor2));
+                D2D1_POINT_2F start = Direct2D::FindEdgePoint(m_BarGradientAngle + 180.0f, barRect);
+                D2D1_POINT_2F end = Direct2D::FindEdgePoint(m_BarGradientAngle, barRect);
                 
-                barBrush = new Gdiplus::LinearGradientBrush(barRect, color1, color2, m_BarGradientAngle);
+                Microsoft::WRL::ComPtr<ID2D1LinearGradientBrush> lgBrush;
+                Direct2D::CreateLinearGradientBrush(context, start, end, m_BarColor, m_BarAlpha / 255.0f, m_BarColor2, m_BarAlpha2 / 255.0f, lgBrush.GetAddressOf());
+                barBrush = lgBrush;
             } else {
-                Gdiplus::Color barColor(m_BarAlpha, GetRValue(m_BarColor), GetGValue(m_BarColor), GetBValue(m_BarColor));
-                barBrush = new Gdiplus::SolidBrush(barColor);
+                Microsoft::WRL::ComPtr<ID2D1SolidColorBrush> sBrush;
+                Direct2D::CreateSolidBrush(context, m_BarColor, m_BarAlpha / 255.0f, sBrush.GetAddressOf());
+                barBrush = sBrush;
             }
 
-            if (m_BarCornerRadius > 0) {
-                Gdiplus::GraphicsPath* path = new Gdiplus::GraphicsPath();
-                int d = m_BarCornerRadius * 2;
-                if (d > (int)barRect.Width) d = (int)barRect.Width;
-                if (d > (int)barRect.Height) d = (int)barRect.Height;
-
-                if (d > 0) {
-                    path->AddArc(barRect.X, barRect.Y, (Gdiplus::REAL)d, (Gdiplus::REAL)d, 180, 90);
-                    path->AddArc(barRect.X + barRect.Width - d, barRect.Y, (Gdiplus::REAL)d, (Gdiplus::REAL)d, 270, 90);
-                    path->AddArc(barRect.X + barRect.Width - d, barRect.Y + barRect.Height - d, (Gdiplus::REAL)d, (Gdiplus::REAL)d, 0, 90);
-                    path->AddArc(barRect.X, barRect.Y + barRect.Height - d, (Gdiplus::REAL)d, (Gdiplus::REAL)d, 90, 90);
-                    path->CloseFigure();
-                    graphics.FillPath(barBrush, path);
+            if (barBrush) {
+                if (m_BarCornerRadius > 0) {
+                    D2D1_ROUNDED_RECT roundedBar = D2D1::RoundedRect(barRect, (float)m_BarCornerRadius, (float)m_BarCornerRadius);
+                    context->FillRoundedRectangle(roundedBar, barBrush.Get());
                 } else {
-                    graphics.FillRectangle(barBrush, barRect);
+                    context->FillRectangle(barRect, barBrush.Get());
                 }
-                delete path;
-            } else {
-                graphics.FillRectangle(barBrush, barRect);
             }
-
-            delete barBrush;
         }
     }
 
-    // 3. Render Bevel (Base Element)
-    RenderBevel(graphics);
+    // Draw bevel last
+    RenderBevel(context);
+
+    // Restore transform
+    context->SetTransform(originalTransform);
 }

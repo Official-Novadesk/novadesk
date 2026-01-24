@@ -57,7 +57,7 @@
          options.m_WDefined = false;
          options.m_HDefined = false;
          options.backgroundColor = L"rgba(0,0,0,0)";
-         options.zPos = ZPOSITION_ONDESKTOP;
+         options.zPos = ZPOSITION_NORMAL;
          options.bgAlpha = 0;
          options.windowOpacity = 255;
          options.color = RGB(0,0,0);

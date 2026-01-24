@@ -10,7 +10,9 @@ var CONFIG = {
     },
     colors: {
         font: "rgb(255,255,255)",
-        accent: "rgba(74, 81, 183, 1)"
+        accent: "rgba(74, 81, 183, 1)",
+        hover: "rgba(100, 110, 255, 1)",
+        hoverFont: "rgb(255,255,255)" 
     },
     font: {
         title: 20,
@@ -63,7 +65,7 @@ win.addText({
     x: 160,
     y: 70,
     fontSize: CONFIG.font.text,
-    clipString: "clip",
+    clipString: "wrap",
     width: 220,
     fontWeight: "bold",
     fontColor: CONFIG.colors.font,
@@ -82,7 +84,22 @@ win.addText({
     height: 25,
     solidColor: CONFIG.colors.accent,
     solidColorRadius: 5,
-    textAlign: "centercenter"
+    textAlign: "centercenter",
+    onMouseOver: function () {
+        win.setElementProperties("website-button", { 
+            solidColor: CONFIG.colors.hover, 
+            fontColor: CONFIG.colors.hoverFont 
+        });
+    },
+    onMouseLeave: function () {
+        win.setElementProperties("website-button", { 
+            solidColor: CONFIG.colors.accent, 
+            fontColor: CONFIG.colors.font 
+        });
+    },
+    onLeftMouseUp: function () {
+        ipc.send("executeURL", "https://novadesk.pages.dev");
+    }
 });
 
 win.addText({
@@ -97,5 +114,20 @@ win.addText({
     height: 25,
     solidColor: CONFIG.colors.accent,
     solidColorRadius: 5,
-    textAlign: "centercenter"
+    textAlign: "centercenter",
+    onMouseOver: function () {
+        win.setElementProperties("docs-button", { 
+            solidColor: CONFIG.colors.hover, 
+            fontColor: CONFIG.colors.hoverFont 
+        });
+    },
+    onMouseLeave: function () {
+        win.setElementProperties("docs-button", { 
+            solidColor: CONFIG.colors.accent, 
+            fontColor: CONFIG.colors.font 
+        });
+    },
+    onLeftMouseUp: function () {
+        ipc.send("executeURL", "https://novadesk-docs.pages.dev/");
+    }
 });

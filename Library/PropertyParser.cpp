@@ -172,7 +172,6 @@ namespace PropertyParser {
         reader.GetInt("x", options.x);
         reader.GetInt("y", options.y);
         reader.GetBool("show", options.show);
-        reader.GetBool("dynamicWindowSize", options.dynamicWindowSize);
 
         if (reader.GetString("script", options.scriptPath)) {
             options.scriptPath = JSApi::ResolveScriptPath(ctx, options.scriptPath);
@@ -330,8 +329,21 @@ namespace PropertyParser {
             options.hasTransformMatrix = true;
         }
 
-        if (reader.GetFloatArray("colorMatrix", options.colorMatrix, 20)) { 
-             options.hasColorMatrix = true;
+        std::vector<float> matrixRaw;
+        if (reader.GetFloatArray("colorMatrix", matrixRaw, 20)) {
+            if (matrixRaw.size() >= 25) {
+                // Convert 5x5 (25 numbers) to 5x4 (20 floats) by skipping the 5th column of each row
+                options.colorMatrix.clear();
+                for (int row = 0; row < 5; ++row) {
+                    for (int col = 0; col < 4; ++col) {
+                        options.colorMatrix.push_back(matrixRaw[row * 5 + col]);
+                    }
+                }
+                options.hasColorMatrix = true;
+            } else if (matrixRaw.size() >= 20) {
+                options.colorMatrix = matrixRaw;
+                options.hasColorMatrix = true;
+            }
         }
     }
 
@@ -348,7 +360,7 @@ namespace PropertyParser {
         PropertyReader reader(ctx);
 
         reader.GetString("text", options.text);
-        reader.GetString("fontFace", options.fontFace);
+        if (!reader.GetString("fontFace", options.fontFace)) options.fontFace = L"Arial";
         reader.GetInt("fontSize", options.fontSize);
         
         reader.GetColor("fontColor", options.fontColor, options.alpha);
@@ -379,6 +391,7 @@ namespace PropertyParser {
         if (reader.GetString("clipString", clipStr)) {
             if (clipStr == L"none") options.clip = TEXT_CLIP_NONE;
             else if (clipStr == L"on" || clipStr == L"clip") options.clip = TEXT_CLIP_ON;
+            else if (clipStr == L"wrap") options.clip = TEXT_CLIP_WRAP;
             else if (clipStr == L"ellipsis") options.clip = TEXT_CLIP_ELLIPSIS;
         }
 
@@ -490,9 +503,6 @@ namespace PropertyParser {
         }
 
         // Boolean toggles
-        bool dynamicWindowSize;
-        if (reader.GetBool("dynamicWindowSize", dynamicWindowSize)) widget->SetDynamicWindowSize(dynamicWindowSize);
-        
         bool draggable;
         if (reader.GetBool("draggable", draggable)) widget->SetDraggable(draggable);
         
@@ -536,7 +546,6 @@ namespace PropertyParser {
         duk_push_boolean(ctx, opt.snapEdges); duk_put_prop_string(ctx, -2, "snapEdges");
         duk_push_string(ctx, Utils::ToString(opt.backgroundColor).c_str()); duk_put_prop_string(ctx, -2, "backgroundColor");
         duk_push_boolean(ctx, opt.show); duk_put_prop_string(ctx, -2, "show");
-        duk_push_boolean(ctx, opt.dynamicWindowSize); duk_put_prop_string(ctx, -2, "dynamicWindowSize");
     }
 
     /*
@@ -601,15 +610,6 @@ namespace PropertyParser {
         duk_push_int(ctx, element->GetPaddingRight()); duk_put_prop_index(ctx, -2, 2);
         duk_push_int(ctx, element->GetPaddingBottom()); duk_put_prop_index(ctx, -2, 3);
         duk_put_prop_string(ctx, -2, "padding");
-
-        // Mouse Actions
-        // We only support function callbacks now, so string push is removed or could push "[Function]"
-        // But for properties panel we might want to know if it has one?
-        // For now, let's omit pushing them back as string, or push empty/placeholder
-        /*
-        if (element->m_OnLeftMouseUpCallbackId != -1) { duk_push_string(ctx, "[Function]"); duk_put_prop_string(ctx, -2, "onleftmouseup"); }
-        // ... etc (omitted since we can't easily stringify the function back from just ID in this context easily without re-getting from stash)
-        */
 
         // Type Specific
         if (element->GetType() == ELEMENT_TEXT) {
@@ -681,10 +681,8 @@ namespace PropertyParser {
         if (!element || !duk_is_object(ctx, -1)) return;
         
         ElementOptions options;
-        // Parse base options from top of stack
         PropertyReader reader(ctx);
         ParseElementOptionsInternal(ctx, options);
-        // Apply to element
         ApplyElementOptions(element, options);
     }
 
@@ -694,9 +692,6 @@ namespace PropertyParser {
 
     void ApplyElementOptions(Element* element, const ElementOptions& options) {
         if (!element) return;
-
-        // Only apply if provided (assuming some sentinel values or separate flags for "defined")
-        // For simplicity, we apply everything. In setElementProperties, we'll only parse what's provided.
         
         element->SetPosition(options.x, options.y);
         if (options.width > 0 || options.height > 0) {
@@ -817,8 +812,11 @@ namespace PropertyParser {
         options.id = element->GetId();
         options.x = element->GetX();
         options.y = element->GetY();
-        options.width = element->IsWDefined() ? element->GetWidth() : 0;
-        options.height = element->IsHDefined() ? element->GetHeight() : 0;
+        
+        // Subtract padding to get internal dimensions
+        options.width = element->IsWDefined() ? (element->GetWidth() - element->GetPaddingLeft() - element->GetPaddingRight()) : 0;
+        options.height = element->IsHDefined() ? (element->GetHeight() - element->GetPaddingTop() - element->GetPaddingBottom()) : 0;
+        
         options.rotate = element->GetRotate();
         options.antialias = element->GetAntiAlias();
 

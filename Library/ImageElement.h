@@ -5,10 +5,12 @@
  * version. If a copy of the GPL was not distributed with this file, You can
  * obtain one at <https://www.gnu.org/licenses/gpl-2.0.html>. */
 
-#ifndef __COSMOS_IMAGE_ELEMENT_H__
-#define __COSMOS_IMAGE_ELEMENT_H__
+#ifndef __NOVADESK_IMAGE_ELEMENT_H__
+#define __NOVADESK_IMAGE_ELEMENT_H__
 
 #include "Element.h"
+#include <wrl/client.h>
+#include <d2d1.h>
 
 enum ImageAspectRatio
 {
@@ -25,13 +27,13 @@ public:
                  
     virtual ~ImageElement();
 
-    virtual void Render(Gdiplus::Graphics& graphics) override;
+    virtual void Render(ID2D1DeviceContext* context) override;
     
     virtual int GetAutoWidth() override;
     virtual int GetAutoHeight() override;
     
     // Returns true if image loaded successfully
-    bool IsLoaded() const { return m_Image != nullptr && m_Image->GetLastStatus() == Gdiplus::Ok; }
+    bool IsLoaded() const { return m_D2DBitmap != nullptr; }
     
     void UpdateImage(const std::wstring& path);
 
@@ -48,7 +50,7 @@ public:
     void SetGrayscale(bool enable) { m_Grayscale = enable; }
     void SetColorMatrix(const float* matrix) {
         if (matrix) {
-            memcpy(m_ColorMatrix, matrix, sizeof(float) * 25);
+            memcpy(m_ColorMatrix, matrix, sizeof(float) * 20);
             m_HasColorMatrix = true;
         } else {
             m_HasColorMatrix = false;
@@ -80,30 +82,24 @@ public:
 
 private:
     std::wstring m_ImagePath;
-    Gdiplus::Bitmap* m_Image;
-    
-    // 0 = Stretch, 1 = Preserve, 2 = Crop
+    Microsoft::WRL::ComPtr<ID2D1Bitmap> m_D2DBitmap;
+    Microsoft::WRL::ComPtr<IWICBitmap> m_pWICBitmap;
     ImageAspectRatio m_PreserveAspectRatio = IMAGE_ASPECT_STRETCH;
-    
     bool m_HasImageTint = false;
     COLORREF m_ImageTint = 0;
     BYTE m_ImageTintAlpha = 255;
-    
-    // New properties
     BYTE m_ImageAlpha = 255;
     bool m_Grayscale = false;
     bool m_HasColorMatrix = false;
-    float m_ColorMatrix[5][5];
-
-    // Newest properties
-    // Newest properties
+    float m_ColorMatrix[20]; // D2D ColorMatrix effect uses 5x4
     bool m_Tile = false;
-    
-    // Transformation matrix (6 elements: m11, m12, m21, m22, dx, dy)
     bool m_HasTransformMatrix = false;
     float m_TransformMatrix[6];
+    
+    // Cache management
+    ID2D1RenderTarget* m_pLastTarget = nullptr;
 
-    void LoadImage();
+    void EnsureBitmap(ID2D1DeviceContext* context);
 };
 
 #endif
