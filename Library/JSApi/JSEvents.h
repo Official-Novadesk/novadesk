@@ -8,10 +8,12 @@
 #pragma once
 #include "JSCommon.h"
 
+class Widget;
+
 namespace JSApi {
     void ExecuteScript(const std::wstring& script);
     
     // Function callback support
     int RegisterEventCallback(duk_context* ctx, duk_idx_t idx);
-    void CallEventCallback(int id);
+    void CallEventCallback(int id, Widget* contextWidget = nullptr);
 }

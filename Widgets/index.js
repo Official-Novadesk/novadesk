@@ -362,3 +362,8 @@ setInterval(function () {
   }
 
 }, 1000);
+
+
+ipc.on('executeURL', function (url) {
+  system.execute(url);
+});

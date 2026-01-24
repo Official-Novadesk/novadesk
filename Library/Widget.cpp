@@ -1355,7 +1355,7 @@ bool Widget::HandleMouseMessage(UINT message, WPARAM wParam, LPARAM lParam)
         if (actionId != -1)
         {
              // Execute function callback
-             JSApi::CallEventCallback(actionId);
+             JSApi::CallEventCallback(actionId, this);
              handled = true;
         }
     }
