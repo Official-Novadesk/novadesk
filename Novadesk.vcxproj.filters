@@ -1,258 +1,132 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <Filter Include="Source Files">
-      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
-      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    <Filter Include="Library">
+      <UniqueIdentifier>{f151590b-0447-4952-ba66-99661bc1655b}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Header Files">
-      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
-      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    <Filter Include="Library\JSApi">
+      <UniqueIdentifier>{e83b40d6-0cba-4581-9988-5182187f58d2}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Resource Files">
-      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
-      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    <Filter Include="Library\JSApi\duktape">
+      <UniqueIdentifier>{728f32a7-6f8d-4f1b-8012-6800d989f664}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Library\json">
+      <UniqueIdentifier>{c66e70a1-d70c-437b-99d6-54070a2f9c9b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="assets">
+      <UniqueIdentifier>{a5839213-33df-4654-8c88-e9f0d1a49999}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Library\framework.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Library\targetver.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Library\Resource.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Library\Novadesk.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Library\System.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Library\Widget.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Library\ColorUtil.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Library\Logging.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Library\JSApi\JSCommon.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Library\JSApi\JSUtils.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Library\JSApi\JSSystem.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Library\JSApi\JSWidget.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Library\JSApi\JSElement.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Library\JSApi\JSContextMenu.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Library\JSApi\JSEvents.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Library\Utils.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Library\CPUMonitor.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Library\MenuItem.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Library\MemoryMonitor.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Library\MenuUtils.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Library\ImageElement.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Library\BarElement.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Library\Element.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Library\TextElement.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Library\Settings.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Library\json\json.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Library\NetworkMonitor.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Library\MouseMonitor.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Library\DiskMonitor.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Library\Hotkey.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Library\PathUtils.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Library\FileUtils.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Library\TimerManager.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Library\PropertyParser.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Library\JSApi\JSApi.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Library\JSApi\duktape\duktape.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Library\JSApi\JSIPC.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Library\JSApi\JSJson.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Library\JSApi\JSPath.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
+    <!-- Library Headers -->
+    <ClInclude Include="Library\BarElement.h"><Filter>Library</Filter></ClInclude>
+    <ClInclude Include="Library\CPUMonitor.h"><Filter>Library</Filter></ClInclude>
+    <ClInclude Include="Library\ColorUtil.h"><Filter>Library</Filter></ClInclude>
+    <ClInclude Include="Library\Direct2DHelper.h"><Filter>Library</Filter></ClInclude>
+    <ClInclude Include="Library\DiskMonitor.h"><Filter>Library</Filter></ClInclude>
+    <ClInclude Include="Library\Element.h"><Filter>Library</Filter></ClInclude>
+    <ClInclude Include="Library\FileUtils.h"><Filter>Library</Filter></ClInclude>
+    <ClInclude Include="Library\Hotkey.h"><Filter>Library</Filter></ClInclude>
+    <ClInclude Include="Library\ImageElement.h"><Filter>Library</Filter></ClInclude>
+    <ClInclude Include="Library\Logging.h"><Filter>Library</Filter></ClInclude>
+    <ClInclude Include="Library\MemoryMonitor.h"><Filter>Library</Filter></ClInclude>
+    <ClInclude Include="Library\MenuItem.h"><Filter>Library</Filter></ClInclude>
+    <ClInclude Include="Library\MenuUtils.h"><Filter>Library</Filter></ClInclude>
+    <ClInclude Include="Library\MouseMonitor.h"><Filter>Library</Filter></ClInclude>
+    <ClInclude Include="Library\NetworkMonitor.h"><Filter>Library</Filter></ClInclude>
+    <ClInclude Include="Library\Novadesk.h"><Filter>Library</Filter></ClInclude>
+    <ClInclude Include="Library\PathUtils.h"><Filter>Library</Filter></ClInclude>
+    <ClInclude Include="Library\PropertyParser.h"><Filter>Library</Filter></ClInclude>
+    <ClInclude Include="Library\Resource.h"><Filter>Library</Filter></ClInclude>
+    <ClInclude Include="Library\Settings.h"><Filter>Library</Filter></ClInclude>
+    <ClInclude Include="Library\System.h"><Filter>Library</Filter></ClInclude>
+    <ClInclude Include="Library\TextElement.h"><Filter>Library</Filter></ClInclude>
+    <ClInclude Include="Library\TimerManager.h"><Filter>Library</Filter></ClInclude>
+    <ClInclude Include="Library\Tooltip.h"><Filter>Library</Filter></ClInclude>
+    <ClInclude Include="Library\Utils.h"><Filter>Library</Filter></ClInclude>
+    <ClInclude Include="Library\Version.h"><Filter>Library</Filter></ClInclude>
+    <ClInclude Include="Library\Widget.h"><Filter>Library</Filter></ClInclude>
+    <ClInclude Include="Library\framework.h"><Filter>Library</Filter></ClInclude>
+    <ClInclude Include="Library\targetver.h"><Filter>Library</Filter></ClInclude>
 
-    <ClInclude Include="Library\JSApi\JSNovadeskTray.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Library\Version.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="Library\Novadesk.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Library\System.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Library\Widget.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Library\JSApi\JSCommon.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Library\JSApi\JSUtils.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Library\JSApi\JSSystem.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Library\JSApi\JSWidget.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Library\JSApi\JSElement.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Library\JSApi\JSContextMenu.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Library\JSApi\JSEvents.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Library\Utils.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Library\CPUMonitor.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Library\MemoryMonitor.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Library\MenuUtils.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Library\Logging.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Library\ImageElement.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Library\BarElement.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Library\TextElement.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Library\Settings.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Library\NetworkMonitor.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Library\MouseMonitor.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Library\DiskMonitor.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Library\Hotkey.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Library\PathUtils.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Library\FileUtils.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Library\TimerManager.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Library\PropertyParser.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Library\Element.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Library\JSApi\JSApi.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Library\JSApi\duktape\duktape.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Library\JSApi\JSIPC.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Library\JSApi\JSJson.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Library\JSApi\JSPath.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
+    <!-- JSApi Headers -->
+    <ClInclude Include="Library\JSApi\JSApi.h"><Filter>Library\JSApi</Filter></ClInclude>
+    <ClInclude Include="Library\JSApi\JSAudio.h"><Filter>Library\JSApi</Filter></ClInclude>
+    <ClInclude Include="Library\JSApi\JSClipboard.h"><Filter>Library\JSApi</Filter></ClInclude>
+    <ClInclude Include="Library\JSApi\JSCommon.h"><Filter>Library\JSApi</Filter></ClInclude>
+    <ClInclude Include="Library\JSApi\JSContextMenu.h"><Filter>Library\JSApi</Filter></ClInclude>
+    <ClInclude Include="Library\JSApi\JSElement.h"><Filter>Library\JSApi</Filter></ClInclude>
+    <ClInclude Include="Library\JSApi\JSEvents.h"><Filter>Library\JSApi</Filter></ClInclude>
+    <ClInclude Include="Library\JSApi\JSIPC.h"><Filter>Library\JSApi</Filter></ClInclude>
+    <ClInclude Include="Library\JSApi\JSJson.h"><Filter>Library\JSApi</Filter></ClInclude>
+    <ClInclude Include="Library\JSApi\JSNovadeskTray.h"><Filter>Library\JSApi</Filter></ClInclude>
+    <ClInclude Include="Library\JSApi\JSPath.h"><Filter>Library\JSApi</Filter></ClInclude>
+    <ClInclude Include="Library\JSApi\JSPower.h"><Filter>Library\JSApi</Filter></ClInclude>
+    <ClInclude Include="Library\JSApi\JSRegistry.h"><Filter>Library\JSApi</Filter></ClInclude>
+    <ClInclude Include="Library\JSApi\JSSystem.h"><Filter>Library\JSApi</Filter></ClInclude>
+    <ClInclude Include="Library\JSApi\JSUtils.h"><Filter>Library\JSApi</Filter></ClInclude>
+    <ClInclude Include="Library\JSApi\JSWebFetch.h"><Filter>Library\JSApi</Filter></ClInclude>
+    <ClInclude Include="Library\JSApi\JSWidget.h"><Filter>Library\JSApi</Filter></ClInclude>
+    <ClInclude Include="Library\JSApi\novadesk_addon.h"><Filter>Library\JSApi</Filter></ClInclude>
 
-    <ClCompile Include="Library\JSApi\JSNovadeskTray.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
+    <!-- Other Headers -->
+    <ClInclude Include="Library\json\json.hpp"><Filter>Library\json</Filter></ClInclude>
+    <ClInclude Include="Library\JSApi\duktape\duktape.h"><Filter>Library\JSApi\duktape</Filter></ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ResourceCompile Include="Novadesk.rc">
-      <Filter>Resource Files</Filter>
-    </ResourceCompile>
+    <!-- Library Sources -->
+    <ClCompile Include="Library\BarElement.cpp"><Filter>Library</Filter></ClCompile>
+    <ClCompile Include="Library\CPUMonitor.cpp"><Filter>Library</Filter></ClCompile>
+    <ClCompile Include="Library\Direct2DHelper.cpp"><Filter>Library</Filter></ClCompile>
+    <ClCompile Include="Library\DiskMonitor.cpp"><Filter>Library</Filter></ClCompile>
+    <ClCompile Include="Library\Element.cpp"><Filter>Library</Filter></ClCompile>
+    <ClCompile Include="Library\FileUtils.cpp"><Filter>Library</Filter></ClCompile>
+    <ClCompile Include="Library\Hotkey.cpp"><Filter>Library</Filter></ClCompile>
+    <ClCompile Include="Library\ImageElement.cpp"><Filter>Library</Filter></ClCompile>
+    <ClCompile Include="Library\Logging.cpp"><Filter>Library</Filter></ClCompile>
+    <ClCompile Include="Library\MemoryMonitor.cpp"><Filter>Library</Filter></ClCompile>
+    <ClCompile Include="Library\MenuUtils.cpp"><Filter>Library</Filter></ClCompile>
+    <ClCompile Include="Library\MouseMonitor.cpp"><Filter>Library</Filter></ClCompile>
+    <ClCompile Include="Library\NetworkMonitor.cpp"><Filter>Library</Filter></ClCompile>
+    <ClCompile Include="Library\Novadesk.cpp"><Filter>Library</Filter></ClCompile>
+    <ClCompile Include="Library\PathUtils.cpp"><Filter>Library</Filter></ClCompile>
+    <ClCompile Include="Library\PropertyParser.cpp"><Filter>Library</Filter></ClCompile>
+    <ClCompile Include="Library\Settings.cpp"><Filter>Library</Filter></ClCompile>
+    <ClCompile Include="Library\System.cpp"><Filter>Library</Filter></ClCompile>
+    <ClCompile Include="Library\TextElement.cpp"><Filter>Library</Filter></ClCompile>
+    <ClCompile Include="Library\TimerManager.cpp"><Filter>Library</Filter></ClCompile>
+    <ClCompile Include="Library\Tooltip.cpp"><Filter>Library</Filter></ClCompile>
+    <ClCompile Include="Library\Utils.cpp"><Filter>Library</Filter></ClCompile>
+    <ClCompile Include="Library\Widget.cpp"><Filter>Library</Filter></ClCompile>
+
+    <!-- JSApi Sources -->
+    <ClCompile Include="Library\JSApi\JSApi.cpp"><Filter>Library\JSApi</Filter></ClCompile>
+    <ClCompile Include="Library\JSApi\JSAudio.cpp"><Filter>Library\JSApi</Filter></ClCompile>
+    <ClCompile Include="Library\JSApi\JSClipboard.cpp"><Filter>Library\JSApi</Filter></ClCompile>
+    <ClCompile Include="Library\JSApi\JSCommon.cpp"><Filter>Library\JSApi</Filter></ClCompile>
+    <ClCompile Include="Library\JSApi\JSContextMenu.cpp"><Filter>Library\JSApi</Filter></ClCompile>
+    <ClCompile Include="Library\JSApi\JSElement.cpp"><Filter>Library\JSApi</Filter></ClCompile>
+    <ClCompile Include="Library\JSApi\JSEvents.cpp"><Filter>Library\JSApi</Filter></ClCompile>
+    <ClCompile Include="Library\JSApi\JSIPC.cpp"><Filter>Library\JSApi</Filter></ClCompile>
+    <ClCompile Include="Library\JSApi\JSJson.cpp"><Filter>Library\JSApi</Filter></ClCompile>
+    <ClCompile Include="Library\JSApi\JSNovadeskTray.cpp"><Filter>Library\JSApi</Filter></ClCompile>
+    <ClCompile Include="Library\JSApi\JSPath.cpp"><Filter>Library\JSApi</Filter></ClCompile>
+    <ClCompile Include="Library\JSApi\JSPower.cpp"><Filter>Library\JSApi</Filter></ClCompile>
+    <ClCompile Include="Library\JSApi\JSRegistry.cpp"><Filter>Library\JSApi</Filter></ClCompile>
+    <ClCompile Include="Library\JSApi\JSSystem.cpp"><Filter>Library\JSApi</Filter></ClCompile>
+    <ClCompile Include="Library\JSApi\JSUtils.cpp"><Filter>Library\JSApi</Filter></ClCompile>
+    <ClCompile Include="Library\JSApi\JSWebFetch.cpp"><Filter>Library\JSApi</Filter></ClCompile>
+    <ClCompile Include="Library\JSApi\JSWidget.cpp"><Filter>Library\JSApi</Filter></ClCompile>
+
+    <!-- Other Sources -->
+    <ClCompile Include="Library\JSApi\duktape\duktape.c"><Filter>Library\JSApi\duktape</Filter></ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="Novadesk.rc" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="assets\Novadesk.ico">
-      <Filter>Resource Files</Filter>
+      <Filter>assets</Filter>
     </Image>
   </ItemGroup>
 </Project>
