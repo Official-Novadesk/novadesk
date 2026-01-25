@@ -819,8 +819,7 @@ void Widget::AddImage(const PropertyParser::ImageOptions& options)
     }
 
     if (FindElementById(options.id)) {
-        Logging::Log(LogLevel::Error, L"AddImage failed: Element with ID '%s' already exists.", options.id.c_str());
-        return;
+        RemoveElements(options.id);
     }
 
     ImageElement* element = new ImageElement(options.id, options.x, options.y, options.width, options.height, options.path);
@@ -863,8 +862,7 @@ void Widget::AddText(const PropertyParser::TextOptions& options)
     }
 
     if (FindElementById(options.id)) {
-        Logging::Log(LogLevel::Error, L"AddText failed: Element with ID '%s' already exists.", options.id.c_str());
-        return;
+        RemoveElements(options.id);
     }
 
     TextElement* element = new TextElement(options.id, options.x, options.y, options.width, options.height, 
@@ -891,8 +889,7 @@ void Widget::AddBar(const PropertyParser::BarOptions& options)
     }
 
     if (FindElementById(options.id)) {
-        Logging::Log(LogLevel::Error, L"AddBar failed: Element with ID '%s' already exists.", options.id.c_str());
-        return;
+        RemoveElements(options.id);
     }
 
     BarElement* element = new BarElement(options.id, options.x, options.y, options.width, options.height, options.value, options.orientation);
