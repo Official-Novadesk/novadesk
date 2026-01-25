@@ -52,6 +52,18 @@ function saveConfig() {
 function updateTrayMenu() {
   app.setTrayMenu([
     {
+      text: "Home",
+      action: function () {
+        system.execute("https://novadesk.pages.dev");
+      },
+    },
+    {
+      text: "Docs",
+      action: function () {
+        system.execute("https://novadesk-docs.pages.dev");
+      },
+    },
+    {
       text: "Widgets",
       items: [
         {
