@@ -37,7 +37,6 @@ function addLabel(id, text, y) {
         y: y,
         fontSize: CONFIG.font.text,
         textAlign: "left",
-        fontWeight: "bold",
         fontColor: CONFIG.colors.font
     });
 }
@@ -50,7 +49,6 @@ function addValue(id, suffix, y) {
         y: y,
         fontSize: CONFIG.font.text,
         textAlign: "right",
-        fontWeight: "bold",
         fontColor: CONFIG.colors.font
     });
 }

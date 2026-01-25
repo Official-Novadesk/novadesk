@@ -99,6 +99,7 @@ public:
     void Redraw();
 
     Element* FindElementById(const std::wstring& id);
+    static bool IsValid(Widget* pWidget);
 
 private:
     static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);

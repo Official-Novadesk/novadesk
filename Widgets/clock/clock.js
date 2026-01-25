@@ -53,7 +53,6 @@ ui.addText({
     y: 40,
     fontSize: CONFIG.font.text,
     textAlign: "left",
-    fontWeight: "bold",
     fontColor: CONFIG.colors.font
 });
 
@@ -64,7 +63,6 @@ ui.addText({
     y: 40,
     fontSize: CONFIG.font.text,
     textAlign: "right",
-    fontWeight: "bold",
     fontColor: CONFIG.colors.font
 });
 

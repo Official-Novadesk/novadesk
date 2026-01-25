@@ -21,7 +21,7 @@ namespace JSApi {
         Widget* widget = (Widget*)duk_get_pointer(ctx, -1);
         duk_pop_2(ctx);
 
-        if (!widget || !duk_is_object(ctx, 0)) return DUK_RET_TYPE_ERROR;
+        if (!Widget::IsValid(widget) || !duk_is_object(ctx, 0)) return DUK_RET_TYPE_ERROR;
         duk_dup(ctx, 0);
         PropertyParser::ImageOptions options;
         std::wstring baseDir = PathUtils::GetParentDir(widget->GetOptions().scriptPath);
@@ -39,7 +39,7 @@ namespace JSApi {
         Widget* widget = (Widget*)duk_get_pointer(ctx, -1);
         duk_pop_2(ctx);
 
-        if (!widget || !duk_is_object(ctx, 0)) return DUK_RET_TYPE_ERROR;
+        if (!Widget::IsValid(widget) || !duk_is_object(ctx, 0)) return DUK_RET_TYPE_ERROR;
         duk_dup(ctx, 0);
         PropertyParser::TextOptions options;
         std::wstring baseDir = PathUtils::GetParentDir(widget->GetOptions().scriptPath);
@@ -57,7 +57,7 @@ namespace JSApi {
         Widget* widget = (Widget*)duk_get_pointer(ctx, -1);
         duk_pop_2(ctx);
 
-        if (!widget || !duk_is_object(ctx, 0)) return DUK_RET_TYPE_ERROR;
+        if (!Widget::IsValid(widget) || !duk_is_object(ctx, 0)) return DUK_RET_TYPE_ERROR;
         duk_dup(ctx, 0);
         PropertyParser::BarOptions options;
         std::wstring baseDir = PathUtils::GetParentDir(widget->GetOptions().scriptPath);
@@ -75,7 +75,7 @@ namespace JSApi {
         Widget* widget = (Widget*)duk_get_pointer(ctx, -1);
         duk_pop_2(ctx);
 
-        if (!widget) return DUK_RET_TYPE_ERROR;
+        if (!Widget::IsValid(widget)) return DUK_RET_TYPE_ERROR;
         std::wstring id = Utils::ToWString(duk_get_string(ctx, 0));
         if (!duk_is_object(ctx, 1)) return DUK_RET_TYPE_ERROR;
         duk_dup(ctx, 1);
@@ -91,7 +91,7 @@ namespace JSApi {
         Widget* widget = (Widget*)duk_get_pointer(ctx, -1);
         duk_pop_2(ctx);
 
-        if (!widget) return DUK_RET_TYPE_ERROR;
+        if (!Widget::IsValid(widget)) return DUK_RET_TYPE_ERROR;
         if (duk_is_null_or_undefined(ctx, 0)) {
             widget->RemoveElements();
         } else if (duk_is_array(ctx, 0)) {
@@ -117,7 +117,7 @@ namespace JSApi {
         Widget* widget = (Widget*)duk_get_pointer(ctx, -1);
         duk_pop_2(ctx);
 
-        if (!widget) return DUK_RET_TYPE_ERROR;
+        if (!Widget::IsValid(widget)) return DUK_RET_TYPE_ERROR;
         std::wstring id = Utils::ToWString(duk_get_string(ctx, 0));
         std::string propertyName = duk_get_string(ctx, 1);
 

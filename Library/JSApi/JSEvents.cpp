@@ -38,6 +38,12 @@ namespace JSApi {
     }
 
 
+    void CleanupWidget(const std::wstring& id) {
+        if (!s_JsContext) return;
+        std::string idStr = Utils::ToString(id);
+        ClearIPCListeners(s_JsContext, idStr);
+    }
+    
     void ExecuteWidgetScript(Widget* widget) {
         if (!s_JsContext || !widget) return;
         const std::wstring& scriptPath = widget->GetOptions().scriptPath;

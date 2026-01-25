@@ -28,7 +28,8 @@
          if (duk_get_prop_string(ctx, -1, "\xFF" "widgetPtr")) {
              Widget* widget = (Widget*)duk_get_pointer(ctx, -1);
              duk_pop_2(ctx);
-             return widget;
+             if (Widget::IsValid(widget)) return widget;
+             return nullptr;
          }
          duk_pop(ctx);
  
@@ -73,11 +74,21 @@
              Logging::Log(LogLevel::Error, L"Widget creation failed: ID must be provided.");
              return 0;
          }
- 
-         for (auto w : widgets) {
-             if (w->GetOptions().id == options.id) {
-                 Logging::Log(LogLevel::Error, L"Widget creation failed: Duplicate ID '%s'.", options.id.c_str());
-                 return 0;
+
+         // Check for existing widget and replace it
+         for (auto it = widgets.begin(); it != widgets.end(); ++it) {
+             if ((*it)->GetOptions().id == options.id) {
+                 // Remove from global stash widget_objects
+                 duk_push_global_stash(ctx);
+                 if (duk_get_prop_string(ctx, -1, "widget_objects")) {
+                     duk_del_prop_string(ctx, -1, Utils::ToString(options.id).c_str());
+                 }
+                 duk_pop_2(ctx); // widget_objects, stash
+
+                 // Delete the widget instance
+                 delete *it;
+                 widgets.erase(it);
+                 break;
              }
          }
   

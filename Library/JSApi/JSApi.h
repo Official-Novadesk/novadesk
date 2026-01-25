@@ -23,6 +23,7 @@ namespace JSApi {
     void ReloadScripts(duk_context* ctx);
     void Reload();
 
+    void CleanupWidget(const std::wstring& id);
     // Event handlers for the main message loop
     void OnTimer(UINT_PTR id);
     void OnMessage(UINT message, WPARAM wParam, LPARAM lParam);

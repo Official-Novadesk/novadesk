@@ -79,7 +79,7 @@ namespace JSApi {
         Widget* widget = (Widget*)duk_get_pointer(ctx, -1);
         duk_pop_2(ctx);
 
-        if (!widget || !duk_is_array(ctx, 0)) return DUK_RET_ERROR;
+        if (!Widget::IsValid(widget) || !duk_is_array(ctx, 0)) return DUK_RET_ERROR;
 
         // Clear old callbacks
         duk_push_this(ctx);
@@ -101,7 +101,7 @@ namespace JSApi {
         Widget* widget = (Widget*)duk_get_pointer(ctx, -1);
         duk_pop_2(ctx);
 
-        if (!widget) return DUK_RET_ERROR;
+        if (!Widget::IsValid(widget)) return DUK_RET_ERROR;
         widget->ClearContextMenu();
 
         // Clear callbacks
@@ -120,7 +120,7 @@ namespace JSApi {
         Widget* widget = (Widget*)duk_get_pointer(ctx, -1);
         duk_pop_2(ctx);
 
-        if (!widget) return DUK_RET_ERROR;
+        if (!Widget::IsValid(widget)) return DUK_RET_ERROR;
         bool disable = true;
         if (duk_get_top(ctx) > 0) disable = duk_get_boolean(ctx, 0);
         widget->SetContextMenuDisabled(disable);
@@ -135,7 +135,7 @@ namespace JSApi {
         Widget* widget = (Widget*)duk_get_pointer(ctx, -1);
         duk_pop_2(ctx);
 
-        if (!widget) return DUK_RET_ERROR;
+        if (!Widget::IsValid(widget)) return DUK_RET_ERROR;
         if (duk_get_top(ctx) > 0) {
             bool show = duk_get_boolean(ctx, 0);
             widget->SetShowDefaultContextMenuItems(show);
