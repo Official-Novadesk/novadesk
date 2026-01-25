@@ -54,7 +54,7 @@ win.addText({
     x: 160,
     y: 25,
     fontSize: CONFIG.font.title,
-    fontWeight: "bold",
+    fontWeight:"bold",
     fontColor: CONFIG.colors.accent,
     textAlign: "left"
 });
@@ -67,7 +67,6 @@ win.addText({
     fontSize: CONFIG.font.text,
     clipString: "wrap",
     width: 220,
-    fontWeight: "bold",
     fontColor: CONFIG.colors.font,
     textAlign: "left"
 });
@@ -78,7 +77,6 @@ win.addText({
     x: 210,
     y: 170,
     fontSize: CONFIG.font.text,
-    fontWeight: "bold",
     fontColor: CONFIG.colors.font,
     width: 100,
     height: 25,
@@ -108,7 +106,6 @@ win.addText({
     x: 320,
     y: 170,
     fontSize: CONFIG.font.text,
-    fontWeight: "bold",
     fontColor: CONFIG.colors.font,
     width: 100,
     height: 25,
