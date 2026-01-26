@@ -11,6 +11,7 @@
 namespace JSApi {
     // Logging API
     duk_ret_t js_log(duk_context* ctx);
+    duk_ret_t js_warn(duk_context* ctx);
     duk_ret_t js_error(duk_context* ctx);
     duk_ret_t js_debug(duk_context* ctx);
 

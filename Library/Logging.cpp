@@ -49,6 +49,7 @@ void Logging::Log(LogLevel level, const wchar_t* format, ...)
     switch (level)
     {
     case LogLevel::Info:  levelStr = L"[LOG]"; break;
+    case LogLevel::Warn:  levelStr = L"[WARN]"; break;
     case LogLevel::Error: levelStr = L"[ERROR]"; break;
     case LogLevel::Debug: levelStr = L"[DEBUG]"; break;
     }
