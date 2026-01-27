@@ -31,6 +31,17 @@ namespace JSApi {
         return 0;
     }
 
+    duk_ret_t js_warn(duk_context* ctx) {
+        duk_idx_t n = duk_get_top(ctx);
+        std::wstring msg;
+        for (duk_idx_t i = 0; i < n; i++) {
+            if (i > 0) msg += L" ";
+            msg += Utils::ToWString(duk_safe_to_string(ctx, i));
+        }
+        Logging::Log(LogLevel::Warn, L"%s", msg.c_str());
+        return 0;
+    }
+
     duk_ret_t js_error(duk_context* ctx) {
         duk_idx_t n = duk_get_top(ctx);
         std::wstring msg;
@@ -246,6 +257,8 @@ namespace JSApi {
     void BindConsoleMethods(duk_context* ctx) {
         duk_push_c_function(ctx, js_log, DUK_VARARGS);
         duk_put_prop_string(ctx, -2, "log");
+        duk_push_c_function(ctx, js_warn, DUK_VARARGS);
+        duk_put_prop_string(ctx, -2, "warn");
         duk_push_c_function(ctx, js_error, DUK_VARARGS);
         duk_put_prop_string(ctx, -2, "error");
         duk_push_c_function(ctx, js_debug, DUK_VARARGS);

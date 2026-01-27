@@ -237,7 +237,7 @@ std::vector<BYTE> VersionInfo::Serialize() const {
         auto& dst = varRaw.value;
         dst.resize(supportedTranslations.size() * newValueSize);
 
-        for (auto iVar = 0; iVar < supportedTranslations.size(); ++iVar) {
+        for (size_t iVar = 0; iVar < supportedTranslations.size(); ++iVar) {
           auto& translate = supportedTranslations[iVar];
           auto var = DWORD(translate.wCodePage) << 16 | translate.wLanguage;
           memcpy(&dst[iVar * newValueSize], &var, newValueSize);

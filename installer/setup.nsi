@@ -3,13 +3,13 @@
 ;--------------------------------
 
 ; Define global version variable (Update this as needed)
-!define VERSION "1.0.0"
+!define VERSION "0.1.0.0"
 
 ; The name of the installer
 Name "Novadesk"
 
 ; The file to write
-OutFile "dist_output\Novadesk_Setup_v${VERSION}.exe"
+OutFile "dist_output\Novadesk_Setup_v${VERSION}_Beta.exe"
 
 ; The default installation directory
 InstallDir "$PROGRAMFILES\Novadesk"
@@ -52,6 +52,7 @@ RequestExecutionLevel admin
 !insertmacro MUI_PAGE_WELCOME
 !insertmacro MUI_PAGE_LICENSE "LICENSE.txt"
 !insertmacro MUI_PAGE_DIRECTORY
+!insertmacro MUI_PAGE_COMPONENTS
 !insertmacro MUI_PAGE_INSTFILES
 
 ; Finish page settings
@@ -132,17 +133,26 @@ Section "Desktop Shortcut" SecDesktop
   
 SectionEnd
 
+Section "Run on Startup" SecStartup
+
+  ; Create startup shortcut
+  CreateShortCut "$SMSTARTUP\Novadesk.lnk" "$INSTDIR\Novadesk.exe" "" "$INSTDIR\Novadesk.exe" 0
+  
+SectionEnd
+
 ;--------------------------------
 ; Descriptions
 ;--------------------------------
 LangString DESC_SecMain ${LANG_ENGLISH} "Main Novadesk application files."
 LangString DESC_SecPATH ${LANG_ENGLISH} "Add nwm to your system PATH."
 LangString DESC_SecDesktop ${LANG_ENGLISH} "Create a desktop shortcut."
+LangString DESC_SecStartup ${LANG_ENGLISH} "Run Novadesk automatically when Windows starts."
 
 !insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN
 !insertmacro MUI_DESCRIPTION_TEXT ${SecMain} $(DESC_SecMain)
 !insertmacro MUI_DESCRIPTION_TEXT ${SecPATH} $(DESC_SecPATH)
 !insertmacro MUI_DESCRIPTION_TEXT ${SecDesktop} $(DESC_SecDesktop)
+!insertmacro MUI_DESCRIPTION_TEXT ${SecStartup} $(DESC_SecStartup)
 !insertmacro MUI_FUNCTION_DESCRIPTION_END
 
 ;--------------------------------
@@ -182,5 +192,6 @@ Section "Uninstall"
   
   ; Remove desktop shortcut
   Delete "$DESKTOP\Novadesk.lnk"
+  Delete "$SMSTARTUP\Novadesk.lnk"
 
 SectionEnd
