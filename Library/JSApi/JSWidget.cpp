@@ -74,6 +74,11 @@
              Logging::Log(LogLevel::Error, L"Widget creation failed: ID must be provided.");
              return 0;
          }
+ 
+         if (options.scriptPath.empty()) {
+             Logging::Log(LogLevel::Error, L"Widget creation failed: 'script' path must be provided.");
+             return 0;
+         }
 
          // Check for existing widget and replace it
          for (auto it = widgets.begin(); it != widgets.end(); ++it) {

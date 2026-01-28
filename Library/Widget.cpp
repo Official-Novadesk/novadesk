@@ -184,11 +184,13 @@ void Widget::Refresh()
 {
     JSApi::TriggerWidgetEvent(this, "refresh");
 
+    BeginUpdate();
     RemoveElements(L""); // Clear all elements
     if (!m_Options.scriptPath.empty())
     {
         JSApi::ExecuteWidgetScript(this);
     }
+    EndUpdate();
 }
 
 /*
@@ -1017,7 +1019,10 @@ void Widget::ClearContextMenu()
 */
 void Widget::Redraw()
 {
-    UpdateLayeredWindowContent();
+    if (m_UpdateCount == 0)
+    {
+        UpdateLayeredWindowContent();
+    }
 }
 
 

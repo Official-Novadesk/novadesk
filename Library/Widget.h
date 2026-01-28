@@ -69,6 +69,9 @@ public:
     void Hide();
     void Refresh();
 
+    void BeginUpdate() { m_UpdateCount++; }
+    void EndUpdate() { if (--m_UpdateCount == 0) Redraw(); }
+
     void ChangeZPos(ZPOSITION zPos, bool all = false);
     void ChangeSingleZPos(ZPOSITION zPos, bool all = false);
     void SetWindowPosition(int x, int y, int w, int h);
@@ -119,6 +122,7 @@ private:
     WidgetOptions m_Options;
     ZPOSITION m_WindowZPosition;
     std::vector<Element*> m_Elements;
+    int m_UpdateCount = 0;
     
     // Context Menu
     std::vector<MenuItem> m_ContextMenu;
