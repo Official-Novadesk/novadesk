@@ -113,8 +113,9 @@ namespace JSApi {
     duk_ret_t js_unregister_hotkey(duk_context* ctx) {
         if (!duk_is_number(ctx, 0)) return DUK_RET_TYPE_ERROR;
         int id = duk_get_int(ctx, 0);
-        HotkeyManager::Unregister(id);
-        return 0;
+        bool success = HotkeyManager::Unregister(id);
+        duk_push_boolean(ctx, success);
+        return 1;
     }
 
     duk_ret_t js_system_get_display_metrics(duk_context* ctx) {
@@ -202,10 +203,9 @@ namespace JSApi {
 
         auto it = s_LoadedAddons.find(addonPath);
         if (it != s_LoadedAddons.end()) {
-            // Addon already loaded. For now, we don't re-initialize.
-            // If the addon pushed something to the stack, we might need a way to track that.
-            // But usually, an addon registers things globally.
-            return 0;
+            // Addon already loaded.
+            duk_push_boolean(ctx, true);
+            return 1;
         }
 
         HMODULE hModule = LoadLibraryW(addonPath.c_str());

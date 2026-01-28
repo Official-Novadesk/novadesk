@@ -140,7 +140,8 @@ namespace JSApi {
         }
 
         duk_pop(ctx);
-        return 0;
+        duk_push_boolean(ctx, true);
+        return 1;
     }
 
     duk_ret_t js_novadesk_saveLogToFile(duk_context* ctx) {
@@ -153,7 +154,8 @@ namespace JSApi {
         } else {
             Logging::SetFileLogging(L"");
         }
-        return 0;
+        duk_push_boolean(ctx, true);
+        return 1;
     }
 
     duk_ret_t js_novadesk_enableDebugging(duk_context* ctx) {
@@ -161,7 +163,8 @@ namespace JSApi {
         bool enable = duk_get_boolean(ctx, 0);
         Settings::SetGlobalBool("enableDebugging", enable);
         Logging::SetLogLevel(enable ? LogLevel::Debug : LogLevel::Info);
-        return 0;
+        duk_push_boolean(ctx, true);
+        return 1;
     }
 
     duk_ret_t js_novadesk_disableLogging(duk_context* ctx) {
@@ -175,7 +178,8 @@ namespace JSApi {
              std::wstring logPath = PathUtils::GetExeDir() + L"logs.log";
              Logging::SetFileLogging(logPath, false);
         }
-        return 0;
+        duk_push_boolean(ctx, true);
+        return 1;
     }
 
     duk_ret_t js_novadesk_hideTrayIcon(duk_context* ctx) {
@@ -184,24 +188,28 @@ namespace JSApi {
         Settings::SetGlobalBool("hideTrayIcon", hide);
         if (hide) ::HideTrayIconDynamic();
         else ::ShowTrayIconDynamic();
-        return 0;
+        duk_push_boolean(ctx, true);
+        return 1;
     }
 
     duk_ret_t js_novadesk_useHardwareAcceleration(duk_context* ctx) {
         if (duk_get_top(ctx) == 0) return DUK_RET_TYPE_ERROR;
         bool enable = duk_get_boolean(ctx, 0);
         Settings::SetGlobalBool("useHardwareAcceleration", enable);
-        return 0;
+        duk_push_boolean(ctx, true);
+        return 1;
     }
 
     duk_ret_t js_novadesk_refresh(duk_context* ctx) {
         ReloadScripts(ctx);
-        return 0;
+        duk_push_boolean(ctx, true);
+        return 1;
     }
 
     duk_ret_t js_novadesk_exit(duk_context* ctx) {
         PostQuitMessage(0);
-        return 0;
+        duk_push_boolean(ctx, true);
+        return 1;
     }
 
     std::wstring GetVersionProperty(const std::wstring& propertyName) {

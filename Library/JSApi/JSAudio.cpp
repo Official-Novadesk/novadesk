@@ -46,14 +46,23 @@ namespace JSApi {
         if (volume < 0) volume = 0;
         if (volume > 100) volume = 100;
 
+        bool success = false;
         IAudioEndpointVolume* pVolume = GetVolumeInterface();
         if (pVolume) {
             float fVolume = (float)volume / 100.0f;
-            pVolume->SetMasterVolumeLevelScalar(fVolume, NULL);
+            HRESULT hr = pVolume->SetMasterVolumeLevelScalar(fVolume, NULL);
+            if (SUCCEEDED(hr)) {
+                success = true;
+            } else {
+                Logging::Log(LogLevel::Error, L"Failed to set master volume level scalar (0x%08X)", hr);
+            }
             pVolume->Release();
+        } else {
+            Logging::Log(LogLevel::Error, L"Failed to get audio volume interface");
         }
 
-        return 0;
+        duk_push_boolean(ctx, success);
+        return 1;
     }
 
     duk_ret_t js_system_getVolume(duk_context* ctx) {
@@ -86,7 +95,8 @@ namespace JSApi {
 
     duk_ret_t js_system_stopSound(duk_context* ctx) {
         PlaySoundW(NULL, NULL, 0);
-        return 0;
+        duk_push_boolean(ctx, true);
+        return 1;
     }
 
     void BindAudioMethods(duk_context* ctx) {

@@ -100,7 +100,8 @@ namespace JSApi {
         std::thread fetchThread(FetchThreadProc, url, callbackId, hNotifyWnd);
         fetchThread.detach();
 
-        return 0;
+        duk_push_boolean(ctx, true);
+        return 1;
     }
 
     void HandleWebFetchMessage(UINT message, WPARAM wParam, LPARAM lParam) {
