@@ -5,7 +5,7 @@ param(
     [string]$Script = "D:\GITHUB\Novadesk\Widgets\index.js"
 )
 
-$exePath = "D:\GITHUB\Novadesk\Debug\Novadesk.exe"
+$exePath = "D:\GITHUB\x64\Debug\Novadesk.exe"
 
 if (-not (Test-Path $exePath)) {
     Write-Host "Error: Novadesk.exe not found at $exePath" -ForegroundColor Red

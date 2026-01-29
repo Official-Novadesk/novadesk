@@ -26,24 +26,24 @@ function Get-MSBuildPath {
 $MSBuild = Get-MSBuildPath
 Write-Host "Using MSBuild: $MSBuild" -ForegroundColor Gray
 
-# Build Novadesk (x86 Release)
-Write-Host "Building Novadesk (Release|x86)..." -ForegroundColor Yellow
+# Build Novadesk (x64 Release)
+Write-Host "Building Novadesk (Release|x64)..." -ForegroundColor Yellow
 $buildArgsNovadesk = @(
     "Novadesk.vcxproj",
     "/p:Configuration=Release",
-    "/p:Platform=Win32",
+    "/p:Platform=x64",
     "/t:Rebuild",
     "/v:m"
 )
 & $MSBuild $buildArgsNovadesk
 if ($LASTEXITCODE -ne 0) { Write-Error "Novadesk build failed!"; exit 1 }
 
-# Build nwm (x86 Release) - Updated for Win32
-Write-Host "Building nwm (Release|x86)..." -ForegroundColor Yellow
+# Build nwm (x64 Release)
+Write-Host "Building nwm (Release|x64)..." -ForegroundColor Yellow
 $buildArgsNwm = @(
     "nwm\nwm.vcxproj",
     "/p:Configuration=Release",
-    "/p:Platform=Win32",
+    "/p:Platform=x64",
     "/t:Rebuild",
     "/v:m"
 )

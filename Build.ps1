@@ -3,7 +3,7 @@
 
 param(
     [string]$Configuration = "Debug",
-    [string]$Platform = "Win32"
+    [string]$Platform = "x64"
 )
 
 $vswhere = "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe"

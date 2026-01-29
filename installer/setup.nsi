@@ -12,7 +12,7 @@ Name "Novadesk"
 OutFile "dist_output\Novadesk_Setup_v${VERSION}_Beta.exe"
 
 ; The default installation directory
-InstallDir "$PROGRAMFILES\Novadesk"
+InstallDir "$PROGRAMFILES64\Novadesk"
 
 ; Registry key to check for directory (so if you install again, it will 
 ; overwrite the old one automatically)
@@ -20,6 +20,9 @@ InstallDirRegKey HKLM "Software\Novadesk" "Install_Dir"
 
 ; Request application privileges for Windows Vista+
 RequestExecutionLevel admin
+
+; Use 64-bit registry view
+!include "x64.nsh"
 
 ;--------------------------------
 ; Interface Settings
@@ -75,22 +78,28 @@ RequestExecutionLevel admin
 
 Section "Novadesk Core" SecMain
 
+  SetRegView 64
+  ; Enforce 64-bit redirection
+  ${If} ${RunningX64}
+    ${DisableX64FSRedirection}
+  ${EndIf}
+
   SetOutPath "$INSTDIR"
   
   ; Kill process if running
   nsExec::ExecToStack 'taskkill /F /IM "Novadesk.exe"'
   nsExec::ExecToStack 'taskkill /F /IM "nwm.exe"'
 
-  ; Add Novadesk files (x86 Release)
-  File "..\Release\Novadesk.exe"
+  ; Add Novadesk files (x64 Release)
+  File "..\x64\Release\Novadesk.exe"
   ; Copy Widgets folder
-  File /r "..\Release\Widgets"
+  File /r "..\x64\Release\Widgets"
   
-  ; Add nwm files (x86 Release - Updated path)
+  ; Add nwm files (x64 Release)
   SetOutPath "$INSTDIR\nwm"
-  File "..\Release\nwm\nwm.exe"
+  File "..\x64\Release\nwm\nwm.exe"
   ; Copy nwm templates if they exist in output
-  File /r "..\Release\nwm\widget"
+  File /r "..\x64\Release\nwm\widget"
 
   ; Store installation folder
   WriteRegStr HKLM "Software\Novadesk" "Install_Dir" "$INSTDIR"
@@ -106,7 +115,13 @@ Section "Novadesk Core" SecMain
   WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Novadesk" \
                    "DisplayIcon" "$INSTDIR\Novadesk.exe"
   WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Novadesk" \
-                   "Publisher" "Official Novadesk"
+                   "Publisher" "OfficialNovadesk"
+  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Novadesk" \
+                   "URLInfoAbout" "https://novadesk.pages.dev"
+  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Novadesk" \
+                   "HelpLink" "https://novadesk.pages.dev"
+  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Novadesk" \
+                   "DisplayVersion" "${VERSION}"
   WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Novadesk" \
                    "NoModify" 1
   WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Novadesk" \
@@ -160,6 +175,7 @@ LangString DESC_SecStartup ${LANG_ENGLISH} "Run Novadesk automatically when Wind
 ;--------------------------------
 Section "Uninstall"
 
+  SetRegView 64
   ; Read the installation directory from the registry
   ReadRegStr $INSTDIR HKLM "Software\Novadesk" "Install_Dir"
   
