@@ -1,7 +1,7 @@
 {
-    "clock_widget_active": 1.0,
-    "is_first_launch": 1,
-    "network_widget_active": 1.0,
-    "system_widget_active": 1.0,
-    "welcome_widget_active": 1.0
+    "clock_widget_active": 1,
+    "is_first_launch": 0,
+    "network_widget_active": 1,
+    "system_widget_active": 1,
+    "welcome_widget_active": 1
 }

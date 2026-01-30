@@ -24,11 +24,7 @@ void Settings::Initialize()
 
 std::wstring Settings::GetSettingsPath()
 {
-    wchar_t path[MAX_PATH];
-    GetModuleFileNameW(NULL, path, MAX_PATH);
-    std::wstring exePath = path;
-    size_t lastBackslash = exePath.find_last_of(L"\\");
-    return exePath.substr(0, lastBackslash + 1) + L"settings.json";
+    return PathUtils::GetAppDataPath() + L"settings.json";
 }
 
 void Settings::Load()
@@ -76,7 +72,7 @@ void Settings::ApplyGlobalSettings()
         Logging::SetFileLogging(L"");
     } else {
         if (Settings::GetGlobalBool("saveLogToFile", false)) {
-            std::wstring logPath = PathUtils::GetExeDir() + L"logs.log";
+            std::wstring logPath = PathUtils::GetAppDataPath() + L"logs.log";
             Logging::SetFileLogging(logPath, false);
         } else {
             Logging::SetFileLogging(L"");
@@ -88,6 +84,14 @@ void Settings::ApplyGlobalSettings()
     } else {
         ::ShowTrayIconDynamic();
     }
+}
+
+std::wstring Settings::GetLogPath()
+{
+    if (Settings::GetGlobalBool("saveLogToFile", false)) {
+        return PathUtils::GetAppDataPath() + L"logs.log";
+    }
+    return L"";
 }
 
 void Settings::Save()

@@ -1,7 +1,8 @@
 // =====================
 // Load Configuration
 // =====================
-var config = system.readJson("config.json");
+var configPath = app.getAppDataPath() + "config.json";
+var config = system.readJson(configPath);
 
 if (!config) {
   console.log("Failed to load config.json, using defaults");
@@ -39,7 +40,7 @@ var welcomeProps = null;
 
 // Save current config to file
 function saveConfig() {
-  if (system.writeJson("config.json", config)) {
+  if (system.writeJson(configPath, config)) {
     console.log("Configuration saved successfully");
     return true;
   } else {
@@ -379,3 +380,25 @@ setInterval(function () {
 ipc.on('executeURL', function (url) {
   system.execute(url);
 });
+
+
+// Get the original Novadesk version
+const novadeskVersion = app.getNovadeskVersion();
+console.log("Original Novadesk Version: " + novadeskVersion);
+
+// Get the current file version
+const fileVersion = app.getFileVersion();
+console.log("File Version: " + fileVersion);
+
+// Get the current product version
+const version = app.getProductVersion();
+console.log("Product Version: " + version);
+
+const appData = app.getAppDataPath();
+console.log("AppData Path: " + appData);
+
+const settingsPath = app.getSettingsFilePath();
+console.log("Settings Path: " + settingsPath);
+
+const logPath = app.getLogPath();
+console.log("Log Path: " + logPath);

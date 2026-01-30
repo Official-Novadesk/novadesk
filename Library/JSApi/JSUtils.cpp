@@ -149,7 +149,7 @@ namespace JSApi {
         bool enable = duk_get_boolean(ctx, 0);
         Settings::SetGlobalBool("saveLogToFile", enable);
         if (enable) {
-            std::wstring logPath = PathUtils::GetExeDir() + L"logs.log";
+            std::wstring logPath = PathUtils::GetAppDataPath() + L"logs.log";
             Logging::SetFileLogging(logPath, false);
         } else {
             Logging::SetFileLogging(L"");
@@ -175,7 +175,7 @@ namespace JSApi {
         if (disable) {
              Logging::SetFileLogging(L"");
         } else if (Settings::GetGlobalBool("saveLogToFile", false)) {
-             std::wstring logPath = PathUtils::GetExeDir() + L"logs.log";
+             std::wstring logPath = PathUtils::GetAppDataPath() + L"logs.log";
              Logging::SetFileLogging(logPath, false);
         }
         duk_push_boolean(ctx, true);
@@ -213,35 +213,33 @@ namespace JSApi {
     }
 
     std::wstring GetVersionProperty(const std::wstring& propertyName) {
-        wchar_t szExePath[MAX_PATH];
-        GetModuleFileNameW(NULL, szExePath, MAX_PATH);
+        std::wstring exePath = PathUtils::GetExePath();
+        DWORD handle = 0;
+        DWORD size = GetFileVersionInfoSizeW(exePath.c_str(), &handle);
+        if (size > 0) {
+            std::vector<BYTE> buffer(size);
+            if (GetFileVersionInfoW(exePath.c_str(), handle, size, buffer.data())) {
+                struct LANGANDCODEPAGE {
+                    WORD wLanguage;
+                    WORD wCodePage;
+                } *lpTranslate;
+                UINT cbTranslate;
 
-        DWORD dwHandle = 0;
-        DWORD dwSize = GetFileVersionInfoSizeW(szExePath, &dwHandle);
-        if (dwSize == 0) return L"Unknown";
+                if (VerQueryValueW(buffer.data(), L"\\VarFileInfo\\Translation", (LPVOID*)&lpTranslate, &cbTranslate)) {
+                    for (unsigned int i = 0; i < (cbTranslate / sizeof(struct LANGANDCODEPAGE)); i++) {
+                        wchar_t subBlock[256];
+                        swprintf_s(subBlock, L"\\StringFileInfo\\%04x%04x\\%ls",
+                                   lpTranslate[i].wLanguage, lpTranslate[i].wCodePage, propertyName.c_str());
 
-        std::vector<BYTE> data(dwSize);
-        if (!GetFileVersionInfoW(szExePath, dwHandle, dwSize, data.data())) return L"Unknown";
-
-        struct LANGANDCODEPAGE {
-            WORD wLanguage;
-            WORD wCodePage;
-        } *lpTranslate;
-        UINT cbTranslate;
-
-        if (!VerQueryValueW(data.data(), L"\\VarFileInfo\\Translation", (LPVOID*)&lpTranslate, &cbTranslate))
-            return L"Unknown";
-
-        wchar_t szSubBlock[100];
-        swprintf_s(szSubBlock, L"\\StringFileInfo\\%04x%04x\\%ls",
-                   lpTranslate[0].wLanguage, lpTranslate[0].wCodePage, propertyName.c_str());
-
-        LPVOID lpBuffer;
-        UINT dwLen;
-        if (VerQueryValueW(data.data(), szSubBlock, &lpBuffer, &dwLen)) {
-            return std::wstring((wchar_t*)lpBuffer);
+                        wchar_t* lpBuffer = nullptr;
+                        UINT dwLen = 0;
+                        if (VerQueryValueW(buffer.data(), subBlock, (LPVOID*)&lpBuffer, &dwLen) && dwLen > 0) {
+                            return std::wstring(lpBuffer);
+                        }
+                    }
+                }
+            }
         }
-
         return L"Unknown";
     }
 
@@ -259,6 +257,24 @@ namespace JSApi {
 
     duk_ret_t js_novadesk_getNovadeskVersion(duk_context* ctx) {
         duk_push_string(ctx, NOVADESK_VERSION);
+        return 1;
+    }
+
+    duk_ret_t js_novadesk_getAppDataPath(duk_context* ctx) {
+        std::wstring path = PathUtils::GetAppDataPath();
+        duk_push_string(ctx, Utils::ToString(path).c_str());
+        return 1;
+    }
+
+    duk_ret_t js_novadesk_getSettingsFilePath(duk_context* ctx) {
+        std::wstring path = Settings::GetSettingsPath();
+        duk_push_string(ctx, Utils::ToString(path).c_str());
+        return 1;
+    }
+
+    duk_ret_t js_novadesk_getLogPath(duk_context* ctx) {
+        std::wstring path = Settings::GetLogPath();
+        duk_push_string(ctx, Utils::ToString(path).c_str());
         return 1;
     }
 
@@ -294,6 +310,12 @@ namespace JSApi {
         duk_put_prop_string(ctx, -2, "getFileVersion");
         duk_push_c_function(ctx, js_novadesk_getNovadeskVersion, 0);
         duk_put_prop_string(ctx, -2, "getNovadeskVersion");
+        duk_push_c_function(ctx, js_novadesk_getAppDataPath, 0);
+        duk_put_prop_string(ctx, -2, "getAppDataPath");
+        duk_push_c_function(ctx, js_novadesk_getSettingsFilePath, 0);
+        duk_put_prop_string(ctx, -2, "getSettingsFilePath");
+        duk_push_c_function(ctx, js_novadesk_getLogPath, 0);
+        duk_put_prop_string(ctx, -2, "getLogPath");
     }
 
     std::wstring ResolveScriptPath(duk_context* ctx, const std::wstring& path) {

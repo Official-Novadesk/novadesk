@@ -57,7 +57,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     }
 
     // Clear log file on startup
-    std::wstring logPath = PathUtils::GetExeDir() + L"logs.log";
+    std::wstring logPath = PathUtils::GetAppDataPath() + L"logs.log";
     DeleteFileW(logPath.c_str());
 
     // Enable DPI Awareness

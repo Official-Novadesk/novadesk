@@ -13,6 +13,8 @@ namespace PathUtils {
     std::wstring GetExePath();
     std::wstring GetExeDir();
     std::wstring GetWidgetsDir();
+    std::wstring GetAppDataPath();
+    std::wstring GetProductName();
     std::wstring GetParentDir(const std::wstring& path);
 
     bool IsPathRelative(const std::wstring& path);
