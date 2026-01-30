@@ -8,8 +8,11 @@
 #include "PathUtils.h"
 #include <Windows.h>
 #include <shlwapi.h>
+#include <shlobj.h>
+#include "Version.h"
 
 #pragma comment(lib, "shlwapi.lib")
+#pragma comment(lib, "version.lib")
 
 #include <vector>
 
@@ -103,6 +106,63 @@ namespace PathUtils {
     */
     std::wstring GetWidgetsDir() {
         return GetExeDir() + L"Widgets\\";
+    }
+
+    /*
+    ** Get the AppData path for the product.
+    */
+    std::wstring GetAppDataPath() {
+        wchar_t path[MAX_PATH];
+        if (SUCCEEDED(SHGetFolderPathW(NULL, CSIDL_APPDATA, NULL, 0, path))) {
+            std::wstring appData = path;
+            appData += L"\\" + GetProductName() + L"\\";
+            
+            // Ensure directory exists
+            CreateDirectoryW(appData.c_str(), NULL);
+            
+            return appData;
+        }
+        return GetExeDir(); // Fallback
+    }
+
+    /*
+    ** Get the product name from the executable's version resources.
+    */
+    std::wstring GetProductName() {
+        static std::wstring cachedProductName;
+        if (!cachedProductName.empty()) return cachedProductName;
+
+        std::wstring exePath = GetExePath();
+        DWORD handle = 0;
+        DWORD size = GetFileVersionInfoSizeW(exePath.c_str(), &handle);
+        if (size > 0) {
+            std::vector<BYTE> buffer(size);
+            if (GetFileVersionInfoW(exePath.c_str(), handle, size, buffer.data())) {
+                struct LANGANDCODEPAGE {
+                    WORD wLanguage;
+                    WORD wCodePage;
+                } *lpTranslate;
+                UINT cbTranslate;
+
+                // Read the list of languages and code pages.
+                if (VerQueryValueW(buffer.data(), L"\\VarFileInfo\\Translation", (LPVOID*)&lpTranslate, &cbTranslate)) {
+                    for (unsigned int i = 0; i < (cbTranslate / sizeof(struct LANGANDCODEPAGE)); i++) {
+                        wchar_t subBlock[256];
+                        swprintf_s(subBlock, L"\\StringFileInfo\\%04x%04x\\ProductName",
+                                   lpTranslate[i].wLanguage, lpTranslate[i].wCodePage);
+
+                        wchar_t* productName = nullptr;
+                        UINT productNameLen = 0;
+                        if (VerQueryValueW(buffer.data(), subBlock, (LPVOID*)&productName, &productNameLen) && productNameLen > 0) {
+                            cachedProductName = productName;
+                            return cachedProductName;
+                        }
+                    }
+                }
+            }
+        }
+        cachedProductName = L"Novadesk"; // Fallback
+        return cachedProductName;
     }
 
     /*

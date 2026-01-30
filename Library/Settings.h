@@ -23,13 +23,14 @@ public:
     static bool LoadWidget(const std::wstring& id, WidgetOptions& outOptions);
     static void ApplyGlobalSettings();
     static void Save();
+    static std::wstring GetSettingsPath();
+    static std::wstring GetLogPath();
 
     static void SetGlobalBool(const std::string& key, bool value);
     static bool GetGlobalBool(const std::string& key, bool defaultValue);
 
 private:
     static void Load();
-    static std::wstring GetSettingsPath();
     static json s_Data;
     static bool s_Dirty;
 };

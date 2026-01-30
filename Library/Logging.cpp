@@ -12,6 +12,7 @@
 #include <ctime>
 #include <chrono>
 #include <vector>
+#include "PathUtils.h"
 
 // Static member initialization
 bool Logging::s_ConsoleEnabled = true;
@@ -68,10 +69,14 @@ void Logging::Log(LogLevel level, const wchar_t* format, ...)
         timeInfo.tm_hour, timeInfo.tm_min, timeInfo.tm_sec, ms.count());
 
     // Prepare final output string dynamically
-    // format: timestamp + " [Novadesk] " + levelStr + " " + buffer + "\n"
-    size_t outputSize = wcslen(timestamp) + 12 + wcslen(levelStr) + 1 + len + 2;
-    std::vector<wchar_t> output(outputSize);
-    swprintf_s(output.data(), output.size(), L"%s [Novadesk] %s %s\n", timestamp, levelStr, buffer.data());
+    // format: timestamp + " [" + productName + "] " + levelStr + " " + buffer + "\n"
+    std::wstring productName = PathUtils::GetProductName();
+    int outputLen = _scwprintf(L"%s [%s] %s %s\n", timestamp, productName.c_str(), levelStr, buffer.data());
+    
+    if (outputLen < 0) return;
+
+    std::vector<wchar_t> output(outputLen + 1);
+    swprintf_s(output.data(), output.size(), L"%s [%s] %s %s\n", timestamp, productName.c_str(), levelStr, buffer.data());
 
     // Output to console (debug output)
     if (s_ConsoleEnabled)

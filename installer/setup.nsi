@@ -3,7 +3,7 @@
 ;--------------------------------
 
 ; Define global version variable (Update this as needed)
-!define VERSION "0.1.0.0"
+!define VERSION "0.2.0.0"
 
 ; The name of the installer
 Name "Novadesk"
@@ -195,10 +195,11 @@ Section "Uninstall"
 
   ; Remove files
   Delete "$INSTDIR\Novadesk.exe"
-  Delete "$INSTDIR\settings.json"
-  Delete "$INSTDIR\logs.log"
   Delete "$INSTDIR\Uninstall.exe"
   RMDir /r "$INSTDIR\Widgets"
+  
+  ; Remove AppData (Settings, Logs, Config)
+  RMDir /r "$APPDATA\Novadesk"
   
   ; Remove nwm directory
   RMDir /r "$INSTDIR\nwm"

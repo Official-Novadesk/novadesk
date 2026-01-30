@@ -57,7 +57,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     }
 
     // Clear log file on startup
-    std::wstring logPath = PathUtils::GetExeDir() + L"logs.log";
+    std::wstring logPath = PathUtils::GetAppDataPath() + L"logs.log";
     DeleteFileW(logPath.c_str());
 
     // Enable DPI Awareness
@@ -66,19 +66,27 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     UNREFERENCED_PARAMETER(hPrevInstance);
     UNREFERENCED_PARAMETER(nCmdShow);
 
-    std::wstring appTitle = Utils::GetAppTitle();
+    std::wstring appTitle = PathUtils::GetProductName();
     std::wstring mutexName = L"Global\\NovadeskMutex_" + appTitle;
     std::wstring className = L"NovadeskTrayClass_" + appTitle;
 
     // Single instance enforcement
-    HANDLE hMutex = CreateMutex(NULL, TRUE, mutexName.c_str());
-    if (GetLastError() == ERROR_ALREADY_EXISTS)
+    // We use a NULL DACL to allow both Admin and User instances to share the same Mutex
+    SECURITY_DESCRIPTOR sd;
+    InitializeSecurityDescriptor(&sd, SECURITY_DESCRIPTOR_REVISION);
+    SetSecurityDescriptorDacl(&sd, TRUE, NULL, FALSE);
+    SECURITY_ATTRIBUTES sa = { sizeof(sa), &sd, FALSE };
+
+    HANDLE hMutex = CreateMutexW(&sa, TRUE, mutexName.c_str());
+    DWORD dwError = GetLastError();
+
+    if (dwError == ERROR_ALREADY_EXISTS || dwError == ERROR_ACCESS_DENIED)
     {
         // Another instance is running, check arguments for commands
         if (lpCmdLine && wcslen(lpCmdLine) > 0)
         {
             std::wstring cmd = lpCmdLine;
-            HWND hExisting = FindWindow(className.c_str(), NULL);
+            HWND hExisting = FindWindowW(className.c_str(), NULL);
 
             if (hExisting)
             {

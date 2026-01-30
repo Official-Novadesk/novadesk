@@ -8,6 +8,7 @@
 #include "Utils.h"
 #include <Windows.h>
 #include <vector>
+#include "PathUtils.h"
 
 #pragma comment(lib, "version.lib")
 
@@ -40,54 +41,4 @@ namespace Utils {
         return strTo;
     }
 
-    /*
-    ** Retrieve the ProductName version string from the current executable.
-    ** Falls back to IDS_APP_TITLE resource if version info is unavailable.
-    */
-    std::wstring GetAppTitle() {
-        static std::wstring cachedTitle;
-        if (!cachedTitle.empty()) return cachedTitle;
-
-        WCHAR szPath[MAX_PATH];
-        GetModuleFileNameW(NULL, szPath, MAX_PATH);
-
-        DWORD handle = 0;
-        DWORD size = GetFileVersionInfoSizeW(szPath, &handle);
-        if (size > 0) {
-            std::vector<BYTE> buffer(size);
-            if (GetFileVersionInfoW(szPath, handle, size, buffer.data())) {
-                struct LANGANDCODEPAGE {
-                    WORD wLanguage;
-                    WORD wCodePage;
-                } *lpTranslate;
-                UINT cbTranslate;
-
-                // Read the list of languages and code pages.
-                if (VerQueryValueW(buffer.data(), L"\\VarFileInfo\\Translation", (LPVOID*)&lpTranslate, &cbTranslate)) {
-                    for (unsigned int i = 0; i < (cbTranslate / sizeof(struct LANGANDCODEPAGE)); i++) {
-                        WCHAR subBlock[256];
-                        swprintf_s(subBlock, L"\\StringFileInfo\\%04x%04x\\ProductName",
-                            lpTranslate[i].wLanguage, lpTranslate[i].wCodePage);
-
-                        LPWSTR lpBuffer = NULL;
-                        UINT dwBytes = 0;
-                        if (VerQueryValueW(buffer.data(), subBlock, (LPVOID*)&lpBuffer, &dwBytes) && dwBytes > 0) {
-                            cachedTitle = lpBuffer;
-                            return cachedTitle;
-                        }
-                    }
-                }
-            }
-        }
-
-        // Fallback to resource string if version info retrieval fails
-        WCHAR szTitleRes[100];
-        if (LoadStringW(GetModuleHandle(NULL), 103, szTitleRes, 100)) { // 103 is IDS_APP_TITLE commonly
-            cachedTitle = szTitleRes;
-        } else {
-            cachedTitle = L"Novadesk";
-        }
-
-        return cachedTitle;
-    }
 }
