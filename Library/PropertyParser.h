@@ -127,6 +127,8 @@ namespace PropertyParser
         bool italic = false;
         TextAlignment textAlign = TEXT_ALIGN_LEFT_TOP;
         TextClipString clip = TEXT_CLIP_NONE;
+        
+        std::vector<TextShadow> shadows;
     };
 
     /*

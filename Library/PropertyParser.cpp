@@ -13,6 +13,7 @@
 #include <string>
 #include "JSApi/JSEvents.h"
 #include "JSApi/JSUtils.h"
+#include "Logging.h"
 
 namespace PropertyParser {
 
@@ -105,6 +106,25 @@ namespace PropertyParser {
                 }
             }
             duk_pop(m_Ctx);
+        }
+
+        bool ParseShadow(TextShadow& shadow) {
+            if (duk_is_object(m_Ctx, -1)) {
+                if (duk_get_prop_string(m_Ctx, -1, "x")) shadow.offsetX = (float)duk_get_number(m_Ctx, -1);
+                duk_pop(m_Ctx);
+                if (duk_get_prop_string(m_Ctx, -1, "y")) shadow.offsetY = (float)duk_get_number(m_Ctx, -1);
+                duk_pop(m_Ctx);
+                if (duk_get_prop_string(m_Ctx, -1, "blur")) shadow.blur = (float)duk_get_number(m_Ctx, -1);
+                duk_pop(m_Ctx);
+                
+                if (duk_get_prop_string(m_Ctx, -1, "color")) {
+                    std::wstring colorStr = Utils::ToWString(duk_get_string(m_Ctx, -1));
+                    ColorUtil::ParseRGBA(colorStr, shadow.color, shadow.alpha);
+                }
+                duk_pop(m_Ctx);
+                return true;
+            }
+            return false;
         }
 
     private:
@@ -395,6 +415,22 @@ namespace PropertyParser {
             else if (clipStr == L"ellipsis") options.clip = TEXT_CLIP_ELLIPSIS;
         }
 
+        if (duk_get_prop_string(ctx, -1, "fontShadow")) {
+            options.shadows.clear();
+            if (duk_is_array(ctx, -1)) {
+                int len = (int)duk_get_length(ctx, -1);
+                for (int i = 0; i < len; i++) {
+                    duk_get_prop_index(ctx, -1, i);
+                    TextShadow shadow;
+                    if (reader.ParseShadow(shadow)) options.shadows.push_back(shadow);
+                    duk_pop(ctx);
+                }
+            } else if (duk_is_object(ctx, -1)) {
+                TextShadow shadow;
+                if (reader.ParseShadow(shadow)) options.shadows.push_back(shadow);
+            }
+        }
+        duk_pop(ctx);
     }
 
     /*
@@ -656,6 +692,21 @@ namespace PropertyParser {
             }
             duk_push_string(ctx, clipStr); duk_put_prop_string(ctx, -2, "clipString");
 
+            const auto& shadows = t->GetShadows();
+            if (!shadows.empty()) {
+                duk_push_array(ctx);
+                for (int i = 0; i < (int)shadows.size(); i++) {
+                    duk_push_object(ctx);
+                    duk_push_number(ctx, shadows[i].offsetX); duk_put_prop_string(ctx, -2, "x");
+                    duk_push_number(ctx, shadows[i].offsetY); duk_put_prop_string(ctx, -2, "y");
+                    duk_push_number(ctx, shadows[i].blur); duk_put_prop_string(ctx, -2, "blur");
+                    duk_push_string(ctx, Utils::ToString(ColorUtil::ToRGBAString(shadows[i].color, shadows[i].alpha)).c_str());
+                    duk_put_prop_string(ctx, -2, "color");
+                    duk_put_prop_index(ctx, -2, i);
+                }
+                duk_put_prop_string(ctx, -2, "fontShadow");
+            }
+
             
         } else if (element->GetType() == ELEMENT_IMAGE) {
             ImageElement* img = static_cast<ImageElement*>(element);
@@ -797,6 +848,7 @@ namespace PropertyParser {
         element->SetItalic(options.italic);
         element->SetTextAlign(options.textAlign);
         element->SetClip(options.clip);
+        element->SetShadows(options.shadows);
     }
 
     /*
@@ -888,6 +940,7 @@ namespace PropertyParser {
         options.italic = element->IsItalic();
         options.textAlign = element->GetTextAlign();
         options.clip = element->GetClipString();
+        options.shadows = element->GetShadows();
     }
 
     void PreFillImageOptions(ImageOptions& options, ImageElement* element) {

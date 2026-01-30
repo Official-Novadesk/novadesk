@@ -9,6 +9,7 @@
 #include "Logging.h"
 #include "Direct2DHelper.h"
 #include "Logging.h"
+#include <d2d1effects.h>
 
 TextElement::TextElement(const std::wstring& id, int x, int y, int w, int h,
      const std::wstring& text, const std::wstring& fontFace,
@@ -160,6 +161,98 @@ void TextElement::Render(ID2D1DeviceContext* context)
     if (pBrush)
     {
         context->SetTextAntialiasMode(m_AntiAlias ? D2D1_TEXT_ANTIALIAS_MODE_GRAYSCALE : D2D1_TEXT_ANTIALIAS_MODE_ALIASED);
+
+        if (!m_Shadows.empty())
+        {
+            // Create a Command List to capture the text once
+            Microsoft::WRL::ComPtr<ID2D1CommandList> pCommandList;
+            if (SUCCEEDED(context->CreateCommandList(&pCommandList)))
+            {
+                // To record into a command list while the main context is already drawing,
+                // we should use a temporary context.
+                Microsoft::WRL::ComPtr<ID2D1Device> pDevice;
+                context->GetDevice(&pDevice);
+                
+                if (pDevice)
+                {
+                    Microsoft::WRL::ComPtr<ID2D1DeviceContext> pRecordingContext;
+                    if (SUCCEEDED(pDevice->CreateDeviceContext(D2D1_DEVICE_CONTEXT_OPTIONS_NONE, &pRecordingContext)))
+                    {
+                        pRecordingContext->SetTarget(pCommandList.Get());
+                        pRecordingContext->BeginDraw();
+                        // Draw text at origin (0,0) for the command list
+                        D2D1_RECT_F originRect = D2D1::RectF(0, 0, layoutW, layoutH);
+                        // We must use the same text format and brush on the recording context
+                        pRecordingContext->DrawText(m_Text.c_str(), (UINT32)m_Text.length(), pTextFormat.Get(), originRect, pBrush.Get());
+                        pRecordingContext->EndDraw();
+                        pCommandList->Close();
+                    }
+                }
+
+                // Logging for debugging
+                Logging::Log(LogLevel::Debug, L"TextElement(%s): Rendering %d shadows. layoutW=%.1f, layoutH=%.1f", m_Id.c_str(), (int)m_Shadows.size(), layoutW, layoutH);
+
+                for (const auto& shadow : m_Shadows)
+                {
+                    if (shadow.blur <= 0.01f)
+                    {
+                        // No blur: just draw text with shadow color offset
+                        Microsoft::WRL::ComPtr<ID2D1SolidColorBrush> pShadowBrush;
+                        if (Direct2D::CreateSolidBrush(context, shadow.color, shadow.alpha / 255.0f, &pShadowBrush))
+                        {
+                            D2D1_RECT_F shadowRect = D2D1::RectF(
+                                layoutRect.left + shadow.offsetX,
+                                layoutRect.top + shadow.offsetY,
+                                layoutRect.right + shadow.offsetX,
+                                layoutRect.bottom + shadow.offsetY);
+                            context->DrawText(m_Text.c_str(), (UINT32)m_Text.length(), pTextFormat.Get(), shadowRect, pShadowBrush.Get());
+                        }
+                    }
+                    else
+                    {
+                        // Blurred shadow using effects
+                        Microsoft::WRL::ComPtr<ID2D1Effect> pShadowEffect;
+                        Microsoft::WRL::ComPtr<ID2D1Effect> pColorMatrixEffect;
+
+                        HRESULT hrEffect = context->CreateEffect(CLSID_D2D1Shadow, &pShadowEffect);
+                        if (SUCCEEDED(hrEffect))
+                        {
+                            pShadowEffect->SetInput(0, pCommandList.Get());
+                            // Direct2D shadow blur is standard deviation. CSS blur-radius is 2x SD.
+                            pShadowEffect->SetValue(D2D1_SHADOW_PROP_BLUR_STANDARD_DEVIATION, shadow.blur / 2.0f);
+                            
+                            HRESULT hrMatrix = context->CreateEffect(CLSID_D2D1ColorMatrix, &pColorMatrixEffect);
+                            if (SUCCEEDED(hrMatrix))
+                            {
+                                pColorMatrixEffect->SetInputEffect(0, pShadowEffect.Get());
+                                
+                                // Color matrix for tinting (shadow effect returns alpha, we tint it)
+                                D2D1_COLOR_F c = Direct2D::ColorToD2D(shadow.color, shadow.alpha / 255.0f);
+                                // Premultiply color by alpha for D2D1_ALPHA_MODE_PREMULTIPLIED context
+                                D2D1_MATRIX_5X4_F matrix = D2D1::Matrix5x4F(
+                                    0, 0, 0, 0,
+                                    0, 0, 0, 0,
+                                    0, 0, 0, 0,
+                                    c.r * c.a, c.g * c.a, c.b * c.a, c.a,
+                                    0, 0, 0, 0
+                                );
+                                pColorMatrixEffect->SetValue(D2D1_COLORMATRIX_PROP_COLOR_MATRIX, matrix);
+
+                                D2D1_POINT_2F offset = D2D1::Point2F(layoutRect.left + shadow.offsetX, layoutRect.top + shadow.offsetY);
+                                context->DrawImage(pColorMatrixEffect.Get(), offset);
+                            }
+                            else {
+                                Logging::Log(LogLevel::Error, L"TextElement: Failed to create ColorMatrix effect (0x%08X)", hrMatrix);
+                            }
+                        }
+                        else {
+                            Logging::Log(LogLevel::Error, L"TextElement: Failed to create Shadow effect (0x%08X)", hrEffect);
+                        }
+                    }
+                }
+            }
+        }
+
         context->DrawText(m_Text.c_str(), (UINT32)m_Text.length(), pTextFormat.Get(), layoutRect, pBrush.Get());
     }
     

@@ -841,6 +841,9 @@ void Widget::AddImage(const PropertyParser::ImageOptions& options)
     }
 
     ImageElement* element = new ImageElement(options.id, options.x, options.y, options.width, options.height, options.path);
+    
+    PropertyParser::ApplyImageOptions(element, options); // Changed from ApplyElementOptions and moved
+
     element->SetPreserveAspectRatio(options.preserveAspectRatio);
     element->SetImageAlpha(options.imageAlpha);
     element->SetGrayscale(options.grayscale);
@@ -860,8 +863,6 @@ void Widget::AddImage(const PropertyParser::ImageOptions& options)
     {
         element->SetImageTint(options.imageTint, options.imageTintAlpha);
     }
-    
-    PropertyParser::ApplyElementOptions(element, options);
     
     m_Elements.push_back(element);
     
@@ -889,7 +890,7 @@ void Widget::AddText(const PropertyParser::TextOptions& options)
                              
     // Logging::Log(LogLevel::Debug, L"Widget::AddText: Created TextElement id='%s', text='%s', x=%d, y=%d", element->GetId().c_str(), element->GetText().c_str(), element->GetX(), element->GetY());
 
-    PropertyParser::ApplyElementOptions(element, options);
+    PropertyParser::ApplyTextOptions(element, options); // Changed from ApplyElementOptions
 
     m_Elements.push_back(element);
     
@@ -912,7 +913,7 @@ void Widget::AddBar(const PropertyParser::BarOptions& options)
 
     BarElement* element = new BarElement(options.id, options.x, options.y, options.width, options.height, options.value, options.orientation);
     
-    PropertyParser::ApplyBarOptions(element, options);
+    PropertyParser::ApplyBarOptions(element, options); // Changed from ApplyElementOptions
 
     m_Elements.push_back(element);
     

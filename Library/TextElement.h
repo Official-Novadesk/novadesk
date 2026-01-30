@@ -11,6 +11,7 @@
 #include "Element.h"
 #include <string>
 #include <windows.h>
+#include <vector>
 
 enum TextAlignment
 {
@@ -54,6 +55,7 @@ public:
     void SetItalic(bool italic) { m_Italic = italic; }
     void SetTextAlign(TextAlignment align) { m_TextAlign = align; }
     void SetClip(TextClipString clip) { m_ClipString = clip; }
+    void SetShadows(const std::vector<TextShadow>& shadows) { m_Shadows = shadows; }
 
     const std::wstring& GetText() const { return m_Text; }
     const std::wstring& GetFontFace() const { return m_FontFace; }
@@ -64,6 +66,7 @@ public:
     bool IsItalic() const { return m_Italic; }
     TextAlignment GetTextAlign() const { return m_TextAlign; }
     TextClipString GetClipString() const { return m_ClipString; }
+    const std::vector<TextShadow>& GetShadows() const { return m_Shadows; }
 
     virtual int GetAutoWidth() override;
     virtual int GetAutoHeight() override;
@@ -80,6 +83,7 @@ private:
     bool m_Italic;
     TextAlignment m_TextAlign;
     TextClipString m_ClipString;
+    std::vector<TextShadow> m_Shadows;
 };
 
 #endif

@@ -38,6 +38,14 @@ struct GfxRect {
     GfxRect(int x, int y, int w, int h) : X(x), Y(y), Width(w), Height(h) {}
 };
 
+struct TextShadow {
+    float offsetX = 0;
+    float offsetY = 0;
+    float blur = 0;
+    COLORREF color = 0;
+    BYTE alpha = 255;
+};
+
 class Element
 {
 public:

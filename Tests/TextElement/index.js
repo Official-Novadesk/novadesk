@@ -9,3 +9,13 @@ var widget = new widgetWindow({
     backgroundColor: "rgba(40, 40, 50, 0.95)",
     script: "ui.js"
 });
+
+var widget = new widgetWindow({
+    id: "fontEffect",
+    width: 500,
+    height: 500,
+    backgroundColor: "rgba(0, 0, 0, 1)",
+    script: "fontEffect.js"
+});
+
+app.enableDebugging(true);
