@@ -41,11 +41,4 @@ namespace Utils {
         return strTo;
     }
 
-    /*
-    ** Retrieve the ProductName version string from the current executable.
-    ** Falls back to IDS_APP_TITLE resource if version info is unavailable.
-    */
-    std::wstring GetAppTitle() {
-        return PathUtils::GetProductName();
-    }
 }

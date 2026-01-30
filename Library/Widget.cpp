@@ -24,6 +24,7 @@
 #include "JSApi/JSCommon.h"
 #include "JSApi/JSEvents.h"
 #include "ColorUtil.h"
+#include "PathUtils.h"
 
 #define WIDGET_CLASS_NAME L"NovadeskWidget"
 #define ZPOS_FLAGS (SWP_NOMOVE | SWP_NOSIZE | SWP_NOOWNERZORDER | SWP_NOACTIVATE | SWP_NOSENDCHANGING)
@@ -1405,7 +1406,7 @@ void Widget::OnContextMenu()
         AppendMenu(hSubMenu, MF_STRING, 1001, L"Refresh");
         AppendMenu(hSubMenu, MF_STRING, 1003, L"Exit");
         
-        std::wstring appTitle = Utils::GetAppTitle();
+        std::wstring appTitle = PathUtils::GetProductName();
         AppendMenu(hMenu, MF_POPUP, (UINT_PTR)hSubMenu, appTitle.c_str());
     }
 
