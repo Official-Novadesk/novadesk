@@ -50,5 +50,13 @@ var widget = new widgetWindow({
     script: "case.js"
 });
 
+var widget = new widgetWindow({
+    id: "inlineStyle",
+    width: 400,
+    height: 400,
+    backgroundColor: "rgba(0, 0, 0, 1)",
+    script: "inlineStyle.js"
+});
+
 
 app.enableDebugging(true);

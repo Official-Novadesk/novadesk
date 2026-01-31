@@ -17,7 +17,7 @@
 
 namespace PropertyParser {
     
-    static std::vector<std::wstring> SplitByComma(const std::wstring& s) {
+    std::vector<std::wstring> SplitByComma(const std::wstring& s) {
         std::vector<std::wstring> parts;
         int depth = 0;
         size_t last = 0;
@@ -37,7 +37,7 @@ namespace PropertyParser {
         return parts;
     }
 
-    static bool ParseGradientString(const std::wstring& str, GradientInfo& out) {
+    bool ParseGradientString(const std::wstring& str, GradientInfo& out) {
         if (str.empty()) return false;
         std::wstring s = str;
         // Trim only at ends, not middle because color names like "rgba(0, 0, 0, 1)" have spaces

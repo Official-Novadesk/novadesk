@@ -13,6 +13,8 @@
 #include <cwctype>
 #include <algorithm>
 #include "FontManager.h"
+#include "ColorUtil.h"
+#include "PropertyParser.h"
 
 TextElement::TextElement(const std::wstring& id, int x, int y, int w, int h,
      const std::wstring& text, const std::wstring& fontFace,
@@ -24,6 +26,7 @@ TextElement::TextElement(const std::wstring& id, int x, int y, int w, int h,
       m_FontColor(fontColor), m_Alpha(alpha), m_FontWeight(fontWeight), m_Italic(italic),
       m_TextAlign(textAlign), m_ClipString(clip), m_FontPath(fontPath)
 {
+    ParseInlineStyles();
 }
 
 void TextElement::Render(ID2D1DeviceContext* context)
@@ -197,16 +200,52 @@ void TextElement::Render(ID2D1DeviceContext* context)
     {
         context->SetTextAntialiasMode(m_AntiAlias ? D2D1_TEXT_ANTIALIAS_MODE_GRAYSCALE : D2D1_TEXT_ANTIALIAS_MODE_ALIASED);
 
-        // Always create a text layout for rendering if we have letter spacing or shadows
-        std::wstring processedText = GetProcessedText();
-        Microsoft::WRL::ComPtr<IDWriteTextLayout> pLayout;
-        hr = Direct2D::GetWriteFactory()->CreateTextLayout(
-            processedText.c_str(), (UINT32)processedText.length(), pTextFormat.Get(),
-            layoutW, layoutH, pLayout.GetAddressOf()
-        );
+    // Always create a text layout for rendering if we have letter spacing or shadows
+    std::wstring processedText = GetProcessedText();
+    Microsoft::WRL::ComPtr<IDWriteTextLayout> pLayout;
+    hr = Direct2D::GetWriteFactory()->CreateTextLayout(
+        processedText.c_str(), (UINT32)processedText.length(), pTextFormat.Get(),
+        layoutW, layoutH, pLayout.GetAddressOf()
+    );
 
-        if (SUCCEEDED(hr)) {
-            if (m_LetterSpacing != 0.0f) {
+    if (SUCCEEDED(hr)) {
+        for (const auto& segment : m_Segments) {
+            DWRITE_TEXT_RANGE range = { segment.startPos, segment.length };
+            
+            if (segment.style.fontWeight.has_value()) {
+                pLayout->SetFontWeight((DWRITE_FONT_WEIGHT)segment.style.fontWeight.value(), range);
+            }
+            if (segment.style.italic.has_value()) {
+                pLayout->SetFontStyle(segment.style.italic.value() ? DWRITE_FONT_STYLE_ITALIC : DWRITE_FONT_STYLE_NORMAL, range);
+            }
+            if (segment.style.underline.has_value()) {
+                pLayout->SetUnderline(segment.style.underline.value(), range);
+            }
+            if (segment.style.strikethrough.has_value()) {
+                pLayout->SetStrikethrough(segment.style.strikethrough.value(), range);
+            }
+            if (segment.style.fontSize.has_value()) {
+                pLayout->SetFontSize((float)segment.style.fontSize.value(), range);
+            }
+            if (segment.style.fontFace.has_value()) {
+                pLayout->SetFontFamilyName(segment.style.fontFace.value().c_str(), range);
+            }
+            if (segment.style.gradient.has_value() && segment.style.gradient->type != GRADIENT_NONE) {
+                Microsoft::WRL::ComPtr<ID2D1Brush> pSegmentGradientBrush;
+                if (Direct2D::CreateGradientBrush(context, layoutRect, segment.style.gradient.value(), &pSegmentGradientBrush)) {
+                    pLayout->SetDrawingEffect(pSegmentGradientBrush.Get(), range);
+                }
+            }
+            else if (segment.style.color.has_value()) {
+                Microsoft::WRL::ComPtr<ID2D1SolidColorBrush> pSegmentBrush;
+                BYTE a = segment.style.alpha.value_or(255);
+                if (Direct2D::CreateSolidBrush(context, segment.style.color.value(), a / 255.0f, &pSegmentBrush)) {
+                    pLayout->SetDrawingEffect(pSegmentBrush.Get(), range);
+                }
+            }
+        }
+
+        if (m_LetterSpacing != 0.0f) {
                 Microsoft::WRL::ComPtr<IDWriteTextLayout1> pLayout1;
                 if (SUCCEEDED(pLayout.As(&pLayout1))) {
                     DWRITE_TEXT_RANGE range = { 0, (UINT32)processedText.length() };
@@ -328,6 +367,16 @@ int TextElement::GetAutoWidth()
     );
     if (FAILED(hr)) return 0;
 
+    for (const auto& segment : m_Segments) {
+        DWRITE_TEXT_RANGE range = { segment.startPos, segment.length };
+        if (segment.style.fontWeight.has_value()) pLayout->SetFontWeight((DWRITE_FONT_WEIGHT)segment.style.fontWeight.value(), range);
+        if (segment.style.italic.has_value()) pLayout->SetFontStyle(segment.style.italic.value() ? DWRITE_FONT_STYLE_ITALIC : DWRITE_FONT_STYLE_NORMAL, range);
+        if (segment.style.underline.has_value()) pLayout->SetUnderline(segment.style.underline.value(), range);
+        if (segment.style.strikethrough.has_value()) pLayout->SetStrikethrough(segment.style.strikethrough.value(), range);
+        if (segment.style.fontSize.has_value()) pLayout->SetFontSize((float)segment.style.fontSize.value(), range);
+        if (segment.style.fontFace.has_value()) pLayout->SetFontFamilyName(segment.style.fontFace.value().c_str(), range);
+    }
+
     if (m_LetterSpacing != 0.0f) {
         Microsoft::WRL::ComPtr<IDWriteTextLayout1> pLayout1;
         if (SUCCEEDED(pLayout.As(&pLayout1))) {
@@ -409,6 +458,16 @@ int TextElement::GetAutoHeight()
         maxWidth, 10000.0f, pLayout.GetAddressOf()
     );
     if (FAILED(hr)) return 0;
+
+    for (const auto& segment : m_Segments) {
+        DWRITE_TEXT_RANGE range = { segment.startPos, segment.length };
+        if (segment.style.fontWeight.has_value()) pLayout->SetFontWeight((DWRITE_FONT_WEIGHT)segment.style.fontWeight.value(), range);
+        if (segment.style.italic.has_value()) pLayout->SetFontStyle(segment.style.italic.value() ? DWRITE_FONT_STYLE_ITALIC : DWRITE_FONT_STYLE_NORMAL, range);
+        if (segment.style.underline.has_value()) pLayout->SetUnderline(segment.style.underline.value(), range);
+        if (segment.style.strikethrough.has_value()) pLayout->SetStrikethrough(segment.style.strikethrough.value(), range);
+        if (segment.style.fontSize.has_value()) pLayout->SetFontSize((float)segment.style.fontSize.value(), range);
+        if (segment.style.fontFace.has_value()) pLayout->SetFontFamilyName(segment.style.fontFace.value().c_str(), range);
+    }
 
     if (m_LetterSpacing != 0.0f) {
         Microsoft::WRL::ComPtr<IDWriteTextLayout1> pLayout1;
@@ -509,6 +568,16 @@ bool TextElement::HitTest(int x, int y)
     );
     if (FAILED(hr)) return false;
 
+    for (const auto& segment : m_Segments) {
+        DWRITE_TEXT_RANGE range = { segment.startPos, segment.length };
+        if (segment.style.fontWeight.has_value()) pLayout->SetFontWeight((DWRITE_FONT_WEIGHT)segment.style.fontWeight.value(), range);
+        if (segment.style.italic.has_value()) pLayout->SetFontStyle(segment.style.italic.value() ? DWRITE_FONT_STYLE_ITALIC : DWRITE_FONT_STYLE_NORMAL, range);
+        if (segment.style.underline.has_value()) pLayout->SetUnderline(segment.style.underline.value(), range);
+        if (segment.style.strikethrough.has_value()) pLayout->SetStrikethrough(segment.style.strikethrough.value(), range);
+        if (segment.style.fontSize.has_value()) pLayout->SetFontSize((float)segment.style.fontSize.value(), range);
+        if (segment.style.fontFace.has_value()) pLayout->SetFontFamilyName(segment.style.fontFace.value().c_str(), range);
+    }
+
     if (m_LetterSpacing != 0.0f) {
         Microsoft::WRL::ComPtr<IDWriteTextLayout1> pLayout1;
         if (SUCCEEDED(pLayout.As(&pLayout1))) {
@@ -541,9 +610,9 @@ bool TextElement::HitTest(int x, int y)
 
 std::wstring TextElement::GetProcessedText() const
 {
-    if (m_TextCase == TEXT_CASE_NORMAL) return m_Text;
+    if (m_TextCase == TEXT_CASE_NORMAL) return m_CleanText;
 
-    std::wstring processed = m_Text;
+    std::wstring processed = m_CleanText;
     if (m_TextCase == TEXT_CASE_UPPER) {
         std::transform(processed.begin(), processed.end(), processed.begin(), ::towupper);
     }
@@ -576,4 +645,110 @@ std::wstring TextElement::GetProcessedText() const
     }
 
     return processed;
+}
+
+void TextElement::ParseInlineStyles()
+{
+    m_CleanText.clear();
+    m_Segments.clear();
+    
+    std::vector<TextSegmentStyle> styleStack;
+    TextSegmentStyle currentStyle;
+
+    for (size_t i = 0; i < m_Text.length(); ++i)
+    {
+        if (m_Text[i] == L'<')
+        {
+            size_t endTag = m_Text.find(L'>', i);
+            if (endTag != std::wstring::npos)
+            {
+                std::wstring tag = m_Text.substr(i + 1, endTag - i - 1);
+                bool isClosing = (!tag.empty() && tag[0] == L'/');
+                if (isClosing) tag = tag.substr(1);
+
+                if (isClosing)
+                {
+                    if (!styleStack.empty())
+                    {
+                        currentStyle = styleStack.back();
+                        styleStack.pop_back();
+                    }
+                }
+                else
+                {
+                    styleStack.push_back(currentStyle);
+                    
+                    if (tag == L"b") currentStyle.fontWeight = 700;
+                    else if (tag == L"i") currentStyle.italic = true;
+                    else if (tag == L"u") currentStyle.underline = true;
+                    else if (tag == L"s") currentStyle.strikethrough = true;
+                    else if (tag.find(L"color=") == 0)
+                    {
+                        std::wstring colorStr = tag.substr(6);
+                        
+                        GradientInfo gi;
+                        if (PropertyParser::ParseGradientString(colorStr, gi))
+                        {
+                            currentStyle.gradient = gi;
+                            currentStyle.color.reset();
+                        }
+                        else
+                        {
+                            COLORREF color;
+                            BYTE alpha;
+                            if (ColorUtil::ParseRGBA(colorStr, color, alpha))
+                            {
+                                currentStyle.color = color;
+                                currentStyle.alpha = alpha;
+                                currentStyle.gradient.reset();
+                            }
+                        }
+                    }
+                    else if (tag.find(L"size=") == 0)
+                    {
+                        try { currentStyle.fontSize = std::stoi(tag.substr(5)); } catch(...) {}
+                    }
+                    else if (tag.find(L"font=") == 0)
+                    {
+                        currentStyle.fontFace = tag.substr(5);
+                    }
+                }
+
+                i = endTag;
+                continue;
+            }
+        }
+
+        m_CleanText += m_Text[i];
+        
+        UINT32 currentPos = (UINT32)m_CleanText.length() - 1;
+        if (!m_Segments.empty() && m_Segments.back().startPos + m_Segments.back().length == currentPos)
+        {
+            const auto& lastStyle = m_Segments.back().style;
+            bool same = (lastStyle.fontWeight == currentStyle.fontWeight &&
+                         lastStyle.italic == currentStyle.italic &&
+                         lastStyle.underline == currentStyle.underline &&
+                         lastStyle.strikethrough == currentStyle.strikethrough &&
+                         lastStyle.color == currentStyle.color &&
+                         lastStyle.alpha == currentStyle.alpha &&
+                         lastStyle.fontSize == currentStyle.fontSize &&
+                         lastStyle.fontFace == currentStyle.fontFace &&
+                         lastStyle.gradient.has_value() == currentStyle.gradient.has_value() && // Simple check for gradient equality (can be improved)
+                         (!lastStyle.gradient.has_value() || (lastStyle.gradient->type == currentStyle.gradient->type && lastStyle.gradient->angle == currentStyle.gradient->angle && lastStyle.gradient->stops.size() == currentStyle.gradient->stops.size())));
+            
+            if (same)
+            {
+                m_Segments.back().length++;
+                m_Segments.back().text += m_Text[i];
+                continue;
+            }
+        }
+
+        TextSegment seg;
+        seg.text = m_Text[i];
+        seg.style = currentStyle;
+        seg.startPos = currentPos;
+        seg.length = 1;
+        m_Segments.push_back(seg);
+    }
 }

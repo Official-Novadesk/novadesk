@@ -174,4 +174,7 @@ namespace PropertyParser
     void ApplyImageOptions(ImageElement* element, const ImageOptions& options);
     void ApplyTextOptions(TextElement* element, const TextOptions& options);
     void ApplyBarOptions(BarElement* element, const BarOptions& options);
+
+    std::vector<std::wstring> SplitByComma(const std::wstring& s);
+    bool ParseGradientString(const std::wstring& str, GradientInfo& out);
 }
