@@ -25,6 +25,7 @@ struct TextSegmentStyle
     std::optional<int> fontSize;
     std::optional<std::wstring> fontFace;
     std::optional<GradientInfo> gradient;
+    std::optional<TextCase> textCase;
 };
 
 struct TextSegment

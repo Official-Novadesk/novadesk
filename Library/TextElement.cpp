@@ -672,6 +672,7 @@ void TextElement::ParseInlineStyles()
     
     std::vector<TextSegmentStyle> styleStack;
     TextSegmentStyle currentStyle;
+    bool forceNextUpper = false;
 
     for (size_t i = 0; i < m_Text.length(); ++i)
     {
@@ -690,6 +691,7 @@ void TextElement::ParseInlineStyles()
                     {
                         currentStyle = styleStack.back();
                         styleStack.pop_back();
+                        forceNextUpper = false;
                     }
                 }
                 else
@@ -730,6 +732,17 @@ void TextElement::ParseInlineStyles()
                     {
                         currentStyle.fontFace = tag.substr(5);
                     }
+                    else if (tag.find(L"case=") == 0)
+                    {
+                        std::wstring c = tag.substr(5);
+                        if (c == L"upper") currentStyle.textCase = TEXT_CASE_UPPER;
+                        else if (c == L"lower") currentStyle.textCase = TEXT_CASE_LOWER;
+                        else if (c == L"capitalize") currentStyle.textCase = TEXT_CASE_CAPITALIZE;
+                        else if (c == L"sentence") currentStyle.textCase = TEXT_CASE_SENTENCE;
+                        else if (c == L"normal") currentStyle.textCase = TEXT_CASE_NORMAL;
+                        
+                        if (currentStyle.textCase == TEXT_CASE_SENTENCE) forceNextUpper = true;
+                    }
                 }
 
                 i = endTag;
@@ -737,7 +750,35 @@ void TextElement::ParseInlineStyles()
             }
         }
 
-        m_CleanText += m_Text[i];
+        wchar_t c = m_Text[i];
+        TextCase activeCase = currentStyle.textCase.value_or(TEXT_CASE_NORMAL);
+        if (activeCase == TEXT_CASE_UPPER) c = towupper(c);
+        else if (activeCase == TEXT_CASE_LOWER) c = towlower(c);
+        else if (activeCase == TEXT_CASE_CAPITALIZE) {
+            bool isStart = m_CleanText.empty() || iswspace(m_CleanText.back());
+            if (isStart) c = towupper(c);
+            else c = towlower(c);
+        }
+        else if (activeCase == TEXT_CASE_SENTENCE) {
+            bool isStart = m_CleanText.empty() || forceNextUpper;
+            if (!isStart) {
+                size_t j = m_CleanText.length();
+                isStart = true;
+                while (j > 0) {
+                    wchar_t prev = m_CleanText[j - 1];
+                    if (iswalpha(prev)) { isStart = false; break; }
+                    if (prev == L'.' || prev == L'!' || prev == L'?') { isStart = true; break; }
+                    j--;
+                }
+            }
+            if (iswalpha(c)) {
+                if (isStart) c = towupper(c);
+                else c = towlower(c);
+                forceNextUpper = false;
+            }
+        }
+
+        m_CleanText += c;
         
         UINT32 currentPos = (UINT32)m_CleanText.length() - 1;
         if (!m_Segments.empty() && m_Segments.back().startPos + m_Segments.back().length == currentPos)
@@ -751,6 +792,7 @@ void TextElement::ParseInlineStyles()
                          lastStyle.alpha == currentStyle.alpha &&
                          lastStyle.fontSize == currentStyle.fontSize &&
                          lastStyle.fontFace == currentStyle.fontFace &&
+                         lastStyle.textCase == currentStyle.textCase &&
                          lastStyle.gradient.has_value() == currentStyle.gradient.has_value() && // Simple check for gradient equality (can be improved)
                          (!lastStyle.gradient.has_value() || (lastStyle.gradient->type == currentStyle.gradient->type && lastStyle.gradient->angle == currentStyle.gradient->angle && lastStyle.gradient->stops.size() == currentStyle.gradient->stops.size())));
             

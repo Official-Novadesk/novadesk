@@ -50,8 +50,16 @@ win.addText({
 });
 
 win.addText({
-    id: "complex-combo",
+    id: "case-test",
     x: 20, y: startY + spacing * 6.5,
+    text: "Case: <case=upper>upper</case>, <case=lower>LOWER</case>, <case=capitalize>capitalize me</case>, <case=sentence>THIS IS A SENTENCE.</case>",
+    fontSize: 18,
+    fontColor: "#FFFFFF"
+});
+
+win.addText({
+    id: "complex-combo",
+    x: 20, y: startY + spacing * 8,
     text: "<size=24><b><color=linearGradient(toBottom, #FFF, #555)>STYLIZED TITLE</color></b></size>\n<color=#AAA>Subtitle with <i>italics</i> and <u>underline</u></color>",
     fontSize: 14,
     fontColor: "#FFFFFF",

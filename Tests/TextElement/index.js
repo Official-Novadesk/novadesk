@@ -52,8 +52,8 @@ var widget = new widgetWindow({
 
 var widget = new widgetWindow({
     id: "inlineStyle",
-    width: 400,
-    height: 400,
+    width: 600,
+    height: 600,
     backgroundColor: "rgba(0, 0, 0, 1)",
     script: "inlineStyle.js"
 });
