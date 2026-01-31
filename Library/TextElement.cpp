@@ -219,6 +219,11 @@ void TextElement::Render(ID2D1DeviceContext* context)
                 pLayout->SetUnderline(TRUE, range);
             }
 
+            if (m_StrikeThrough) {
+                DWRITE_TEXT_RANGE range = { 0, (UINT32)processedText.length() };
+                pLayout->SetStrikethrough(TRUE, range);
+            }
+
             if (!m_Shadows.empty())
             {
                 // Create a Command List to capture the text with letter spacing for blurred shadows
@@ -336,6 +341,11 @@ int TextElement::GetAutoWidth()
         pLayout->SetUnderline(TRUE, range);
     }
 
+    if (m_StrikeThrough) {
+        DWRITE_TEXT_RANGE range = { 0, (UINT32)processedText.length() };
+        pLayout->SetStrikethrough(TRUE, range);
+    }
+
     DWRITE_TEXT_METRICS metrics;
     pLayout->GetMetrics(&metrics);
 
@@ -411,6 +421,11 @@ int TextElement::GetAutoHeight()
     if (m_UnderLine) {
         DWRITE_TEXT_RANGE range = { 0, (UINT32)processedText.length() };
         pLayout->SetUnderline(TRUE, range);
+    }
+
+    if (m_StrikeThrough) {
+        DWRITE_TEXT_RANGE range = { 0, (UINT32)processedText.length() };
+        pLayout->SetStrikethrough(TRUE, range);
     }
 
     DWRITE_TEXT_METRICS metrics;
@@ -505,6 +520,11 @@ bool TextElement::HitTest(int x, int y)
     if (m_UnderLine) {
         DWRITE_TEXT_RANGE range = { 0, (UINT32)processedText.length() };
         pLayout->SetUnderline(TRUE, range);
+    }
+
+    if (m_StrikeThrough) {
+        DWRITE_TEXT_RANGE range = { 0, (UINT32)processedText.length() };
+        pLayout->SetStrikethrough(TRUE, range);
     }
 
     // Get point relative to layout area

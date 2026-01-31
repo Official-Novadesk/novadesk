@@ -485,6 +485,7 @@ namespace PropertyParser {
         reader.GetGradientOrColor("fontColor", options.fontColor, options.alpha, options.fontGradient);
         reader.GetFloat("letterSpacing", options.letterSpacing);
         reader.GetBool("underLine", options.underLine);
+        reader.GetBool("strikeThrough", options.strikeThrough);
 
         std::wstring caseStr;
         if (reader.GetString("case", caseStr)) {
@@ -987,6 +988,7 @@ namespace PropertyParser {
         element->SetFontGradient(options.fontGradient);
         element->SetLetterSpacing(options.letterSpacing);
         element->SetUnderline(options.underLine);
+        element->SetStrikethrough(options.strikeThrough);
         element->SetTextCase(options.textCase);
     }
 

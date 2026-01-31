@@ -60,6 +60,7 @@ public:
     void SetFontGradient(const GradientInfo& gradient) { m_FontGradient = gradient; }
     void SetLetterSpacing(float spacing) { m_LetterSpacing = spacing; }
     void SetUnderline(bool underline) { m_UnderLine = underline; }
+    void SetStrikethrough(bool strikethrough) { m_StrikeThrough = strikethrough; }
     void SetTextCase(TextCase textCase) { m_TextCase = textCase; }
 
     const std::wstring& GetText() const { return m_Text; }
@@ -76,6 +77,7 @@ public:
     const GradientInfo& GetFontGradient() const { return m_FontGradient; }
     float GetLetterSpacing() const { return m_LetterSpacing; }
     bool GetUnderline() const { return m_UnderLine; }
+    bool GetStrikethrough() const { return m_StrikeThrough; }
     TextCase GetTextCase() const { return m_TextCase; }
 
     virtual int GetAutoWidth() override;
@@ -100,6 +102,7 @@ private:
     GradientInfo m_FontGradient;
     float m_LetterSpacing = 0.0f;
     bool m_UnderLine = false;
+    bool m_StrikeThrough = false;
     TextCase m_TextCase = TEXT_CASE_NORMAL;
 };
 
