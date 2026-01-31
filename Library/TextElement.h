@@ -41,7 +41,7 @@ public:
           const std::wstring& text, const std::wstring& fontFace,
           int fontSize, COLORREF fontColor, BYTE alpha,
           int fontWeight, bool italic, TextAlignment textAlign,
-          TextClipString clip = TEXT_CLIP_NONE);
+          TextClipString clip = TEXT_CLIP_NONE, const std::wstring& fontPath = L"");
 
     virtual ~TextElement() {}
 
@@ -55,6 +55,7 @@ public:
     void SetItalic(bool italic) { m_Italic = italic; }
     void SetTextAlign(TextAlignment align) { m_TextAlign = align; }
     void SetClip(TextClipString clip) { m_ClipString = clip; }
+    void SetFontPath(const std::wstring& path) { m_FontPath = path; }
     void SetShadows(const std::vector<TextShadow>& shadows) { m_Shadows = shadows; }
 
     const std::wstring& GetText() const { return m_Text; }
@@ -66,6 +67,7 @@ public:
     bool IsItalic() const { return m_Italic; }
     TextAlignment GetTextAlign() const { return m_TextAlign; }
     TextClipString GetClipString() const { return m_ClipString; }
+    const std::wstring& GetFontPath() const { return m_FontPath; }
     const std::vector<TextShadow>& GetShadows() const { return m_Shadows; }
 
     virtual int GetAutoWidth() override;
@@ -83,6 +85,7 @@ private:
     bool m_Italic;
     TextAlignment m_TextAlign;
     TextClipString m_ClipString;
+    std::wstring m_FontPath;
     std::vector<TextShadow> m_Shadows;
 };
 

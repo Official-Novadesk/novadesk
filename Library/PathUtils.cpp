@@ -205,7 +205,7 @@ namespace PathUtils {
         
         wchar_t fullPath[MAX_PATH];
         if (GetFullPathNameW(combined.c_str(), MAX_PATH, fullPath, NULL)) {
-            return std::wstring(fullPath);
+            return NormalizePath(std::wstring(fullPath));
         }
 
         return NormalizePath(combined);

@@ -128,6 +128,7 @@ namespace PropertyParser
         TextAlignment textAlign = TEXT_ALIGN_LEFT_TOP;
         TextClipString clip = TEXT_CLIP_NONE;
         
+        std::wstring fontPath;
         std::vector<TextShadow> shadows;
     };
 

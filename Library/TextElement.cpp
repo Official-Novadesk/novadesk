@@ -10,16 +10,17 @@
 #include "Direct2DHelper.h"
 #include "Logging.h"
 #include <d2d1effects.h>
+#include "FontManager.h"
 
 TextElement::TextElement(const std::wstring& id, int x, int y, int w, int h,
      const std::wstring& text, const std::wstring& fontFace,
      int fontSize, COLORREF fontColor, BYTE alpha,
      int fontWeight, bool italic, TextAlignment textAlign,
-     TextClipString clip)
+     TextClipString clip, const std::wstring& fontPath)
     : Element(ELEMENT_TEXT, id, x, y, w, h),
       m_Text(text), m_FontFace(fontFace), m_FontSize(fontSize),
       m_FontColor(fontColor), m_Alpha(alpha), m_FontWeight(fontWeight), m_Italic(italic),
-      m_TextAlign(textAlign), m_ClipString(clip)
+      m_TextAlign(textAlign), m_ClipString(clip), m_FontPath(fontPath)
 {
 }
 
@@ -62,10 +63,20 @@ void TextElement::Render(ID2D1DeviceContext* context)
     // Create text format
     std::wstring fontFace = m_FontFace.empty() ? L"Arial" : m_FontFace;
     
+    Microsoft::WRL::ComPtr<IDWriteFontCollection> pCollection;
+    if (!m_FontPath.empty()) {
+        pCollection = FontManager::GetFontCollection(m_FontPath);
+        if (pCollection) {
+            Logging::Log(LogLevel::Debug, L"TextElement(%s): Using custom font collection from '%s'", m_Id.c_str(), m_FontPath.c_str());
+        } else {
+            Logging::Log(LogLevel::Warn, L"TextElement(%s): Failed to load custom collection, falling back to system fonts.", m_Id.c_str());
+        }
+    }
+
     Microsoft::WRL::ComPtr<IDWriteTextFormat> pTextFormat;
     HRESULT hr = Direct2D::GetWriteFactory()->CreateTextFormat(
         fontFace.c_str(),
-        nullptr,
+        pCollection.Get(),
         (DWRITE_FONT_WEIGHT)m_FontWeight,
         m_Italic ? DWRITE_FONT_STYLE_ITALIC : DWRITE_FONT_STYLE_NORMAL,
         DWRITE_FONT_STRETCH_NORMAL,
@@ -76,9 +87,22 @@ void TextElement::Render(ID2D1DeviceContext* context)
 
     if (FAILED(hr))
     {
-        Logging::Log(LogLevel::Error, L"TextElement: Failed to create text format for font '%s'", fontFace.c_str());
+        Logging::Log(LogLevel::Error, L"TextElement(%s): Failed to create text format (Font: '%s', Path: '%s') (0x%08X)", 
+            m_Id.c_str(), fontFace.c_str(), m_FontPath.c_str(), hr);
         context->SetTransform(originalTransform);
         return;
+    }
+    
+    // Check if the font face actually exists in the collection
+    if (pCollection) {
+        UINT32 index;
+        BOOL exists;
+        pCollection->FindFamilyName(fontFace.c_str(), &index, &exists);
+        if (!exists) {
+            Logging::Log(LogLevel::Warn, L"TextElement(%s): Font family '%s' not found in custom collection!", m_Id.c_str(), fontFace.c_str());
+        } else {
+            Logging::Log(LogLevel::Debug, L"TextElement(%s): Font family '%s' found at index %u", m_Id.c_str(), fontFace.c_str(), index);
+        }
     }
 
     // Set alignment
@@ -266,9 +290,14 @@ int TextElement::GetAutoWidth()
 
     std::wstring fontFace = m_FontFace.empty() ? L"Arial" : m_FontFace;
 
+    Microsoft::WRL::ComPtr<IDWriteFontCollection> pCollection;
+    if (!m_FontPath.empty()) {
+        pCollection = FontManager::GetFontCollection(m_FontPath);
+    }
+
     Microsoft::WRL::ComPtr<IDWriteTextFormat> pTextFormat;
     HRESULT hr = Direct2D::GetWriteFactory()->CreateTextFormat(
-        fontFace.c_str(), nullptr,
+        fontFace.c_str(), pCollection.Get(),
         (DWRITE_FONT_WEIGHT)m_FontWeight,
         m_Italic ? DWRITE_FONT_STYLE_ITALIC : DWRITE_FONT_STYLE_NORMAL,
         DWRITE_FONT_STRETCH_NORMAL, (float)m_FontSize, L"",
@@ -291,9 +320,6 @@ int TextElement::GetAutoWidth()
 
     int contentW = (int)ceil(metrics.widthIncludingTrailingWhitespace);
     
-    // Logging::Log(LogLevel::Debug, L"TextElement(%s): GetAutoWidth = %d (Font: %s, Size: %d, Text: '%s')", 
-    //     m_Id.c_str(), contentW, fontFace.c_str(), m_FontSize, m_Text.substr(0, 20).c_str());
-
     if (!m_WDefined && (m_ClipString == TEXT_CLIP_ON || m_ClipString == TEXT_CLIP_ELLIPSIS) && m_Width > 0)
     {
         if (contentW > m_Width) return m_Width;
@@ -307,9 +333,14 @@ int TextElement::GetAutoHeight()
 
     std::wstring fontFace = m_FontFace.empty() ? L"Arial" : m_FontFace;
 
+    Microsoft::WRL::ComPtr<IDWriteFontCollection> pCollection;
+    if (!m_FontPath.empty()) {
+        pCollection = FontManager::GetFontCollection(m_FontPath);
+    }
+
     Microsoft::WRL::ComPtr<IDWriteTextFormat> pTextFormat;
     HRESULT hr = Direct2D::GetWriteFactory()->CreateTextFormat(
-        fontFace.c_str(), nullptr,
+        fontFace.c_str(), pCollection.Get(),
         (DWRITE_FONT_WEIGHT)m_FontWeight,
         m_Italic ? DWRITE_FONT_STYLE_ITALIC : DWRITE_FONT_STYLE_NORMAL,
         DWRITE_FONT_STRETCH_NORMAL, (float)m_FontSize, L"",
@@ -396,9 +427,14 @@ bool TextElement::HitTest(int x, int y)
     if ((m_HasSolidColor && m_SolidAlpha > 0) || (m_HasGradient)) return true;
 
     // Use DirectWrite for precise hit testing
+    Microsoft::WRL::ComPtr<IDWriteFontCollection> pCollection;
+    if (!m_FontPath.empty()) {
+        pCollection = FontManager::GetFontCollection(m_FontPath);
+    }
+
     Microsoft::WRL::ComPtr<IDWriteTextFormat> pTextFormat;
     HRESULT hr = Direct2D::GetWriteFactory()->CreateTextFormat(
-        m_FontFace.c_str(), nullptr,
+        m_FontFace.c_str(), pCollection.Get(),
         (DWRITE_FONT_WEIGHT)m_FontWeight,
         m_Italic ? DWRITE_FONT_STYLE_ITALIC : DWRITE_FONT_STYLE_NORMAL,
         DWRITE_FONT_STRETCH_NORMAL, (float)m_FontSize, L"",

@@ -126,6 +126,7 @@
     <ClInclude Include="Library\json\json.hpp" />
     <ClInclude Include="Library\Version.h" />
     <ClInclude Include="Library\Direct2DHelper.h" />
+    <ClInclude Include="Library\FontManager.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Library\Element.cpp" />
@@ -169,6 +170,7 @@
     <ClCompile Include="Library\PropertyParser.cpp" />
     <ClCompile Include="Library\Logging.cpp" />
     <ClCompile Include="Library\Direct2DHelper.cpp" />
+    <ClCompile Include="Library\FontManager.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="Novadesk.rc" />

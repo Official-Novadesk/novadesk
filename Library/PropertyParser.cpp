@@ -404,6 +404,10 @@ namespace PropertyParser {
             }
         }
         duk_pop(ctx);
+        if (reader.GetString("fontPath", options.fontPath)) {
+            options.fontPath = PathUtils::ResolvePath(options.fontPath, baseDir);
+            Logging::Log(LogLevel::Debug, L"PropertyParser: Resolved fontPath: '%s'", options.fontPath.c_str());
+        }
         
         std::wstring style;
         if (reader.GetString("fontStyle", style) && style == L"italic") options.italic = true;
@@ -723,6 +727,10 @@ namespace PropertyParser {
                 }
                 duk_put_prop_string(ctx, -2, "fontShadow");
             }
+            
+            if (!t->GetFontPath().empty()) {
+                duk_push_string(ctx, Utils::ToString(t->GetFontPath()).c_str()); duk_put_prop_string(ctx, -2, "fontPath");
+            }
 
             
         } else if (element->GetType() == ELEMENT_IMAGE) {
@@ -865,6 +873,7 @@ namespace PropertyParser {
         element->SetItalic(options.italic);
         element->SetTextAlign(options.textAlign);
         element->SetClip(options.clip);
+        element->SetFontPath(options.fontPath);
         element->SetShadows(options.shadows);
     }
 
@@ -957,6 +966,7 @@ namespace PropertyParser {
         options.italic = element->IsItalic();
         options.textAlign = element->GetTextAlign();
         options.clip = element->GetClipString();
+        options.fontPath = element->GetFontPath();
         options.shadows = element->GetShadows();
     }
 

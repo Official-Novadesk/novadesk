@@ -23,6 +23,7 @@
     <ClInclude Include="Library\CPUMonitor.h"><Filter>Library</Filter></ClInclude>
     <ClInclude Include="Library\ColorUtil.h"><Filter>Library</Filter></ClInclude>
     <ClInclude Include="Library\Direct2DHelper.h"><Filter>Library</Filter></ClInclude>
+    <ClInclude Include="Library\FontManager.h"><Filter>Library</Filter></ClInclude>
     <ClInclude Include="Library\DiskMonitor.h"><Filter>Library</Filter></ClInclude>
     <ClInclude Include="Library\Element.h"><Filter>Library</Filter></ClInclude>
     <ClInclude Include="Library\FileUtils.h"><Filter>Library</Filter></ClInclude>
@@ -78,6 +79,7 @@
     <ClCompile Include="Library\BarElement.cpp"><Filter>Library</Filter></ClCompile>
     <ClCompile Include="Library\CPUMonitor.cpp"><Filter>Library</Filter></ClCompile>
     <ClCompile Include="Library\Direct2DHelper.cpp"><Filter>Library</Filter></ClCompile>
+    <ClCompile Include="Library\FontManager.cpp"><Filter>Library</Filter></ClCompile>
     <ClCompile Include="Library\DiskMonitor.cpp"><Filter>Library</Filter></ClCompile>
     <ClCompile Include="Library\Element.cpp"><Filter>Library</Filter></ClCompile>
     <ClCompile Include="Library\FileUtils.cpp"><Filter>Library</Filter></ClCompile>

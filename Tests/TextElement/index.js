@@ -26,4 +26,13 @@ var widget = new widgetWindow({
     script: "fontWeight.js"
 });
 
+var widget = new widgetWindow({
+    id: "fontPath",
+    width: 500,
+    height: 500,
+    backgroundColor: "rgba(0, 0, 0, 1)",
+    script: "fontPath.js"
+});
+
+
 app.enableDebugging(true);

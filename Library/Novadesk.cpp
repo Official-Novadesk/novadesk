@@ -24,6 +24,7 @@
 #include "PathUtils.h"
 #include <commctrl.h>
 #include "Direct2DHelper.h"
+#include "FontManager.h"
 
 #pragma comment(lib, "comctl32.lib")
 
@@ -116,6 +117,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
     // Initialize Direct2D
     Direct2D::Initialize();
+    FontManager::Initialize();
 
     // Initialize Settings
     Settings::Initialize();
@@ -249,6 +251,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     System::Finalize();
     
     // Convert GDI+ shutdown
+    FontManager::Cleanup();
     Direct2D::Cleanup();
 
     // Close mutex
