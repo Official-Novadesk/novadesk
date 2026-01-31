@@ -42,5 +42,13 @@ var widget = new widgetWindow({
     script: "fontGradient.js"
 });
 
+var widget = new widgetWindow({
+    id: "case",
+    width: 400,
+    height: 400,
+    backgroundColor: "rgba(0, 0, 0, 1)",
+    script: "case.js"
+});
+
 
 app.enableDebugging(true);

@@ -485,6 +485,14 @@ namespace PropertyParser {
         reader.GetGradientOrColor("fontColor", options.fontColor, options.alpha, options.fontGradient);
         reader.GetFloat("letterSpacing", options.letterSpacing);
         reader.GetBool("underLine", options.underLine);
+
+        std::wstring caseStr;
+        if (reader.GetString("case", caseStr)) {
+            if (caseStr == L"upper") options.textCase = TEXT_CASE_UPPER;
+            else if (caseStr == L"lower") options.textCase = TEXT_CASE_LOWER;
+            else if (caseStr == L"capitalize") options.textCase = TEXT_CASE_CAPITALIZE;
+            else if (caseStr == L"sentence") options.textCase = TEXT_CASE_SENTENCE;
+        }
         
         if (duk_get_prop_string(ctx, -1, "fontWeight")) {
             if (duk_is_number(ctx, -1)) {
@@ -979,6 +987,7 @@ namespace PropertyParser {
         element->SetFontGradient(options.fontGradient);
         element->SetLetterSpacing(options.letterSpacing);
         element->SetUnderline(options.underLine);
+        element->SetTextCase(options.textCase);
     }
 
     /*

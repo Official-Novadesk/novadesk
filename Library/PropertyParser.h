@@ -133,6 +133,7 @@ namespace PropertyParser
         GradientInfo fontGradient;
         float letterSpacing = 0.0f;
         bool underLine = false;
+        TextCase textCase = TEXT_CASE_NORMAL;
     };
 
     /*

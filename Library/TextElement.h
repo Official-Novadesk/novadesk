@@ -60,6 +60,7 @@ public:
     void SetFontGradient(const GradientInfo& gradient) { m_FontGradient = gradient; }
     void SetLetterSpacing(float spacing) { m_LetterSpacing = spacing; }
     void SetUnderline(bool underline) { m_UnderLine = underline; }
+    void SetTextCase(TextCase textCase) { m_TextCase = textCase; }
 
     const std::wstring& GetText() const { return m_Text; }
     const std::wstring& GetFontFace() const { return m_FontFace; }
@@ -75,11 +76,14 @@ public:
     const GradientInfo& GetFontGradient() const { return m_FontGradient; }
     float GetLetterSpacing() const { return m_LetterSpacing; }
     bool GetUnderline() const { return m_UnderLine; }
+    TextCase GetTextCase() const { return m_TextCase; }
 
     virtual int GetAutoWidth() override;
     virtual int GetAutoHeight() override;
     virtual GfxRect GetBounds() override; // Keeping ROI as GfxRect for now as it's used for layout, but internally use D2D
     virtual bool HitTest(int x, int y) override;
+
+    std::wstring GetProcessedText() const;
 
 private:
     std::wstring m_Text;
@@ -96,6 +100,7 @@ private:
     GradientInfo m_FontGradient;
     float m_LetterSpacing = 0.0f;
     bool m_UnderLine = false;
+    TextCase m_TextCase = TEXT_CASE_NORMAL;
 };
 
 #endif

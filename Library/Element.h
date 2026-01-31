@@ -65,6 +65,14 @@ struct GradientInfo {
     std::wstring shape = L"circle"; // For radial
 };
 
+enum TextCase {
+    TEXT_CASE_NORMAL,
+    TEXT_CASE_UPPER,
+    TEXT_CASE_LOWER,
+    TEXT_CASE_CAPITALIZE,
+    TEXT_CASE_SENTENCE
+};
+
 class Element
 {
 public:

@@ -10,6 +10,8 @@
 #include "Direct2DHelper.h"
 #include "Logging.h"
 #include <d2d1effects.h>
+#include <cwctype>
+#include <algorithm>
 #include "FontManager.h"
 
 TextElement::TextElement(const std::wstring& id, int x, int y, int w, int h,
@@ -196,9 +198,10 @@ void TextElement::Render(ID2D1DeviceContext* context)
         context->SetTextAntialiasMode(m_AntiAlias ? D2D1_TEXT_ANTIALIAS_MODE_GRAYSCALE : D2D1_TEXT_ANTIALIAS_MODE_ALIASED);
 
         // Always create a text layout for rendering if we have letter spacing or shadows
+        std::wstring processedText = GetProcessedText();
         Microsoft::WRL::ComPtr<IDWriteTextLayout> pLayout;
         hr = Direct2D::GetWriteFactory()->CreateTextLayout(
-            m_Text.c_str(), (UINT32)m_Text.length(), pTextFormat.Get(),
+            processedText.c_str(), (UINT32)processedText.length(), pTextFormat.Get(),
             layoutW, layoutH, pLayout.GetAddressOf()
         );
 
@@ -206,13 +209,13 @@ void TextElement::Render(ID2D1DeviceContext* context)
             if (m_LetterSpacing != 0.0f) {
                 Microsoft::WRL::ComPtr<IDWriteTextLayout1> pLayout1;
                 if (SUCCEEDED(pLayout.As(&pLayout1))) {
-                    DWRITE_TEXT_RANGE range = { 0, (UINT32)m_Text.length() };
+                    DWRITE_TEXT_RANGE range = { 0, (UINT32)processedText.length() };
                     pLayout1->SetCharacterSpacing(m_LetterSpacing, 0.0f, 0.0f, range);
                 }
             }
 
             if (m_UnderLine) {
-                DWRITE_TEXT_RANGE range = { 0, (UINT32)m_Text.length() };
+                DWRITE_TEXT_RANGE range = { 0, (UINT32)processedText.length() };
                 pLayout->SetUnderline(TRUE, range);
             }
 
@@ -312,9 +315,10 @@ int TextElement::GetAutoWidth()
     // For AutoWidth, we never wrap
     pTextFormat->SetWordWrapping(DWRITE_WORD_WRAPPING_NO_WRAP);
 
+    std::wstring processedText = GetProcessedText();
     Microsoft::WRL::ComPtr<IDWriteTextLayout> pLayout;
     hr = Direct2D::GetWriteFactory()->CreateTextLayout(
-        m_Text.c_str(), (UINT32)m_Text.length(), pTextFormat.Get(),
+        processedText.c_str(), (UINT32)processedText.length(), pTextFormat.Get(),
         10000.0f, 10000.0f, pLayout.GetAddressOf()
     );
     if (FAILED(hr)) return 0;
@@ -322,13 +326,13 @@ int TextElement::GetAutoWidth()
     if (m_LetterSpacing != 0.0f) {
         Microsoft::WRL::ComPtr<IDWriteTextLayout1> pLayout1;
         if (SUCCEEDED(pLayout.As(&pLayout1))) {
-            DWRITE_TEXT_RANGE range = { 0, (UINT32)m_Text.length() };
+            DWRITE_TEXT_RANGE range = { 0, (UINT32)processedText.length() };
             pLayout1->SetCharacterSpacing(m_LetterSpacing, 0.0f, 0.0f, range);
         }
     }
 
     if (m_UnderLine) {
-        DWRITE_TEXT_RANGE range = { 0, (UINT32)m_Text.length() };
+        DWRITE_TEXT_RANGE range = { 0, (UINT32)processedText.length() };
         pLayout->SetUnderline(TRUE, range);
     }
 
@@ -346,7 +350,8 @@ int TextElement::GetAutoWidth()
 
 int TextElement::GetAutoHeight()
 {
-    if (m_Text.empty()) return 0;
+    std::wstring processedText = GetProcessedText();
+    if (processedText.empty()) return 0;
 
     std::wstring fontFace = m_FontFace.empty() ? L"Arial" : m_FontFace;
 
@@ -390,7 +395,7 @@ int TextElement::GetAutoHeight()
 
     Microsoft::WRL::ComPtr<IDWriteTextLayout> pLayout;
     hr = Direct2D::GetWriteFactory()->CreateTextLayout(
-        m_Text.c_str(), (UINT32)m_Text.length(), pTextFormat.Get(),
+        processedText.c_str(), (UINT32)processedText.length(), pTextFormat.Get(),
         maxWidth, 10000.0f, pLayout.GetAddressOf()
     );
     if (FAILED(hr)) return 0;
@@ -398,13 +403,13 @@ int TextElement::GetAutoHeight()
     if (m_LetterSpacing != 0.0f) {
         Microsoft::WRL::ComPtr<IDWriteTextLayout1> pLayout1;
         if (SUCCEEDED(pLayout.As(&pLayout1))) {
-            DWRITE_TEXT_RANGE range = { 0, (UINT32)m_Text.length() };
+            DWRITE_TEXT_RANGE range = { 0, (UINT32)processedText.length() };
             pLayout1->SetCharacterSpacing(m_LetterSpacing, 0.0f, 0.0f, range);
         }
     }
 
     if (m_UnderLine) {
-        DWRITE_TEXT_RANGE range = { 0, (UINT32)m_Text.length() };
+        DWRITE_TEXT_RANGE range = { 0, (UINT32)processedText.length() };
         pLayout->SetUnderline(TRUE, range);
     }
 
@@ -481,9 +486,10 @@ bool TextElement::HitTest(int x, int y)
     bool allowWrap = (m_ClipString == TEXT_CLIP_NONE || m_ClipString == TEXT_CLIP_WRAP);
     pTextFormat->SetWordWrapping(allowWrap ? DWRITE_WORD_WRAPPING_WRAP : DWRITE_WORD_WRAPPING_NO_WRAP);
 
+    std::wstring processedText = GetProcessedText();
     Microsoft::WRL::ComPtr<IDWriteTextLayout> pLayout;
     hr = Direct2D::GetWriteFactory()->CreateTextLayout(
-        m_Text.c_str(), (UINT32)m_Text.length(), pTextFormat.Get(),
+        processedText.c_str(), (UINT32)processedText.length(), pTextFormat.Get(),
         layoutW, layoutH, pLayout.GetAddressOf()
     );
     if (FAILED(hr)) return false;
@@ -491,13 +497,13 @@ bool TextElement::HitTest(int x, int y)
     if (m_LetterSpacing != 0.0f) {
         Microsoft::WRL::ComPtr<IDWriteTextLayout1> pLayout1;
         if (SUCCEEDED(pLayout.As(&pLayout1))) {
-            DWRITE_TEXT_RANGE range = { 0, (UINT32)m_Text.length() };
+            DWRITE_TEXT_RANGE range = { 0, (UINT32)processedText.length() };
             pLayout1->SetCharacterSpacing(m_LetterSpacing, 0.0f, 0.0f, range);
         }
     }
 
     if (m_UnderLine) {
-        DWRITE_TEXT_RANGE range = { 0, (UINT32)m_Text.length() };
+        DWRITE_TEXT_RANGE range = { 0, (UINT32)processedText.length() };
         pLayout->SetUnderline(TRUE, range);
     }
 
@@ -511,4 +517,43 @@ bool TextElement::HitTest(int x, int y)
     pLayout->HitTestPoint(relX, relY, &isTrailingHit, &isInside, &hitMetrics);
 
     return isInside;
+}
+
+std::wstring TextElement::GetProcessedText() const
+{
+    if (m_TextCase == TEXT_CASE_NORMAL) return m_Text;
+
+    std::wstring processed = m_Text;
+    if (m_TextCase == TEXT_CASE_UPPER) {
+        std::transform(processed.begin(), processed.end(), processed.begin(), ::towupper);
+    }
+    else if (m_TextCase == TEXT_CASE_LOWER) {
+        std::transform(processed.begin(), processed.end(), processed.begin(), ::towlower);
+    }
+    else if (m_TextCase == TEXT_CASE_CAPITALIZE) {
+        bool nextUpper = true;
+        for (size_t i = 0; i < processed.length(); ++i) {
+            if (iswspace(processed[i])) {
+                nextUpper = true;
+            } else if (nextUpper) {
+                processed[i] = towupper(processed[i]);
+                nextUpper = false;
+            } else {
+                processed[i] = towlower(processed[i]);
+            }
+        }
+    }
+    else if (m_TextCase == TEXT_CASE_SENTENCE) {
+        bool nextUpper = true;
+        for (size_t i = 0; i < processed.length(); ++i) {
+            if (nextUpper && !iswspace(processed[i])) {
+                processed[i] = towupper(processed[i]);
+                nextUpper = false;
+            } else {
+                processed[i] = towlower(processed[i]);
+            }
+        }
+    }
+
+    return processed;
 }
