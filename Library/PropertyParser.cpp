@@ -483,6 +483,7 @@ namespace PropertyParser {
         reader.GetInt("fontSize", options.fontSize);
         
         reader.GetGradientOrColor("fontColor", options.fontColor, options.alpha, options.fontGradient);
+        reader.GetFloat("letterSpacing", options.letterSpacing);
         
         if (duk_get_prop_string(ctx, -1, "fontWeight")) {
             if (duk_is_number(ctx, -1)) {
@@ -975,6 +976,7 @@ namespace PropertyParser {
         element->SetFontPath(options.fontPath);
         element->SetShadows(options.shadows);
         element->SetFontGradient(options.fontGradient);
+        element->SetLetterSpacing(options.letterSpacing);
     }
 
     /*

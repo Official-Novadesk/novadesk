@@ -131,6 +131,7 @@ namespace PropertyParser
         std::wstring fontPath;
         std::vector<TextShadow> shadows;
         GradientInfo fontGradient;
+        float letterSpacing = 0.0f;
     };
 
     /*

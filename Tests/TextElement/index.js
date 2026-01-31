@@ -37,7 +37,7 @@ var widget = new widgetWindow({
 var widget = new widgetWindow({
     id: "fontGradient",
     width: 800,
-    height: 600,
+    height: 800,
     backgroundColor: "rgba(0, 0, 0, 1)",
     script: "fontGradient.js"
 });

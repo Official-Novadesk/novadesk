@@ -76,6 +76,35 @@ win.addText({
     fontSize: 48,
     fontWeight: 900,
     fontColor: "linearGradient(to right, #00f, #f0f)",
+    fontShadow: "2px 2px 4px rgba(0,0,0,200)"
 });
 
-console.log("Gradient test widget created.");
+// 7. Letter Spacing (Positive)
+win.addText({
+    id: "spacing-pos",
+    x: 20, y: startY + spacing * 6 + 100,
+    text: "Letter Spacing: 10px",
+    fontSize: 24,
+    fontWeight: 700,
+    fontColor: "#fff",
+    letterSpacing: 10,
+    onLeftMouseUp: function() {
+        console.log("Letter Spacing: 10px (Wider) clicked");
+    }
+});
+
+// 8. Letter Spacing (Negative)
+win.addText({
+    id: "spacing-neg",
+    x: 20, y: startY + spacing * 7 + 100,
+    text: "Letter Spacing: -2px (Tighter)",
+    fontSize: 24,
+    fontWeight: 700,
+    fontColor: "#fff",
+    letterSpacing: -2,
+    onLeftMouseUp: function() {
+        console.log("Letter Spacing: -2px (Tighter) clicked");
+    }
+});
+
+console.log("Gradient and spacing test widget created.");

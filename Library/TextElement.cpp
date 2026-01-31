@@ -195,73 +195,68 @@ void TextElement::Render(ID2D1DeviceContext* context)
     {
         context->SetTextAntialiasMode(m_AntiAlias ? D2D1_TEXT_ANTIALIAS_MODE_GRAYSCALE : D2D1_TEXT_ANTIALIAS_MODE_ALIASED);
 
-        if (!m_Shadows.empty())
-        {
-            // Create a Command List to capture the text once
-            Microsoft::WRL::ComPtr<ID2D1CommandList> pCommandList;
-            if (SUCCEEDED(context->CreateCommandList(&pCommandList)))
-            {
-                // To record into a command list while the main context is already drawing,
-                // we should use a temporary context.
-                Microsoft::WRL::ComPtr<ID2D1Device> pDevice;
-                context->GetDevice(&pDevice);
-                
-                if (pDevice)
-                {
-                    Microsoft::WRL::ComPtr<ID2D1DeviceContext> pRecordingContext;
-                    if (SUCCEEDED(pDevice->CreateDeviceContext(D2D1_DEVICE_CONTEXT_OPTIONS_NONE, &pRecordingContext)))
-                    {
-                        pRecordingContext->SetTarget(pCommandList.Get());
-                        pRecordingContext->BeginDraw();
-                        // Draw text at origin (0,0) for the command list
-                        D2D1_RECT_F originRect = D2D1::RectF(0, 0, layoutW, layoutH);
-                        // We must use the same text format and brush on the recording context
-                        pRecordingContext->DrawText(m_Text.c_str(), (UINT32)m_Text.length(), pTextFormat.Get(), originRect, pBrush.Get());
-                        pRecordingContext->EndDraw();
-                        pCommandList->Close();
-                    }
+        // Always create a text layout for rendering if we have letter spacing or shadows
+        Microsoft::WRL::ComPtr<IDWriteTextLayout> pLayout;
+        hr = Direct2D::GetWriteFactory()->CreateTextLayout(
+            m_Text.c_str(), (UINT32)m_Text.length(), pTextFormat.Get(),
+            layoutW, layoutH, pLayout.GetAddressOf()
+        );
+
+        if (SUCCEEDED(hr)) {
+            if (m_LetterSpacing != 0.0f) {
+                Microsoft::WRL::ComPtr<IDWriteTextLayout1> pLayout1;
+                if (SUCCEEDED(pLayout.As(&pLayout1))) {
+                    DWRITE_TEXT_RANGE range = { 0, (UINT32)m_Text.length() };
+                    pLayout1->SetCharacterSpacing(m_LetterSpacing, 0.0f, 0.0f, range);
                 }
+            }
 
-                // Logging for debugging
-                Logging::Log(LogLevel::Debug, L"TextElement(%s): Rendering %d shadows. layoutW=%.1f, layoutH=%.1f", m_Id.c_str(), (int)m_Shadows.size(), layoutW, layoutH);
-
-                for (const auto& shadow : m_Shadows)
+            if (!m_Shadows.empty())
+            {
+                // Create a Command List to capture the text with letter spacing for blurred shadows
+                Microsoft::WRL::ComPtr<ID2D1CommandList> pCommandList;
+                if (SUCCEEDED(context->CreateCommandList(&pCommandList)))
                 {
-                    if (shadow.blur <= 0.01f)
+                    Microsoft::WRL::ComPtr<ID2D1Device> pDevice;
+                    context->GetDevice(&pDevice);
+                    
+                    if (pDevice)
                     {
-                        // No blur: just draw text with shadow color offset
-                        Microsoft::WRL::ComPtr<ID2D1SolidColorBrush> pShadowBrush;
-                        if (Direct2D::CreateSolidBrush(context, shadow.color, shadow.alpha / 255.0f, &pShadowBrush))
+                        Microsoft::WRL::ComPtr<ID2D1DeviceContext> pRecordingContext;
+                        if (SUCCEEDED(pDevice->CreateDeviceContext(D2D1_DEVICE_CONTEXT_OPTIONS_NONE, &pRecordingContext)))
                         {
-                            D2D1_RECT_F shadowRect = D2D1::RectF(
-                                layoutRect.left + shadow.offsetX,
-                                layoutRect.top + shadow.offsetY,
-                                layoutRect.right + shadow.offsetX,
-                                layoutRect.bottom + shadow.offsetY);
-                            context->DrawText(m_Text.c_str(), (UINT32)m_Text.length(), pTextFormat.Get(), shadowRect, pShadowBrush.Get());
+                            pRecordingContext->SetTarget(pCommandList.Get());
+                            pRecordingContext->BeginDraw();
+                            // For the command list, draw at (0,0)
+                            pRecordingContext->DrawTextLayout(D2D1::Point2F(0, 0), pLayout.Get(), pBrush.Get());
+                            pRecordingContext->EndDraw();
+                            pCommandList->Close();
                         }
                     }
-                    else
-                    {
-                        // Blurred shadow using effects
-                        Microsoft::WRL::ComPtr<ID2D1Effect> pShadowEffect;
-                        Microsoft::WRL::ComPtr<ID2D1Effect> pColorMatrixEffect;
 
-                        HRESULT hrEffect = context->CreateEffect(CLSID_D2D1Shadow, &pShadowEffect);
-                        if (SUCCEEDED(hrEffect))
+                    for (const auto& shadow : m_Shadows)
+                    {
+                        if (shadow.blur <= 0.01f)
                         {
-                            pShadowEffect->SetInput(0, pCommandList.Get());
-                            // Direct2D shadow blur is standard deviation. CSS blur-radius is 2x SD.
-                            pShadowEffect->SetValue(D2D1_SHADOW_PROP_BLUR_STANDARD_DEVIATION, shadow.blur / 2.0f);
-                            
-                            HRESULT hrMatrix = context->CreateEffect(CLSID_D2D1ColorMatrix, &pColorMatrixEffect);
-                            if (SUCCEEDED(hrMatrix))
+                            Microsoft::WRL::ComPtr<ID2D1SolidColorBrush> pShadowBrush;
+                            if (Direct2D::CreateSolidBrush(context, shadow.color, shadow.alpha / 255.0f, &pShadowBrush))
                             {
-                                pColorMatrixEffect->SetInputEffect(0, pShadowEffect.Get());
+                                context->DrawTextLayout(D2D1::Point2F(layoutX + shadow.offsetX, layoutY + shadow.offsetY), pLayout.Get(), pShadowBrush.Get());
+                            }
+                        }
+                        else
+                        {
+                            Microsoft::WRL::ComPtr<ID2D1Effect> pShadowEffect;
+                            Microsoft::WRL::ComPtr<ID2D1Effect> pColorMatrixEffect;
+
+                            if (SUCCEEDED(context->CreateEffect(CLSID_D2D1Shadow, &pShadowEffect)) &&
+                                SUCCEEDED(context->CreateEffect(CLSID_D2D1ColorMatrix, &pColorMatrixEffect)))
+                            {
+                                pShadowEffect->SetInput(0, pCommandList.Get());
+                                pShadowEffect->SetValue(D2D1_SHADOW_PROP_BLUR_STANDARD_DEVIATION, shadow.blur / 2.0f);
                                 
-                                // Color matrix for tinting (shadow effect returns alpha, we tint it)
+                                pColorMatrixEffect->SetInputEffect(0, pShadowEffect.Get());
                                 D2D1_COLOR_F c = Direct2D::ColorToD2D(shadow.color, shadow.alpha / 255.0f);
-                                // Premultiply color by alpha for D2D1_ALPHA_MODE_PREMULTIPLIED context
                                 D2D1_MATRIX_5X4_F matrix = D2D1::Matrix5x4F(
                                     0, 0, 0, 0,
                                     0, 0, 0, 0,
@@ -274,19 +269,14 @@ void TextElement::Render(ID2D1DeviceContext* context)
                                 D2D1_POINT_2F offset = D2D1::Point2F(layoutRect.left + shadow.offsetX, layoutRect.top + shadow.offsetY);
                                 context->DrawImage(pColorMatrixEffect.Get(), offset);
                             }
-                            else {
-                                Logging::Log(LogLevel::Error, L"TextElement: Failed to create ColorMatrix effect (0x%08X)", hrMatrix);
-                            }
-                        }
-                        else {
-                            Logging::Log(LogLevel::Error, L"TextElement: Failed to create Shadow effect (0x%08X)", hrEffect);
                         }
                     }
                 }
             }
-        }
 
-        context->DrawText(m_Text.c_str(), (UINT32)m_Text.length(), pTextFormat.Get(), layoutRect, pBrush.Get());
+            // Draw main text
+            context->DrawTextLayout(D2D1::Point2F(layoutX, layoutY), pLayout.Get(), pBrush.Get());
+        }
     }
     
     // Restore transform
@@ -323,6 +313,14 @@ int TextElement::GetAutoWidth()
         10000.0f, 10000.0f, pLayout.GetAddressOf()
     );
     if (FAILED(hr)) return 0;
+
+    if (m_LetterSpacing != 0.0f) {
+        Microsoft::WRL::ComPtr<IDWriteTextLayout1> pLayout1;
+        if (SUCCEEDED(pLayout.As(&pLayout1))) {
+            DWRITE_TEXT_RANGE range = { 0, (UINT32)m_Text.length() };
+            pLayout1->SetCharacterSpacing(m_LetterSpacing, 0.0f, 0.0f, range);
+        }
+    }
 
     DWRITE_TEXT_METRICS metrics;
     pLayout->GetMetrics(&metrics);
@@ -386,6 +384,14 @@ int TextElement::GetAutoHeight()
         maxWidth, 10000.0f, pLayout.GetAddressOf()
     );
     if (FAILED(hr)) return 0;
+
+    if (m_LetterSpacing != 0.0f) {
+        Microsoft::WRL::ComPtr<IDWriteTextLayout1> pLayout1;
+        if (SUCCEEDED(pLayout.As(&pLayout1))) {
+            DWRITE_TEXT_RANGE range = { 0, (UINT32)m_Text.length() };
+            pLayout1->SetCharacterSpacing(m_LetterSpacing, 0.0f, 0.0f, range);
+        }
+    }
 
     DWRITE_TEXT_METRICS metrics;
     pLayout->GetMetrics(&metrics);
@@ -466,6 +472,14 @@ bool TextElement::HitTest(int x, int y)
         layoutW, layoutH, pLayout.GetAddressOf()
     );
     if (FAILED(hr)) return false;
+
+    if (m_LetterSpacing != 0.0f) {
+        Microsoft::WRL::ComPtr<IDWriteTextLayout1> pLayout1;
+        if (SUCCEEDED(pLayout.As(&pLayout1))) {
+            DWRITE_TEXT_RANGE range = { 0, (UINT32)m_Text.length() };
+            pLayout1->SetCharacterSpacing(m_LetterSpacing, 0.0f, 0.0f, range);
+        }
+    }
 
     // Get point relative to layout area
     float relX = (float)x - (bounds.X + m_PaddingLeft);
