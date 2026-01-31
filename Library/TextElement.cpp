@@ -14,11 +14,11 @@
 TextElement::TextElement(const std::wstring& id, int x, int y, int w, int h,
      const std::wstring& text, const std::wstring& fontFace,
      int fontSize, COLORREF fontColor, BYTE alpha,
-     bool bold, bool italic, TextAlignment textAlign,
+     int fontWeight, bool italic, TextAlignment textAlign,
      TextClipString clip)
     : Element(ELEMENT_TEXT, id, x, y, w, h),
       m_Text(text), m_FontFace(fontFace), m_FontSize(fontSize),
-      m_FontColor(fontColor), m_Alpha(alpha), m_Bold(bold), m_Italic(italic),
+      m_FontColor(fontColor), m_Alpha(alpha), m_FontWeight(fontWeight), m_Italic(italic),
       m_TextAlign(textAlign), m_ClipString(clip)
 {
 }
@@ -66,7 +66,7 @@ void TextElement::Render(ID2D1DeviceContext* context)
     HRESULT hr = Direct2D::GetWriteFactory()->CreateTextFormat(
         fontFace.c_str(),
         nullptr,
-        m_Bold ? DWRITE_FONT_WEIGHT_BOLD : DWRITE_FONT_WEIGHT_REGULAR,
+        (DWRITE_FONT_WEIGHT)m_FontWeight,
         m_Italic ? DWRITE_FONT_STYLE_ITALIC : DWRITE_FONT_STYLE_NORMAL,
         DWRITE_FONT_STRETCH_NORMAL,
         (float)m_FontSize,
@@ -269,7 +269,7 @@ int TextElement::GetAutoWidth()
     Microsoft::WRL::ComPtr<IDWriteTextFormat> pTextFormat;
     HRESULT hr = Direct2D::GetWriteFactory()->CreateTextFormat(
         fontFace.c_str(), nullptr,
-        m_Bold ? DWRITE_FONT_WEIGHT_BOLD : DWRITE_FONT_WEIGHT_REGULAR,
+        (DWRITE_FONT_WEIGHT)m_FontWeight,
         m_Italic ? DWRITE_FONT_STYLE_ITALIC : DWRITE_FONT_STYLE_NORMAL,
         DWRITE_FONT_STRETCH_NORMAL, (float)m_FontSize, L"",
         pTextFormat.GetAddressOf()
@@ -310,7 +310,7 @@ int TextElement::GetAutoHeight()
     Microsoft::WRL::ComPtr<IDWriteTextFormat> pTextFormat;
     HRESULT hr = Direct2D::GetWriteFactory()->CreateTextFormat(
         fontFace.c_str(), nullptr,
-        m_Bold ? DWRITE_FONT_WEIGHT_BOLD : DWRITE_FONT_WEIGHT_REGULAR,
+        (DWRITE_FONT_WEIGHT)m_FontWeight,
         m_Italic ? DWRITE_FONT_STYLE_ITALIC : DWRITE_FONT_STYLE_NORMAL,
         DWRITE_FONT_STRETCH_NORMAL, (float)m_FontSize, L"",
         pTextFormat.GetAddressOf()
@@ -399,7 +399,7 @@ bool TextElement::HitTest(int x, int y)
     Microsoft::WRL::ComPtr<IDWriteTextFormat> pTextFormat;
     HRESULT hr = Direct2D::GetWriteFactory()->CreateTextFormat(
         m_FontFace.c_str(), nullptr,
-        m_Bold ? DWRITE_FONT_WEIGHT_BOLD : DWRITE_FONT_WEIGHT_REGULAR,
+        (DWRITE_FONT_WEIGHT)m_FontWeight,
         m_Italic ? DWRITE_FONT_STYLE_ITALIC : DWRITE_FONT_STYLE_NORMAL,
         DWRITE_FONT_STRETCH_NORMAL, (float)m_FontSize, L"",
         pTextFormat.GetAddressOf()

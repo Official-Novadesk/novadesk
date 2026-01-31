@@ -385,8 +385,25 @@ namespace PropertyParser {
         
         reader.GetColor("fontColor", options.fontColor, options.alpha);
         
-        std::wstring weight;
-        if (reader.GetString("fontWeight", weight) && weight == L"bold") options.bold = true;
+        if (duk_get_prop_string(ctx, -1, "fontWeight")) {
+            if (duk_is_number(ctx, -1)) {
+                 options.fontWeight = duk_get_int(ctx, -1);
+            } else if (duk_is_string(ctx, -1)) {
+                std::wstring weightStr = Utils::ToWString(duk_get_string(ctx, -1));
+                std::transform(weightStr.begin(), weightStr.end(), weightStr.begin(), ::towlower);
+                
+                if (weightStr == L"thin") options.fontWeight = 100;
+                else if (weightStr == L"extralight" || weightStr == L"ultralight") options.fontWeight = 200;
+                else if (weightStr == L"light") options.fontWeight = 300;
+                else if (weightStr == L"normal" || weightStr == L"regular") options.fontWeight = 400;
+                else if (weightStr == L"medium") options.fontWeight = 500;
+                else if (weightStr == L"semibold" || weightStr == L"demibold") options.fontWeight = 600;
+                else if (weightStr == L"bold") options.fontWeight = 700;
+                else if (weightStr == L"extrabold" || weightStr == L"ultrabold") options.fontWeight = 800;
+                else if (weightStr == L"black" || weightStr == L"heavy") options.fontWeight = 900;
+            }
+        }
+        duk_pop(ctx);
         
         std::wstring style;
         if (reader.GetString("fontStyle", style) && style == L"italic") options.italic = true;
@@ -668,7 +685,7 @@ namespace PropertyParser {
             std::wstring fc = ColorUtil::ToRGBAString(t->GetFontColor(), t->GetFontAlpha());
             duk_push_string(ctx, Utils::ToString(fc).c_str()); duk_put_prop_string(ctx, -2, "fontColor");
             
-            duk_push_boolean(ctx, t->IsBold()); duk_put_prop_string(ctx, -2, "bold");
+            duk_push_int(ctx, t->GetFontWeight()); duk_put_prop_string(ctx, -2, "fontWeight");
             duk_push_boolean(ctx, t->IsItalic()); duk_put_prop_string(ctx, -2, "italic");
             
             // Align string mapping (needs inverse)
@@ -844,7 +861,7 @@ namespace PropertyParser {
         element->SetFontFace(options.fontFace);
         element->SetFontSize(options.fontSize);
         element->SetFontColor(options.fontColor, options.alpha);
-        element->SetBold(options.bold);
+        element->SetFontWeight(options.fontWeight);
         element->SetItalic(options.italic);
         element->SetTextAlign(options.textAlign);
         element->SetClip(options.clip);
@@ -936,7 +953,7 @@ namespace PropertyParser {
         options.fontSize = element->GetFontSize();
         options.fontColor = element->GetFontColor();
         options.alpha = element->GetFontAlpha();
-        options.bold = element->IsBold();
+        options.fontWeight = element->GetFontWeight();
         options.italic = element->IsItalic();
         options.textAlign = element->GetTextAlign();
         options.clip = element->GetClipString();

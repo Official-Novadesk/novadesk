@@ -40,7 +40,7 @@ public:
     TextElement(const std::wstring& id, int x, int y, int w, int h,
           const std::wstring& text, const std::wstring& fontFace,
           int fontSize, COLORREF fontColor, BYTE alpha,
-          bool bold, bool italic, TextAlignment textAlign,
+          int fontWeight, bool italic, TextAlignment textAlign,
           TextClipString clip = TEXT_CLIP_NONE);
 
     virtual ~TextElement() {}
@@ -51,7 +51,7 @@ public:
     void SetFontFace(const std::wstring& font) { m_FontFace = font; }
     void SetFontSize(int size) { m_FontSize = size; }
     void SetFontColor(COLORREF color, BYTE alpha) { m_FontColor = color; m_Alpha = alpha; }
-    void SetBold(bool bold) { m_Bold = bold; }
+    void SetFontWeight(int weight) { m_FontWeight = weight; }
     void SetItalic(bool italic) { m_Italic = italic; }
     void SetTextAlign(TextAlignment align) { m_TextAlign = align; }
     void SetClip(TextClipString clip) { m_ClipString = clip; }
@@ -62,7 +62,7 @@ public:
     int GetFontSize() const { return m_FontSize; }
     COLORREF GetFontColor() const { return m_FontColor; }
     BYTE GetFontAlpha() const { return m_Alpha; }
-    bool IsBold() const { return m_Bold; }
+    int GetFontWeight() const { return m_FontWeight; }
     bool IsItalic() const { return m_Italic; }
     TextAlignment GetTextAlign() const { return m_TextAlign; }
     TextClipString GetClipString() const { return m_ClipString; }
@@ -79,7 +79,7 @@ private:
     int m_FontSize;
     COLORREF m_FontColor;
     BYTE m_Alpha;
-    bool m_Bold;
+    int m_FontWeight;
     bool m_Italic;
     TextAlignment m_TextAlign;
     TextClipString m_ClipString;

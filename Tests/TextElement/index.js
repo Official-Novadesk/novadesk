@@ -18,4 +18,12 @@ var widget = new widgetWindow({
     script: "fontEffect.js"
 });
 
+var widget = new widgetWindow({
+    id: "fontWeight",
+    width: 500,
+    height: 500,
+    backgroundColor: "rgba(0, 0, 0, 1)",
+    script: "fontWeight.js"
+});
+
 app.enableDebugging(true);

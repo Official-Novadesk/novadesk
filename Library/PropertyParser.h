@@ -123,7 +123,7 @@ namespace PropertyParser
         int fontSize = 12;
         COLORREF fontColor = RGB(0, 0, 0);
         BYTE alpha = 255;
-        bool bold = false;
+        int fontWeight = 400;
         bool italic = false;
         TextAlignment textAlign = TEXT_ALIGN_LEFT_TOP;
         TextClipString clip = TEXT_CLIP_NONE;

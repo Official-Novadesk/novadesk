@@ -886,7 +886,7 @@ void Widget::AddText(const PropertyParser::TextOptions& options)
 
     TextElement* element = new TextElement(options.id, options.x, options.y, options.width, options.height, 
                              options.text, options.fontFace, options.fontSize, options.fontColor, options.alpha,
-                             options.bold, options.italic, options.textAlign, options.clip);
+                             options.fontWeight, options.italic, options.textAlign, options.clip);
                              
     // Logging::Log(LogLevel::Debug, L"Widget::AddText: Created TextElement id='%s', text='%s', x=%d, y=%d", element->GetId().c_str(), element->GetText().c_str(), element->GetX(), element->GetY());
 
