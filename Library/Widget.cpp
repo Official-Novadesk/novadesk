@@ -195,6 +195,21 @@ void Widget::Refresh()
     EndUpdate();
 }
 
+void Widget::SetFocus()
+{
+    if (m_hWnd) {
+        ::SetFocus(m_hWnd);
+    }
+}
+
+void Widget::UnFocus()
+{
+    if (m_hWnd && ::GetFocus() == m_hWnd) {
+        ::SetFocus(NULL);
+    }
+}
+
+
 /*
 ** Change the z-order position of this widget.
 ** If all is true, affects all widgets in the same z-order group.
@@ -435,6 +450,14 @@ LRESULT CALLBACK Widget::WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
 
     switch (message)
     {
+    case WM_SETFOCUS:
+        if (widget) JSApi::TriggerWidgetEvent(widget, "focus");
+        return 0;
+
+    case WM_KILLFOCUS:
+        if (widget) JSApi::TriggerWidgetEvent(widget, "unfocus");
+        return 0;
+
     case WM_ERASEBKGND:
         return 1; // Handled, we don't need to erase background for layered window
         

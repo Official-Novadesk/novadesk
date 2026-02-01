@@ -69,6 +69,8 @@ public:
     void Show();
     void Hide();
     void Refresh();
+    void SetFocus();
+    void UnFocus();
 
     void BeginUpdate() { m_UpdateCount++; }
     void EndUpdate() { if (--m_UpdateCount == 0) Redraw(); }

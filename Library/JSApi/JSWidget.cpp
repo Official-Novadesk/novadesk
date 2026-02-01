@@ -217,6 +217,18 @@
          if (widget) widget->Refresh();
          return 0;
      }
+
+     duk_ret_t js_widget_set_focus(duk_context* ctx) {
+         Widget* widget = GetWidgetFromContext(ctx);
+         if (widget) widget->SetFocus();
+         return 0;
+     }
+
+     duk_ret_t js_widget_unfocus(duk_context* ctx) {
+         Widget* widget = GetWidgetFromContext(ctx);
+         if (widget) widget->UnFocus();
+         return 0;
+     }
  
      void BindWidgetControlMethods(duk_context* ctx) {
          duk_push_c_function(ctx, js_widget_set_properties, 1);
@@ -227,6 +239,10 @@
          duk_put_prop_string(ctx, -2, "close");
          duk_push_c_function(ctx, js_widget_refresh, 0); 
          duk_put_prop_string(ctx, -2, "refresh");
+         duk_push_c_function(ctx, js_widget_set_focus, 0);
+         duk_put_prop_string(ctx, -2, "setFocus");
+         duk_push_c_function(ctx, js_widget_unfocus, 0);
+         duk_put_prop_string(ctx, -2, "unFocus");
          duk_push_c_function(ctx, js_widget_on, 2);
          duk_put_prop_string(ctx, -2, "on");
  
