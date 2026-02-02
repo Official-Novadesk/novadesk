@@ -1191,6 +1191,38 @@ namespace PropertyParser {
         }
     }
 
+    void ApplyShapeOptions(ShapeElement* element, const ShapeOptions& options) {
+        ApplyElementOptions(element, options);
+
+        if (options.strokeGradient.type != GRADIENT_NONE) {
+            element->SetStrokeGradient(options.strokeGradient);
+        }
+        else {
+            element->SetStroke(options.strokeWidth, options.strokeColor, options.strokeAlpha);
+        }
+
+        if (options.fillGradient.type != GRADIENT_NONE) {
+            element->SetFillGradient(options.fillGradient);
+        }
+        else {
+            element->SetFill(options.fillColor, options.fillAlpha);
+        }
+
+        element->SetRadii(options.radiusX, options.radiusY);
+        element->SetLinePoints(options.startX, options.startY, options.endX, options.endY);
+        element->SetArcParams(options.startAngle, options.endAngle, options.clockwise);
+        element->SetPathData(options.pathData);
+
+        element->SetStrokeStyle(
+            options.strokeStartCap,
+            options.strokeEndCap,
+            options.strokeDashCap,
+            options.strokeLineJoin,
+            options.strokeDashOffset,
+            options.strokeDashes
+        );
+    }
+
     void PreFillElementOptions(ElementOptions& options, Element* element) {
         if (!element) return;
         options.id = element->GetId();
@@ -1324,36 +1356,6 @@ namespace PropertyParser {
         options.lineColor2 = element->GetLineColor2();
         options.lineAlpha2 = element->GetLineAlpha2();
         options.lineGradientAngle = element->GetLineGradientAngle();
-    }
-
-    void ApplyShapeOptions(ShapeElement* element, const ShapeOptions& options) {
-        ApplyElementOptions(element, options);
-
-        if (options.strokeGradient.type != GRADIENT_NONE) {
-            element->SetStrokeGradient(options.strokeGradient);
-        } else {
-            element->SetStroke(options.strokeWidth, options.strokeColor, options.strokeAlpha);
-        }
-
-        if (options.fillGradient.type != GRADIENT_NONE) {
-            element->SetFillGradient(options.fillGradient);
-        } else {
-            element->SetFill(options.fillColor, options.fillAlpha);
-        }
-
-        element->SetRadii(options.radiusX, options.radiusY);
-        element->SetLinePoints(options.startX, options.startY, options.endX, options.endY);
-        element->SetArcParams(options.startAngle, options.endAngle, options.clockwise);
-        element->SetPathData(options.pathData);
-        
-        element->SetStrokeStyle(
-            options.strokeStartCap, 
-            options.strokeEndCap, 
-            options.strokeDashCap, 
-            options.strokeLineJoin, 
-            options.strokeDashOffset, 
-            options.strokeDashes
-        );
     }
 
     void PreFillShapeOptions(ShapeOptions& options, ShapeElement* element) {
