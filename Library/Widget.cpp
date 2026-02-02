@@ -52,7 +52,7 @@ bool Widget::IsValid(Widget* pWidget)
 ** Options include size, position, colors, z-order, and behavior flags.
 */
 Widget::Widget(const WidgetOptions& options) 
-    : m_hWnd(nullptr), m_Options(options), m_WindowZPosition(options.zPos)
+    : m_hWnd(nullptr), m_Options(options), m_WindowZPosition(options.zPos), m_IsBatchUpdating(false)
 {
 }
 
@@ -1008,7 +1008,9 @@ void Widget::SetElementProperties(const std::wstring& id, duk_context* ctx)
         PropertyParser::ApplyRoundLineOptions(static_cast<RoundLineElement*>(element), options);
     }
 
-    Redraw();
+    if (!m_IsBatchUpdating) {
+        Redraw();
+    }
 }
 
 /*
@@ -1084,8 +1086,7 @@ void Widget::ClearContextMenu()
 */
 void Widget::Redraw()
 {
-    if (m_UpdateCount == 0)
-    {
+    if (!m_IsBatchUpdating) {
         UpdateLayeredWindowContent();
     }
 }
@@ -1494,6 +1495,17 @@ void Widget::OnContextMenu()
     {
         PostQuitMessage(0);
     }
+}
+
+void Widget::BeginUpdate()
+{
+    m_IsBatchUpdating = true;
+}
+
+void Widget::EndUpdate()
+{
+    m_IsBatchUpdating = false;
+    Redraw();
 }
 
 

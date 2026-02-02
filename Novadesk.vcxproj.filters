@@ -13,6 +13,9 @@
     <Filter Include="Library\json">
       <UniqueIdentifier>{c66e70a1-d70c-437b-99d6-54070a2f9c9b}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Library\kiss_fft130">
+      <UniqueIdentifier>{d77e70a1-d70c-437b-99d6-54070a2f9c9c}</UniqueIdentifier>
+    </Filter>
     <Filter Include="assets">
       <UniqueIdentifier>{a5839213-33df-4654-8c88-e9f0d1a49999}</UniqueIdentifier>
     </Filter>
@@ -70,6 +73,13 @@
     <ClInclude Include="Library\JSApi\JSWebFetch.h"><Filter>Library\JSApi</Filter></ClInclude>
     <ClInclude Include="Library\JSApi\JSWidget.h"><Filter>Library\JSApi</Filter></ClInclude>
     <ClInclude Include="Library\JSApi\novadesk_addon.h"><Filter>Library\JSApi</Filter></ClInclude>
+    <ClInclude Include="Library\JSApi\JSAudioLevel.h"><Filter>Library\JSApi</Filter></ClInclude>
+    
+    <!-- AudioLevel -->
+    <ClInclude Include="Library\AudioLevel.h"><Filter>Library</Filter></ClInclude>
+    <ClInclude Include="Library\kiss_fft130\kiss_fft.h"><Filter>Library\kiss_fft130</Filter></ClInclude>
+    <ClInclude Include="Library\kiss_fft130\kiss_fftr.h"><Filter>Library\kiss_fft130</Filter></ClInclude>
+    <ClInclude Include="Library\kiss_fft130\_kiss_fft_guts.h"><Filter>Library\kiss_fft130</Filter></ClInclude>
 
     <!-- Other Headers -->
     <ClInclude Include="Library\json\json.hpp"><Filter>Library\json</Filter></ClInclude>
@@ -102,10 +112,14 @@
     <ClCompile Include="Library\Tooltip.cpp"><Filter>Library</Filter></ClCompile>
     <ClCompile Include="Library\Utils.cpp"><Filter>Library</Filter></ClCompile>
     <ClCompile Include="Library\Widget.cpp"><Filter>Library</Filter></ClCompile>
+    <ClCompile Include="Library\AudioLevel.cpp"><Filter>Library</Filter></ClCompile>
+    <ClCompile Include="Library\kiss_fft130\kiss_fft.c"><Filter>Library\kiss_fft130</Filter></ClCompile>
+    <ClCompile Include="Library\kiss_fft130\kiss_fftr.c"><Filter>Library\kiss_fft130</Filter></ClCompile>
 
     <!-- JSApi Sources -->
     <ClCompile Include="Library\JSApi\JSApi.cpp"><Filter>Library\JSApi</Filter></ClCompile>
     <ClCompile Include="Library\JSApi\JSAudio.cpp"><Filter>Library\JSApi</Filter></ClCompile>
+    <ClCompile Include="Library\JSApi\JSAudioLevel.cpp"><Filter>Library\JSApi</Filter></ClCompile>
     <ClCompile Include="Library\JSApi\JSClipboard.cpp"><Filter>Library\JSApi</Filter></ClCompile>
     <ClCompile Include="Library\JSApi\JSCommon.cpp"><Filter>Library\JSApi</Filter></ClCompile>
     <ClCompile Include="Library\JSApi\JSContextMenu.cpp"><Filter>Library\JSApi</Filter></ClCompile>

@@ -157,6 +157,24 @@ namespace JSApi {
         return 1;
     }
 
+    duk_ret_t js_widget_begin_update(duk_context* ctx) {
+        duk_push_this(ctx);
+        duk_get_prop_string(ctx, -1, "\xFF" "widgetPtr");
+        Widget* widget = (Widget*)duk_get_pointer(ctx, -1);
+        duk_pop_2(ctx);
+        if (Widget::IsValid(widget)) widget->BeginUpdate();
+        return 0;
+    }
+
+    duk_ret_t js_widget_end_update(duk_context* ctx) {
+        duk_push_this(ctx);
+        duk_get_prop_string(ctx, -1, "\xFF" "widgetPtr");
+        Widget* widget = (Widget*)duk_get_pointer(ctx, -1);
+        duk_pop_2(ctx);
+        if (Widget::IsValid(widget)) widget->EndUpdate();
+        return 0;
+    }
+
     void BindWidgetUIMethods(duk_context* ctx) {
         duk_push_c_function(ctx, js_widget_add_image, 1);
         duk_put_prop_string(ctx, -2, "addImage");
@@ -173,5 +191,10 @@ namespace JSApi {
         duk_put_prop_string(ctx, -2, "setElementProperties");
         duk_push_c_function(ctx, js_widget_get_element_property, 2);
         duk_put_prop_string(ctx, -2, "getElementProperty");
+
+        duk_push_c_function(ctx, js_widget_begin_update, 0);
+        duk_put_prop_string(ctx, -2, "beginUpdate");
+        duk_push_c_function(ctx, js_widget_end_update, 0);
+        duk_put_prop_string(ctx, -2, "endUpdate");
     }
 }

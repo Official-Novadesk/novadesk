@@ -73,9 +73,6 @@ public:
     void UnFocus();
     std::wstring GetTitle() const;
 
-    void BeginUpdate() { m_UpdateCount++; }
-    void EndUpdate() { if (--m_UpdateCount == 0) Redraw(); }
-
     void ChangeZPos(ZPOSITION zPos, bool all = false);
     void ChangeSingleZPos(ZPOSITION zPos, bool all = false);
     void SetWindowPosition(int x, int y, int w, int h);
@@ -104,6 +101,9 @@ public:
     void SetContextMenuDisabled(bool disabled) { m_ContextMenuDisabled = disabled; }
     void SetShowDefaultContextMenuItems(bool show) { m_ShowDefaultContextMenuItems = show; }
 
+    void BeginUpdate();
+    void EndUpdate();
+
     void Redraw();
 
     Element* FindElementById(const std::wstring& id);
@@ -122,19 +122,21 @@ private:
 
     void OnContextMenu();
 
+private:
+    std::wstring m_Id;
+    std::wstring m_Name;
+    WidgetOptions m_Options;
     HWND m_hWnd;
     Tooltip m_Tooltip;
-    WidgetOptions m_Options;
     ZPOSITION m_WindowZPosition;
     std::vector<Element*> m_Elements;
-    int m_UpdateCount = 0;
+    Element* m_MouseOverElement = nullptr;
+    bool m_IsBatchUpdating = false;
     
     // Context Menu
     std::vector<MenuItem> m_ContextMenu;
     bool m_ShowDefaultContextMenuItems = true;
     bool m_ContextMenuDisabled = false;
-
-    Element* m_MouseOverElement = nullptr;
 
     // Dragging State
     bool m_IsDragging = false;
