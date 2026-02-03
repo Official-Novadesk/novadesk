@@ -1078,13 +1078,8 @@ void Widget::SetElementProperties(const std::wstring& id, duk_context* ctx)
         PropertyParser::PreFillShapeOptions(options, static_cast<ShapeElement*>(element));
         PropertyParser::ParseShapeOptions(ctx, options);
         PropertyParser::ApplyShapeOptions(static_cast<ShapeElement*>(element), options);
-    } else if (element->GetType() == ELEMENT_ROUNDLINE) {
-        PropertyParser::RoundLineOptions options;
-        PropertyParser::PreFillRoundLineOptions(options, static_cast<RoundLineElement*>(element));
-        PropertyParser::ParseRoundLineOptions(ctx, options);
-        PropertyParser::ApplyRoundLineOptions(static_cast<RoundLineElement*>(element), options);
     }
-
+    
     if (!m_IsBatchUpdating) {
         Redraw();
     }
