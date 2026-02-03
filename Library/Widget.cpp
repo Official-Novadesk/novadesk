@@ -406,7 +406,7 @@ void Widget::SetBackgroundColor(const std::wstring& colorStr)
     BYTE alpha = m_Options.bgAlpha;
     GradientInfo grad;
     
-    bool isGradient = PropertyParser::ParseGradientString(colorStr, grad);
+    bool isGradient = Utils::ParseGradientString(colorStr, grad);
     bool isColor = ColorUtil::ParseRGBA(colorStr, color, alpha);
 
     if (isGradient || isColor)

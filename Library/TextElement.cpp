@@ -14,6 +14,7 @@
 #include <algorithm>
 #include "FontManager.h"
 #include "ColorUtil.h"
+#include "Utils.h"
 #include "PropertyParser.h"
 
 TextElement::TextElement(const std::wstring& id, int x, int y, int w, int h,
@@ -707,7 +708,7 @@ void TextElement::ParseInlineStyles()
                         std::wstring colorStr = tag.substr(6);
                         
                         GradientInfo gi;
-                        if (PropertyParser::ParseGradientString(colorStr, gi))
+                        if (Utils::ParseGradientString(colorStr, gi))
                         {
                             currentStyle.gradient = gi;
                             currentStyle.color.reset();
