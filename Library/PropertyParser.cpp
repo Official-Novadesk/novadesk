@@ -929,6 +929,8 @@ namespace PropertyParser {
         ApplyElementOptions(element, options);
 
         if (options.strokeGradient.type != GRADIENT_NONE) {
+            // Ensure width is applied even when using gradients
+            element->SetStroke(options.strokeWidth, options.strokeColor, options.strokeAlpha);
             element->SetStrokeGradient(options.strokeGradient);
         }
         else {
