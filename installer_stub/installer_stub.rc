@@ -37,3 +37,7 @@ BEGIN
         VALUE "Translation", 0x409, 1200
     END
 END
+
+// Icon with lowest ID value placed first to ensure application icon
+#define IDI_INSTALLER 101
+IDI_INSTALLER    ICON    "..\\assets\\icon.ico"

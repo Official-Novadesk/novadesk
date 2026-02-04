@@ -651,13 +651,16 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int) {
     InitCommonControlsEx(&icc);
 
     const wchar_t* className = L"NovadeskInstallerWindow";
-    WNDCLASSW wc = {};
+    WNDCLASSEXW wc = {};
+    wc.cbSize = sizeof(wc);
     wc.lpfnWndProc = WndProc;
     wc.hInstance = hInstance;
     wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
     wc.lpszClassName = className;
     wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
-    RegisterClassW(&wc);
+    wc.hIcon = (HICON)LoadImageW(hInstance, MAKEINTRESOURCEW(101), IMAGE_ICON, 32, 32, LR_DEFAULTCOLOR);
+    wc.hIconSm = (HICON)LoadImageW(hInstance, MAKEINTRESOURCEW(101), IMAGE_ICON, 16, 16, LR_DEFAULTCOLOR);
+    RegisterClassExW(&wc);
 
     int width = 520;
     int height = 220;
@@ -676,6 +679,17 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int) {
 
     if (!g_hwnd) {
         return InstallFromSelf(false) ? 0 : 1;
+    }
+
+    HICON hIconBig = (HICON)LoadImageW(hInstance, MAKEINTRESOURCEW(101), IMAGE_ICON, 32, 32, LR_DEFAULTCOLOR);
+    HICON hIconSmall = (HICON)LoadImageW(hInstance, MAKEINTRESOURCEW(101), IMAGE_ICON, 16, 16, LR_DEFAULTCOLOR);
+    if (hIconBig) {
+        SendMessageW(g_hwnd, WM_SETICON, ICON_BIG, (LPARAM)hIconBig);
+    }
+    if (hIconSmall) {
+        SendMessageW(g_hwnd, WM_SETICON, ICON_SMALL, (LPARAM)hIconSmall);
+    } else if (hIconBig) {
+        SendMessageW(g_hwnd, WM_SETICON, ICON_SMALL, (LPARAM)hIconBig);
     }
 
     std::wstring headerText = g_uninstall.load() ? (L"Uninstalling " + g_appNameUi) : (L"Installing " + g_appNameUi);
