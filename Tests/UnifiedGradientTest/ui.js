@@ -14,8 +14,8 @@ win.addBar({
     width: 200, height: 20,
     value: 0.7,
     barColor: "linearGradient(0, #f00, #ff0)",
-    solidColor: "#333", // Background of the bar
-    solidColorRadius: 5
+    backgroundColor: "#333", // Background of the bar
+    backgroundColorRadius: 5
 });
 
 // RoundLine with gradient
@@ -35,8 +35,8 @@ win.addImage({
     id: "image1",
     x: 20, y: 120,
     width: 100, height: 100,
-    solidColor: "linearGradient(135, #800080, #ff00ff)",
-    solidColorRadius: 10
+    backgroundColor: "linearGradient(135, #800080, #ff00ff)",
+    backgroundColorRadius: 10
 });
 
 win.addText({

@@ -72,8 +72,8 @@ function addBar(id, y) {
         barColor2: CONFIG.colors.accent2,
         barGradientAngle: CONFIG.bar.gradientAngle,
         barCornerRadius: CONFIG.bar.radius,
-        solidColor: CONFIG.colors.subaccent,
-        solidColorRadius: CONFIG.bar.radius
+        backgroundColor: CONFIG.colors.subaccent,
+        backgroundColorRadius: CONFIG.bar.radius
     });
 }
 

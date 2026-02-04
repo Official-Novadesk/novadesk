@@ -328,7 +328,7 @@ win.addBar({
     height: 25,
     value: 0.6,
     barColor: "rgb(0, 255, 0)",
-    solidColor: "rgb(100, 100, 100)"
+    backgroundColor: "rgb(100, 100, 100)"
 });
 win.addText({
     id: "label-bg-solid",
@@ -348,8 +348,8 @@ win.addBar({
     height: 25,
     value: 0.6,
     barColor: "rgb(0, 255, 0)",
-    solidColor: "rgb(100, 100, 100)",
-    solidColorRadius: 8
+    backgroundColor: "rgb(100, 100, 100)",
+    backgroundColorRadius: 8
 });
 win.addText({
     id: "label-bg-radius",
@@ -369,9 +369,9 @@ win.addBar({
     height: 25,
     value: 0.6,
     barColor: "rgb(0, 255, 0)",
-    solidColor: "rgb(100, 100, 100)",
+    backgroundColor: "rgb(100, 100, 100)",
     solidColor2: "rgb(50, 50, 50)",
-    solidColorRadius: 8
+    backgroundColorRadius: 8
 });
 win.addText({
     id: "label-bg-gradient",
@@ -505,9 +505,9 @@ win.addBar({
     barColor2: "rgb(0, 0, 255)",
     barGradientAngle: 90,
     barCornerRadius: 15,
-    solidColor: "rgb(50, 50, 50)",
+    backgroundColor: "rgb(50, 50, 50)",
     solidColor2: "rgb(30, 30, 30)",
-    solidColorRadius: 15,
+    backgroundColorRadius: 15,
     bevelType: "raised",
     bevelWidth: 2
 });
@@ -533,8 +533,8 @@ win.addBar({
     barColor2: "rgb(0, 100, 0)",
     barGradientAngle: 0,
     barCornerRadius: 20,
-    solidColor: "rgb(40, 40, 40)",
-    solidColorRadius: 20
+    backgroundColor: "rgb(40, 40, 40)",
+    backgroundColorRadius: 20
 });
 win.addText({
     id: "label-vertical-complex",

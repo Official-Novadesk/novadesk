@@ -101,11 +101,11 @@ namespace PropertyParser {
         reader.GetFloat("rotate", options.rotate);
 
         // Background / Gradient
-        reader.GetGradientOrColor("solidColor", options.solidColor, options.solidAlpha, options.solidGradient);
+        reader.GetGradientOrColor("backgroundColor", options.solidColor, options.solidAlpha, options.solidGradient);
         if (options.solidGradient.type != GRADIENT_NONE || options.solidAlpha > 0) {
             options.hasSolidColor = true;
         }
-        reader.GetInt("solidColorRadius", options.solidColorRadius);
+        reader.GetInt("backgroundColorRadius", options.solidColorRadius);
 
         // Bevel
         std::wstring bevelStr;
@@ -640,9 +640,9 @@ namespace PropertyParser {
             COLORREF c = element->GetSolidColor();
             BYTE a = element->GetSolidAlpha();
             std::wstring colorStr = ColorUtil::ToRGBAString(c, a);
-            duk_push_string(ctx, Utils::ToString(colorStr).c_str()); duk_put_prop_string(ctx, -2, "solidColor");
+            duk_push_string(ctx, Utils::ToString(colorStr).c_str()); duk_put_prop_string(ctx, -2, "backgroundColor");
         }
-        duk_push_int(ctx, element->GetCornerRadius()); duk_put_prop_string(ctx, -2, "solidColorRadius");
+        duk_push_int(ctx, element->GetCornerRadius()); duk_put_prop_string(ctx, -2, "backgroundColorRadius");
 
         // Transform Matrix
         if (element->HasTransformMatrix()) {
