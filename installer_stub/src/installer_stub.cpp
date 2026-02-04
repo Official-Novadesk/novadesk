@@ -728,7 +728,11 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int) {
     std::thread worker([&]() {
         if (g_uninstall.load()) {
             UpdateStatus(L"Removing files...");
+            g_done.store(1);
+            g_total.store(1);
             UninstallSelf();
+            g_done.store(1);
+            g_total.store(1);
             g_finished.store(true);
             return;
         }
@@ -748,7 +752,11 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int) {
             g_actionCv.wait(lock, [] { return g_action.load() != 0; });
             if (g_action.load() == 2) {
                 UpdateStatus(L"Removing files...");
+                g_done.store(1);
+                g_total.store(1);
                 UninstallSelf();
+                g_done.store(1);
+                g_total.store(1);
                 g_finished.store(true);
                 return;
             } else {
