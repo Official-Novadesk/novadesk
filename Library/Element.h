@@ -106,6 +106,7 @@ public:
     virtual int GetAutoHeight() { return 0; }
 
     virtual GfxRect GetBounds();
+    virtual GfxRect GetBackgroundBounds();
 
     virtual bool HitTest(int x, int y);
 
@@ -117,6 +118,7 @@ public:
 
     void SetSolidGradient(const GradientInfo& gradient) {
         m_SolidGradient = gradient;
+        m_HasSolidColor = true;
     }
 
     void SetCornerRadius(int radius) { 

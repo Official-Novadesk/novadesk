@@ -21,6 +21,8 @@ void LineShape::Render(ID2D1DeviceContext* context)
     D2D1_MATRIX_3X2_F originalTransform;
     ApplyRenderTransform(context, originalTransform);
 
+    RenderBackground(context);
+
     Microsoft::WRL::ComPtr<ID2D1Brush> pStrokeBrush;
     TryCreateStrokeBrush(context, pStrokeBrush);
 
@@ -31,5 +33,6 @@ void LineShape::Render(ID2D1DeviceContext* context)
         UpdateStrokeStyle(context);
         context->DrawLine(start, end, pStrokeBrush.Get(), m_StrokeWidth, m_StrokeStyle);
     }
+    RenderBevel(context);
     RestoreRenderTransform(context, originalTransform);
 }

@@ -10,6 +10,7 @@
 #include "Logging.h"
 #include "Direct2DHelper.h"
 #include <d2d1effects.h>
+#include <cmath>
 
 ShapeElement::ShapeElement(const std::wstring& id, int x, int y, int width, int height)
     : Element(ELEMENT_SHAPE, id, x, y, width, height)
@@ -22,6 +23,16 @@ ShapeElement::~ShapeElement()
         m_StrokeStyle->Release();
         m_StrokeStyle = nullptr;
     }
+}
+
+GfxRect ShapeElement::GetBackgroundBounds()
+{
+    GfxRect bounds = GetBounds();
+    if (!m_HasStroke || m_StrokeWidth <= 0.0f) return bounds;
+
+    // Expand background to account for stroke width so it isn't clipped.
+    int pad = (int)ceilf(m_StrokeWidth / 2.0f);
+    return GfxRect(bounds.X - pad, bounds.Y - pad, bounds.Width + pad * 2, bounds.Height + pad * 2);
 }
 
 void ShapeElement::CreateBrush(ID2D1DeviceContext* context, ID2D1Brush** ppBrush, bool isStroke)

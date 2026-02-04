@@ -42,6 +42,10 @@ GfxRect Element::GetBounds() {
     return GfxRect(m_X, m_Y, GetWidth(), GetHeight());
 }
 
+GfxRect Element::GetBackgroundBounds() {
+    return GetBounds();
+}
+
 /*
 ** Check if a point is within the element's bounds.
 */
@@ -163,7 +167,7 @@ void Element::RenderBackground(ID2D1DeviceContext* context) {
 
     context->SetAntialiasMode(m_AntiAlias ? D2D1_ANTIALIAS_MODE_PER_PRIMITIVE : D2D1_ANTIALIAS_MODE_ALIASED);
 
-    GfxRect bounds = GetBounds();
+    GfxRect bounds = GetBackgroundBounds();
     D2D1_RECT_F rect = D2D1::RectF((float)bounds.X, (float)bounds.Y, (float)(bounds.X + bounds.Width), (float)(bounds.Y + bounds.Height));
     
     if (rect.right <= rect.left || rect.bottom <= rect.top) return;

@@ -33,6 +33,8 @@ void ArcShape::Render(ID2D1DeviceContext* context)
     D2D1_MATRIX_3X2_F originalTransform;
     ApplyRenderTransform(context, originalTransform);
 
+    RenderBackground(context);
+
     Microsoft::WRL::ComPtr<ID2D1Brush> pStrokeBrush;
     Microsoft::WRL::ComPtr<ID2D1Brush> pFillBrush;
     TryCreateStrokeBrush(context, pStrokeBrush);
@@ -114,5 +116,6 @@ void ArcShape::Render(ID2D1DeviceContext* context)
         pPathGeometry->Release();
     }
 
+    RenderBevel(context);
     RestoreRenderTransform(context, originalTransform);
 }

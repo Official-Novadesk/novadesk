@@ -78,6 +78,7 @@ public:
     virtual float GetEndAngle() const { return 0; }
     virtual bool IsClockwise() const { return true; }
     virtual std::wstring GetPathData() const { return L""; }
+    GfxRect GetBackgroundBounds() override;
 
     void SetStrokeStyle(D2D1_CAP_STYLE start, D2D1_CAP_STYLE end, D2D1_CAP_STYLE dash, D2D1_LINE_JOIN join, float offset, const std::vector<float>& dashes) {
         m_StrokeStartCap = start;

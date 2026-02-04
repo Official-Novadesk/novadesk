@@ -21,6 +21,8 @@ void EllipseShape::Render(ID2D1DeviceContext* context)
     D2D1_MATRIX_3X2_F originalTransform;
     ApplyRenderTransform(context, originalTransform);
 
+    RenderBackground(context);
+
     Microsoft::WRL::ComPtr<ID2D1Brush> pStrokeBrush;
     Microsoft::WRL::ComPtr<ID2D1Brush> pFillBrush;
     TryCreateStrokeBrush(context, pStrokeBrush);
@@ -41,5 +43,6 @@ void EllipseShape::Render(ID2D1DeviceContext* context)
     if (pStrokeBrush) {
         context->DrawEllipse(ellipse, pStrokeBrush.Get(), m_StrokeWidth);
     }
+    RenderBevel(context);
     RestoreRenderTransform(context, originalTransform);
 }
