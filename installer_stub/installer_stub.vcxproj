@@ -89,6 +89,9 @@
     <ClCompile Include="src\installer_stub.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <Manifest Include="installer_stub.manifest" />
+  </ItemGroup>
+  <ItemGroup>
     <ResourceCompile Include="installer_stub.rc" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
