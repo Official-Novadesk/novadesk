@@ -38,7 +38,10 @@ win.addRoundLine({
     thickness: 5,
     lineColor: "rgba(255, 255, 0, 1)",
     dashArray: "10, 5",
-    value: 1.0
+    value: 1.0,
+    onLeftMouseDown: function() {
+        console.log("Dashed ring clicked!");
+    }
 });
 
 win.addRoundLine({
