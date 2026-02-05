@@ -41,6 +41,8 @@ void ImageElement::UpdateImage(const std::wstring& path)
 {
     m_ImagePath = path;
     m_D2DBitmap.Reset();
+    m_pWICBitmap.Reset();
+    Direct2D::LoadWICBitmapFromFile(m_ImagePath, m_pWICBitmap.ReleaseAndGetAddressOf());
 }
 
 void ImageElement::Render(ID2D1DeviceContext* context)
@@ -235,12 +237,22 @@ void ImageElement::Render(ID2D1DeviceContext* context)
 
 int ImageElement::GetAutoWidth()
 {
+    if (m_pWICBitmap) {
+        UINT w = 0, h = 0;
+        m_pWICBitmap->GetSize(&w, &h);
+        return (int)w + m_PaddingLeft + m_PaddingRight;
+    }
     if (!m_D2DBitmap) return 0;
     return (int)m_D2DBitmap->GetSize().width + m_PaddingLeft + m_PaddingRight;
 }
 
 int ImageElement::GetAutoHeight()
 {
+    if (m_pWICBitmap) {
+        UINT w = 0, h = 0;
+        m_pWICBitmap->GetSize(&w, &h);
+        return (int)h + m_PaddingTop + m_PaddingBottom;
+    }
     if (!m_D2DBitmap) return 0;
     return (int)m_D2DBitmap->GetSize().height + m_PaddingTop + m_PaddingBottom;
 }
