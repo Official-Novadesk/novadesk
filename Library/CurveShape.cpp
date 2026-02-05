@@ -88,8 +88,8 @@ bool CurveShape::HitTestLocal(const D2D1_POINT_2F& point)
     ID2D1Factory1* factory = Direct2D::GetFactory();
     if (!factory) return false;
 
-    ID2D1PathGeometry* geometry = nullptr;
-    if (!CreateCurveGeometry(factory, &geometry)) return false;
+    Microsoft::WRL::ComPtr<ID2D1Geometry> geometry;
+    if (!CreateGeometry(factory, geometry)) return false;
 
     BOOL hit = FALSE;
     if (m_HasFill && m_FillAlpha > 0) {
@@ -108,12 +108,21 @@ bool CurveShape::HitTestLocal(const D2D1_POINT_2F& point)
         }
     }
 
-    geometry->Release();
     return false;
+}
+
+bool CurveShape::CreateGeometry(ID2D1Factory* factory, Microsoft::WRL::ComPtr<ID2D1Geometry>& geometry) const
+{
+    ID2D1PathGeometry* path = nullptr;
+    if (!CreateCurveGeometry(factory, &path)) return false;
+    geometry.Attach(path);
+    return true;
 }
 
 void CurveShape::Render(ID2D1DeviceContext* context)
 {
+    if (IsConsumed()) return;
+
     D2D1_MATRIX_3X2_F originalTransform;
     ApplyRenderTransform(context, originalTransform);
 
@@ -136,16 +145,15 @@ void CurveShape::Render(ID2D1DeviceContext* context)
         return;
     }
 
-    ID2D1PathGeometry* geometry = nullptr;
-    if (CreateCurveGeometry(factory, &geometry)) {
+    Microsoft::WRL::ComPtr<ID2D1Geometry> geometry;
+    if (CreateGeometry(factory, geometry)) {
         if (pFillBrush) {
-            context->FillGeometry(geometry, pFillBrush.Get());
+            context->FillGeometry(geometry.Get(), pFillBrush.Get());
         }
         if (pStrokeBrush) {
             UpdateStrokeStyle(context);
-            context->DrawGeometry(geometry, pStrokeBrush.Get(), m_StrokeWidth, m_StrokeStyle);
+            context->DrawGeometry(geometry.Get(), pStrokeBrush.Get(), m_StrokeWidth, m_StrokeStyle);
         }
-        geometry->Release();
     }
 
     RenderBevel(context);

@@ -19,6 +19,7 @@ public:
     virtual void Render(ID2D1DeviceContext* context) override;
     virtual GfxRect GetBounds() override;
     virtual bool HitTestLocal(const D2D1_POINT_2F& point) override;
+    virtual bool CreateGeometry(ID2D1Factory* factory, Microsoft::WRL::ComPtr<ID2D1Geometry>& geometry) const override;
     virtual void SetLinePoints(float x1, float y1, float x2, float y2) override { 
         m_StartX = x1; m_StartY = y1;
         m_EndX = x2; m_EndY = y2;

@@ -19,6 +19,7 @@ public:
     virtual void Render(ID2D1DeviceContext* context) override;
     virtual bool HitTestLocal(const D2D1_POINT_2F& point) override;
     virtual GfxRect GetBounds() override;
+    virtual bool CreateGeometry(ID2D1Factory* factory, Microsoft::WRL::ComPtr<ID2D1Geometry>& geometry) const override;
 
     virtual void SetCurveParams(float startX, float startY, float controlX, float controlY, float control2X, float control2Y, float endX, float endY, const std::wstring& curveType) override {
         m_StartX = startX;

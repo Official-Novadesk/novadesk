@@ -423,12 +423,17 @@ namespace PropertyParser {
 
     void ParseShapeOptions(duk_context* ctx, ShapeOptions& options, const std::wstring& baseDir) {
         if (!duk_is_object(ctx, -1)) return;
+        const int objIndex = duk_get_top_index(ctx);
 
         // Parse base options first
         ParseElementOptionsInternal(ctx, options);
         Utils::PropertyReader reader(ctx);
 
-        reader.GetString("type", options.shapeType);
+        if (reader.GetString("type", options.shapeType)) {
+            std::wstring typeLower = options.shapeType;
+            std::transform(typeLower.begin(), typeLower.end(), typeLower.begin(), ::towlower);
+            options.isCombine = (typeLower == L"combine");
+        }
 
         reader.GetFloat("strokeWidth", options.strokeWidth);
 
@@ -488,6 +493,65 @@ namespace PropertyParser {
                 for (auto& p : parts) options.strokeDashes.push_back((float)_wtof(p.c_str()));
             }
             duk_pop(ctx);
+        }
+
+        if (options.isCombine) {
+            if (duk_get_prop_string(ctx, objIndex, "base")) {
+                if (duk_is_string(ctx, -1)) {
+                    options.combineBaseId = Utils::ToWString(duk_get_string(ctx, -1));
+                }
+            }
+            duk_pop(ctx);
+
+            if (duk_get_prop_string(ctx, objIndex, "consume")) {
+                if (duk_is_boolean(ctx, -1)) {
+                    options.combineConsumeAll = duk_get_boolean(ctx, -1) != 0;
+                    options.hasCombineConsumeAll = true;
+                }
+            }
+            duk_pop(ctx);
+
+            if (duk_get_prop_string(ctx, objIndex, "ops")) {
+                if (duk_is_array(ctx, -1)) {
+                    int len = (int)duk_get_length(ctx, -1);
+                    for (int i = 0; i < len; ++i) {
+                        duk_get_prop_index(ctx, -1, i);
+                        if (!duk_is_object(ctx, -1)) {
+                            duk_pop(ctx);
+                            continue;
+                        }
+
+                        ShapeOptions::CombineOp op;
+                        if (duk_get_prop_string(ctx, -1, "id")) {
+                            op.id = Utils::ToWString(duk_get_string(ctx, -1));
+                        }
+                        duk_pop(ctx);
+
+                        if (duk_get_prop_string(ctx, -1, "mode")) {
+                            std::wstring modeStr = Utils::ToWString(duk_get_string(ctx, -1));
+                            std::transform(modeStr.begin(), modeStr.end(), modeStr.begin(), ::towlower);
+                            if (modeStr == L"intersect") op.mode = D2D1_COMBINE_MODE_INTERSECT;
+                            else if (modeStr == L"xor") op.mode = D2D1_COMBINE_MODE_XOR;
+                            else if (modeStr == L"exclude") op.mode = D2D1_COMBINE_MODE_EXCLUDE;
+                            else op.mode = D2D1_COMBINE_MODE_UNION;
+                        }
+                        duk_pop(ctx);
+
+                        if (duk_get_prop_string(ctx, -1, "consume")) {
+                            op.consume = duk_get_boolean(ctx, -1) != 0;
+                            op.hasConsume = true;
+                        }
+                        duk_pop(ctx);
+
+                        if (!op.id.empty()) {
+                            options.combineOps.push_back(op);
+                        }
+
+                        duk_pop(ctx);
+                    }
+                }
+                duk_pop(ctx);
+            }
         }
     }
 

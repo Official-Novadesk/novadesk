@@ -217,6 +217,19 @@ namespace PropertyParser
         D2D1_LINE_JOIN strokeLineJoin = D2D1_LINE_JOIN_MITER;
         float strokeDashOffset = 0.0f;
         std::vector<float> strokeDashes;
+
+        struct CombineOp {
+            std::wstring id;
+            D2D1_COMBINE_MODE mode = D2D1_COMBINE_MODE_UNION;
+            bool consume = false;
+            bool hasConsume = false;
+        };
+
+        bool isCombine = false;
+        std::wstring combineBaseId;
+        std::vector<CombineOp> combineOps;
+        bool combineConsumeAll = false;
+        bool hasCombineConsumeAll = false;
     };
 
     void ParseWidgetOptions(duk_context* ctx, WidgetOptions& options, const std::wstring& baseDir = L"");

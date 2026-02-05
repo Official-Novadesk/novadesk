@@ -42,18 +42,8 @@ bool LineShape::HitTestLocal(const D2D1_POINT_2F& point)
     ID2D1Factory1* factory = Direct2D::GetFactory();
     if (!factory) return false;
 
-    Microsoft::WRL::ComPtr<ID2D1PathGeometry> geometry;
-    if (FAILED(factory->CreatePathGeometry(geometry.GetAddressOf()))) return false;
-
-    Microsoft::WRL::ComPtr<ID2D1GeometrySink> sink;
-    if (FAILED(geometry->Open(sink.GetAddressOf()))) return false;
-
-    D2D1_POINT_2F start = D2D1::Point2F(m_StartX, m_StartY);
-    D2D1_POINT_2F end = D2D1::Point2F(m_EndX, m_EndY);
-    sink->BeginFigure(start, D2D1_FIGURE_BEGIN_HOLLOW);
-    sink->AddLine(end);
-    sink->EndFigure(D2D1_FIGURE_END_OPEN);
-    sink->Close();
+    Microsoft::WRL::ComPtr<ID2D1Geometry> geometry;
+    if (!CreateGeometry(factory, geometry)) return false;
 
     EnsureStrokeStyle();
     BOOL hit = FALSE;
@@ -64,8 +54,31 @@ bool LineShape::HitTestLocal(const D2D1_POINT_2F& point)
     return false;
 }
 
+bool LineShape::CreateGeometry(ID2D1Factory* factory, Microsoft::WRL::ComPtr<ID2D1Geometry>& geometry) const
+{
+    if (!factory) return false;
+
+    Microsoft::WRL::ComPtr<ID2D1PathGeometry> path;
+    if (FAILED(factory->CreatePathGeometry(path.GetAddressOf()))) return false;
+
+    Microsoft::WRL::ComPtr<ID2D1GeometrySink> sink;
+    if (FAILED(path->Open(sink.GetAddressOf()))) return false;
+
+    D2D1_POINT_2F start = D2D1::Point2F(m_StartX, m_StartY);
+    D2D1_POINT_2F end = D2D1::Point2F(m_EndX, m_EndY);
+    sink->BeginFigure(start, D2D1_FIGURE_BEGIN_HOLLOW);
+    sink->AddLine(end);
+    sink->EndFigure(D2D1_FIGURE_END_OPEN);
+    sink->Close();
+
+    geometry = path;
+    return true;
+}
+
 void LineShape::Render(ID2D1DeviceContext* context)
 {
+    if (IsConsumed()) return;
+
     D2D1_MATRIX_3X2_F originalTransform;
     ApplyRenderTransform(context, originalTransform);
 

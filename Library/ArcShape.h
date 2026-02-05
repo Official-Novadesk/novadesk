@@ -20,6 +20,7 @@ public:
     virtual int GetAutoWidth() override;
     virtual int GetAutoHeight() override;
     virtual bool HitTestLocal(const D2D1_POINT_2F& point) override;
+    virtual bool CreateGeometry(ID2D1Factory* factory, Microsoft::WRL::ComPtr<ID2D1Geometry>& geometry) const override;
     
     virtual void SetRadii(float rx, float ry) override { m_RadiusX = rx; m_RadiusY = ry; }
     virtual void SetArcParams(float startAngle, float endAngle, bool clockwise) override {
@@ -35,8 +36,8 @@ private:
     float m_EndAngle = 90.0f;
     bool m_Clockwise = true;
 
-    D2D1_POINT_2F CheckPoint(float angle, float rx, float ry, float cx, float cy);
-    bool CreateArcGeometry(ID2D1Factory* factory, ID2D1PathGeometry** outGeometry, float& outRx, float& outRy, float& outCx, float& outCy);
+    D2D1_POINT_2F CheckPoint(float angle, float rx, float ry, float cx, float cy) const;
+    bool CreateArcGeometry(ID2D1Factory* factory, ID2D1PathGeometry** outGeometry, float& outRx, float& outRy, float& outCx, float& outCy) const;
 };
 
 #endif

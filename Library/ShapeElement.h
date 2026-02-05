@@ -19,6 +19,7 @@ public:
 
     virtual void Render(ID2D1DeviceContext* context) = 0;
     virtual bool HitTest(int x, int y) override;
+    virtual bool CreateGeometry(ID2D1Factory* factory, Microsoft::WRL::ComPtr<ID2D1Geometry>& geometry) const = 0;
 
     void SetStroke(float width, COLORREF color, BYTE alpha) {
         m_StrokeWidth = width;
@@ -103,6 +104,11 @@ public:
     virtual void SetPathData(const std::wstring& pathData) {}
     virtual void SetCurveParams(float startX, float startY, float controlX, float controlY, float control2X, float control2Y, float endX, float endY, const std::wstring& curveType) {}
 
+    void AddCombineConsumer() { ++m_CombineConsumerCount; }
+    void RemoveCombineConsumer() { if (m_CombineConsumerCount > 0) --m_CombineConsumerCount; }
+    bool IsConsumed() const { return m_CombineConsumerCount > 0; }
+    D2D1_MATRIX_3X2_F GetRenderTransformMatrix() const;
+
 protected:
 
     bool m_HasStroke = false;
@@ -129,6 +135,7 @@ protected:
 
     bool m_UpdateStrokeStyle = false;
     ID2D1StrokeStyle1* m_StrokeStyle = nullptr;
+    int m_CombineConsumerCount = 0;
 
     void CreateBrush(ID2D1DeviceContext* context, ID2D1Brush** ppBrush, bool isStroke);
     void UpdateStrokeStyle(ID2D1DeviceContext* context);

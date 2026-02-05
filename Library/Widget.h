@@ -124,6 +124,8 @@ private:
     bool HandleMouseMessage(UINT message, WPARAM wParam, LPARAM lParam);
 
     void OnContextMenu();
+    bool BuildCombinedShapeGeometry(class PathShape* target, const PropertyParser::ShapeOptions& options);
+    void ReleaseCombinedConsumes(class PathShape* target);
 
 private:
     std::wstring m_Id;

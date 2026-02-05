@@ -1024,7 +1024,10 @@ void Widget::AddShape(const PropertyParser::ShapeOptions& options)
 
     ShapeElement* element = nullptr;
 
-    if (options.shapeType == L"ellipse") {
+    if (options.isCombine) {
+        element = new PathShape(options.id, options.x, options.y, options.width, options.height);
+    }
+    else if (options.shapeType == L"ellipse") {
         element = new EllipseShape(options.id, options.x, options.y, options.width, options.height);
     }
     else if (options.shapeType == L"line") {
@@ -1045,9 +1048,167 @@ void Widget::AddShape(const PropertyParser::ShapeOptions& options)
 
     PropertyParser::ApplyShapeOptions(element, options);
 
+    if (options.isCombine) {
+        PathShape* path = static_cast<PathShape*>(element);
+        BuildCombinedShapeGeometry(path, options);
+    }
+
     m_Elements.push_back(element);
 
     Redraw();
+}
+
+bool Widget::BuildCombinedShapeGeometry(PathShape* target, const PropertyParser::ShapeOptions& options)
+{
+    if (!target) return false;
+
+    target->ClearCombinedGeometry();
+
+    if (options.combineBaseId.empty()) {
+        Logging::Log(LogLevel::Error, L"Combine shape '%s' missing base id.", options.id.c_str());
+        return false;
+    }
+
+    Element* baseElement = FindElementById(options.combineBaseId);
+    ShapeElement* baseShape = dynamic_cast<ShapeElement*>(baseElement);
+    if (!baseShape) {
+        Logging::Log(LogLevel::Error, L"Combine shape '%s' base '%s' is not a shape.", options.id.c_str(), options.combineBaseId.c_str());
+        return false;
+    }
+    if (baseShape == target) {
+        Logging::Log(LogLevel::Error, L"Combine shape '%s' cannot use itself as base.", options.id.c_str());
+        return false;
+    }
+
+    ID2D1Factory1* factory = Direct2D::GetFactory();
+    if (!factory) {
+        Logging::Log(LogLevel::Error, L"Combine shape '%s' failed: Direct2D factory unavailable.", options.id.c_str());
+        return false;
+    }
+
+    Microsoft::WRL::ComPtr<ID2D1Geometry> baseGeometry;
+    if (!baseShape->CreateGeometry(factory, baseGeometry) || !baseGeometry) {
+        Logging::Log(LogLevel::Error, L"Combine shape '%s' failed: base geometry could not be created.", options.id.c_str());
+        return false;
+    }
+
+    D2D1_MATRIX_3X2_F baseTransform = baseShape->GetRenderTransformMatrix();
+    Microsoft::WRL::ComPtr<ID2D1Geometry> combinedGeometry;
+
+    bool baseTransformIsIdentity =
+        baseTransform._11 == 1.0f && baseTransform._12 == 0.0f &&
+        baseTransform._21 == 0.0f && baseTransform._22 == 1.0f &&
+        baseTransform._31 == 0.0f && baseTransform._32 == 0.0f;
+
+    if (baseTransformIsIdentity) {
+        combinedGeometry = baseGeometry;
+    }
+    else {
+        Microsoft::WRL::ComPtr<ID2D1TransformedGeometry> transformed;
+        if (FAILED(factory->CreateTransformedGeometry(baseGeometry.Get(), &baseTransform, transformed.GetAddressOf()))) {
+            Logging::Log(LogLevel::Error, L"Combine shape '%s' failed: base transform could not be applied.", options.id.c_str());
+            return false;
+        }
+        combinedGeometry = transformed;
+    }
+
+    std::vector<PathShape::CombineOp> resolvedOps;
+    resolvedOps.reserve(options.combineOps.size());
+
+    for (const auto& op : options.combineOps) {
+        PathShape::CombineOp resolved;
+        resolved.id = op.id;
+        resolved.mode = op.mode;
+        resolved.consume = op.hasConsume ? op.consume : (options.hasCombineConsumeAll ? options.combineConsumeAll : false);
+        resolvedOps.push_back(resolved);
+
+        Element* opElement = FindElementById(op.id);
+        ShapeElement* opShape = dynamic_cast<ShapeElement*>(opElement);
+        if (!opShape) {
+            Logging::Log(LogLevel::Error, L"Combine shape '%s' cannot combine with '%s' (not a shape).", options.id.c_str(), op.id.c_str());
+            return false;
+        }
+        if (opShape == target) {
+            Logging::Log(LogLevel::Error, L"Combine shape '%s' cannot combine with itself.", options.id.c_str());
+            return false;
+        }
+
+        Microsoft::WRL::ComPtr<ID2D1Geometry> opGeometry;
+        if (!opShape->CreateGeometry(factory, opGeometry) || !opGeometry) {
+            Logging::Log(LogLevel::Error, L"Combine shape '%s' failed: geometry for '%s' could not be created.", options.id.c_str(), op.id.c_str());
+            return false;
+        }
+
+        D2D1_MATRIX_3X2_F opTransform = opShape->GetRenderTransformMatrix();
+
+        Microsoft::WRL::ComPtr<ID2D1PathGeometry> path;
+        if (FAILED(factory->CreatePathGeometry(path.GetAddressOf()))) {
+            Logging::Log(LogLevel::Error, L"Combine shape '%s' failed: could not create path geometry.", options.id.c_str());
+            return false;
+        }
+
+        Microsoft::WRL::ComPtr<ID2D1GeometrySink> sink;
+        if (FAILED(path->Open(sink.GetAddressOf()))) {
+            Logging::Log(LogLevel::Error, L"Combine shape '%s' failed: could not open geometry sink.", options.id.c_str());
+            return false;
+        }
+
+        HRESULT hr = combinedGeometry->CombineWithGeometry(opGeometry.Get(), op.mode, opTransform, sink.Get());
+        sink->Close();
+        if (FAILED(hr)) {
+            Logging::Log(LogLevel::Error, L"Combine shape '%s' failed: combine operation with '%s' failed.", options.id.c_str(), op.id.c_str());
+            return false;
+        }
+
+        combinedGeometry = path;
+    }
+
+    D2D1_RECT_F bounds = D2D1::RectF();
+    HRESULT hr = combinedGeometry->GetBounds(nullptr, &bounds);
+    if (FAILED(hr)) {
+        Logging::Log(LogLevel::Error, L"Combine shape '%s' failed: could not compute bounds.", options.id.c_str());
+        return false;
+    }
+
+    bool consumeBase = options.hasCombineConsumeAll ? options.combineConsumeAll : false;
+    target->SetCombineData(options.combineBaseId, resolvedOps, consumeBase);
+    target->SetCombinedGeometry(combinedGeometry, bounds);
+
+    if (consumeBase) {
+        baseShape->AddCombineConsumer();
+    }
+    for (const auto& resolved : resolvedOps) {
+        if (!resolved.consume) continue;
+        Element* opElement = FindElementById(resolved.id);
+        if (ShapeElement* opShape = dynamic_cast<ShapeElement*>(opElement)) {
+            opShape->AddCombineConsumer();
+        }
+    }
+
+    return true;
+}
+
+void Widget::ReleaseCombinedConsumes(PathShape* target)
+{
+    if (!target || !target->IsCombineShape()) return;
+
+    std::wstring baseId;
+    std::vector<PathShape::CombineOp> ops;
+    bool consumeBase = false;
+    target->GetCombineData(baseId, ops, consumeBase);
+
+    if (consumeBase && !baseId.empty()) {
+        if (ShapeElement* baseShape = dynamic_cast<ShapeElement*>(FindElementById(baseId))) {
+            baseShape->RemoveCombineConsumer();
+        }
+    }
+
+    for (const auto& op : ops) {
+        if (!op.consume) continue;
+        if (ShapeElement* opShape = dynamic_cast<ShapeElement*>(FindElementById(op.id))) {
+            opShape->RemoveCombineConsumer();
+        }
+    }
 }
 
 /*
@@ -1082,6 +1243,14 @@ void Widget::SetElementProperties(const std::wstring& id, duk_context* ctx)
         PropertyParser::PreFillShapeOptions(options, static_cast<ShapeElement*>(element));
         PropertyParser::ParseShapeOptions(ctx, options);
         PropertyParser::ApplyShapeOptions(static_cast<ShapeElement*>(element), options);
+
+        PathShape* path = dynamic_cast<PathShape*>(element);
+        if (path && (options.isCombine || path->IsCombineShape())) {
+            if (options.isCombine) {
+                ReleaseCombinedConsumes(path);
+                BuildCombinedShapeGeometry(path, options);
+            }
+        }
     }
     
     if (!m_IsBatchUpdating) {
@@ -1097,7 +1266,12 @@ bool Widget::RemoveElements(const std::wstring& id)
 {
     if (id.empty())
     {
-        for (auto* el : m_Elements) delete el;
+        for (auto* el : m_Elements) {
+            if (PathShape* path = dynamic_cast<PathShape*>(el)) {
+                ReleaseCombinedConsumes(path);
+            }
+            delete el;
+        }
         m_Elements.clear();
         m_MouseOverElement = nullptr;
         Redraw();
@@ -1109,6 +1283,9 @@ bool Widget::RemoveElements(const std::wstring& id)
         if ((*it)->GetId() == id)
         {
             if (*it == m_MouseOverElement) m_MouseOverElement = nullptr;
+            if (PathShape* path = dynamic_cast<PathShape*>(*it)) {
+                ReleaseCombinedConsumes(path);
+            }
             delete *it;
             m_Elements.erase(it);
             Redraw();
@@ -1131,6 +1308,9 @@ void Widget::RemoveElements(const std::vector<std::wstring>& ids)
             if ((*it)->GetId() == id)
             {
                 if (*it == m_MouseOverElement) m_MouseOverElement = nullptr;
+                if (PathShape* path = dynamic_cast<PathShape*>(*it)) {
+                    ReleaseCombinedConsumes(path);
+                }
                 delete *it;
                 m_Elements.erase(it);
                 changed = true;

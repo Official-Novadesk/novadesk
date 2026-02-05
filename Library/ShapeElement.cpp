@@ -141,6 +141,8 @@ void ShapeElement::EnsureStrokeStyle()
 
 bool ShapeElement::HitTest(int x, int y)
 {
+    if (IsConsumed()) return false;
+
     // Transform the point into local (unrotated) space if needed.
     GfxRect bounds = GetBackgroundBounds();
     float centerX = bounds.X + bounds.Width / 2.0f;
@@ -175,4 +177,24 @@ bool ShapeElement::HitTest(int x, int y)
     }
 
     return HitTestLocal(p);
+}
+
+D2D1_MATRIX_3X2_F ShapeElement::GetRenderTransformMatrix() const
+{
+    if (m_HasTransformMatrix) {
+        return D2D1::Matrix3x2F(
+            m_TransformMatrix[0], m_TransformMatrix[1],
+            m_TransformMatrix[2], m_TransformMatrix[3],
+            m_TransformMatrix[4], m_TransformMatrix[5]
+        );
+    }
+
+    if (m_Rotate == 0.0f) {
+        return D2D1::Matrix3x2F::Identity();
+    }
+
+    GfxRect bounds = const_cast<ShapeElement*>(this)->GetBounds();
+    float centerX = bounds.X + bounds.Width / 2.0f;
+    float centerY = bounds.Y + bounds.Height / 2.0f;
+    return D2D1::Matrix3x2F::Rotation(m_Rotate, D2D1::Point2F(centerX, centerY));
 }

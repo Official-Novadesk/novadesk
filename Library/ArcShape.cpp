@@ -36,14 +36,14 @@ int ArcShape::GetAutoHeight()
     return 0;
 }
 
-D2D1_POINT_2F ArcShape::CheckPoint(float angle, float rx, float ry, float cx, float cy)
+D2D1_POINT_2F ArcShape::CheckPoint(float angle, float rx, float ry, float cx, float cy) const
 {
     float rad = angle * (float)(M_PI / 180.0f);
 
     return D2D1::Point2F(cx + rx * cos(rad), cy + ry * sin(rad));
 }
 
-bool ArcShape::CreateArcGeometry(ID2D1Factory* factory, ID2D1PathGeometry** outGeometry, float& outRx, float& outRy, float& outCx, float& outCy)
+bool ArcShape::CreateArcGeometry(ID2D1Factory* factory, ID2D1PathGeometry** outGeometry, float& outRx, float& outRy, float& outCx, float& outCy) const
 {
     if (!factory) return false;
     if (FAILED(factory->CreatePathGeometry(outGeometry)) || !*outGeometry) return false;
@@ -94,9 +94,8 @@ bool ArcShape::HitTestLocal(const D2D1_POINT_2F& point)
     ID2D1Factory1* factory = Direct2D::GetFactory();
     if (!factory) return false;
 
-    ID2D1PathGeometry* geometry = nullptr;
-    float rx = 0.0f, ry = 0.0f, cx = 0.0f, cy = 0.0f;
-    if (!CreateArcGeometry(factory, &geometry, rx, ry, cx, cy)) return false;
+    Microsoft::WRL::ComPtr<ID2D1Geometry> geometry;
+    if (!CreateGeometry(factory, geometry)) return false;
 
     BOOL hit = FALSE;
     if (m_HasFill && m_FillAlpha > 0) {
@@ -115,12 +114,22 @@ bool ArcShape::HitTestLocal(const D2D1_POINT_2F& point)
         }
     }
 
-    geometry->Release();
     return false;
+}
+
+bool ArcShape::CreateGeometry(ID2D1Factory* factory, Microsoft::WRL::ComPtr<ID2D1Geometry>& geometry) const
+{
+    ID2D1PathGeometry* path = nullptr;
+    float rx = 0.0f, ry = 0.0f, cx = 0.0f, cy = 0.0f;
+    if (!CreateArcGeometry(factory, &path, rx, ry, cx, cy)) return false;
+    geometry.Attach(path);
+    return true;
 }
 
 void ArcShape::Render(ID2D1DeviceContext* context)
 {
+    if (IsConsumed()) return;
+
     D2D1_MATRIX_3X2_F originalTransform;
     ApplyRenderTransform(context, originalTransform);
 
@@ -144,17 +153,15 @@ void ArcShape::Render(ID2D1DeviceContext* context)
         return;
     }
 
-    ID2D1PathGeometry* pPathGeometry = nullptr;
-    float rx = 0.0f, ry = 0.0f, cx = 0.0f, cy = 0.0f;
-    if (CreateArcGeometry(pFactory, &pPathGeometry, rx, ry, cx, cy)) {
+    Microsoft::WRL::ComPtr<ID2D1Geometry> geometry;
+    if (CreateGeometry(pFactory, geometry)) {
         if (pFillBrush) {
-            context->FillGeometry(pPathGeometry, pFillBrush.Get());
+            context->FillGeometry(geometry.Get(), pFillBrush.Get());
         }
         if (pStrokeBrush) {
             UpdateStrokeStyle(context);
-            context->DrawGeometry(pPathGeometry, pStrokeBrush.Get(), m_StrokeWidth, m_StrokeStyle);
+            context->DrawGeometry(geometry.Get(), pStrokeBrush.Get(), m_StrokeWidth, m_StrokeStyle);
         }
-        pPathGeometry->Release();
     }
 
     RenderBevel(context);

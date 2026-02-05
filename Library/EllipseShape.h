@@ -21,6 +21,7 @@ public:
     virtual int GetAutoHeight() override;
     virtual void SetRadii(float rx, float ry) override { m_RadiusX = rx; m_RadiusY = ry; }
     virtual bool HitTestLocal(const D2D1_POINT_2F& point) override;
+    virtual bool CreateGeometry(ID2D1Factory* factory, Microsoft::WRL::ComPtr<ID2D1Geometry>& geometry) const override;
 
 private:
     float m_RadiusX = 0.0f;

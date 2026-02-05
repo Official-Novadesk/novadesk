@@ -28,6 +28,42 @@ PathShape::~PathShape()
 {
 }
 
+void PathShape::SetCombinedGeometry(Microsoft::WRL::ComPtr<ID2D1Geometry> geometry, const D2D1_RECT_F& bounds)
+{
+    m_CombinedGeometry = geometry;
+    m_HasCombinedGeometry = (geometry != nullptr);
+    m_CombinedBounds = GfxRect(
+        (int)floorf(bounds.left),
+        (int)floorf(bounds.top),
+        (int)ceilf(bounds.right - bounds.left),
+        (int)ceilf(bounds.bottom - bounds.top)
+    );
+    m_IsCombineShape = true;
+}
+
+void PathShape::ClearCombinedGeometry()
+{
+    m_CombinedGeometry.Reset();
+    m_HasCombinedGeometry = false;
+    m_IsCombineShape = false;
+    m_CombinedBounds = GfxRect();
+}
+
+void PathShape::SetCombineData(const std::wstring& baseId, const std::vector<CombineOp>& ops, bool consumeBase)
+{
+    m_CombineBaseId = baseId;
+    m_CombineOps = ops;
+    m_CombineConsumeBase = consumeBase;
+    m_IsCombineShape = true;
+}
+
+void PathShape::GetCombineData(std::wstring& baseId, std::vector<CombineOp>& ops, bool& consumeBase) const
+{
+    baseId = m_CombineBaseId;
+    ops = m_CombineOps;
+    consumeBase = m_CombineConsumeBase;
+}
+
 void PathShape::SetPathData(const std::wstring& pathData)
 {
     m_PathData = pathData;
@@ -48,6 +84,9 @@ int PathShape::GetAutoHeight()
 
 GfxRect PathShape::GetBounds()
 {
+    if (m_HasCombinedGeometry) {
+        return m_CombinedBounds;
+    }
     if (!m_HasPathBounds) return ShapeElement::GetBounds();
 
     float pad = (m_StrokeWidth > 0.0f) ? (m_StrokeWidth / 2.0f) : 0.0f;
@@ -63,14 +102,12 @@ bool PathShape::HitTestLocal(const D2D1_POINT_2F& point)
     ID2D1Factory1* factory = Direct2D::GetFactory();
     if (!factory) return false;
 
-    ID2D1PathGeometry* geometry = nullptr;
-    CreatePathGeometry(factory, &geometry);
-    if (!geometry) return false;
+    Microsoft::WRL::ComPtr<ID2D1Geometry> geometry;
+    if (!CreateGeometry(factory, geometry)) return false;
 
     BOOL hit = FALSE;
     if (m_HasFill && m_FillAlpha > 0) {
         if (SUCCEEDED(geometry->FillContainsPoint(point, nullptr, &hit)) && hit) {
-            geometry->Release();
             return true;
         }
     }
@@ -79,12 +116,10 @@ bool PathShape::HitTestLocal(const D2D1_POINT_2F& point)
         EnsureStrokeStyle();
         hit = FALSE;
         if (SUCCEEDED(geometry->StrokeContainsPoint(point, m_StrokeWidth, m_StrokeStyle, nullptr, &hit)) && hit) {
-            geometry->Release();
             return true;
         }
     }
 
-    geometry->Release();
     return false;
 }
 
@@ -134,7 +169,7 @@ void PathShape::UpdatePathBounds()
     m_HasPathBounds = anyPoint;
 }
 
-void PathShape::CreatePathGeometry(ID2D1Factory* factory, ID2D1PathGeometry** ppGeometry)
+void PathShape::CreatePathGeometry(ID2D1Factory* factory, ID2D1PathGeometry** ppGeometry) const
 {
     if (m_PathData.empty()) return;
 
@@ -194,8 +229,23 @@ void PathShape::CreatePathGeometry(ID2D1Factory* factory, ID2D1PathGeometry** pp
     nsvgDelete(image);
 }
 
+bool PathShape::CreateGeometry(ID2D1Factory* factory, Microsoft::WRL::ComPtr<ID2D1Geometry>& geometry) const
+{
+    if (m_HasCombinedGeometry) {
+        geometry = m_CombinedGeometry;
+        return geometry != nullptr;
+    }
+    ID2D1PathGeometry* path = nullptr;
+    CreatePathGeometry(factory, &path);
+    if (!path) return false;
+    geometry.Attach(path);
+    return true;
+}
+
 void PathShape::Render(ID2D1DeviceContext* context)
 {
+    if (IsConsumed()) return;
+
     D2D1_MATRIX_3X2_F originalTransform;
     ApplyRenderTransform(context, originalTransform);
 
@@ -218,18 +268,15 @@ void PathShape::Render(ID2D1DeviceContext* context)
         return;
     }
 
-    ID2D1PathGeometry* pGeometry = nullptr;
-    CreatePathGeometry(pFactory, &pGeometry);
-
-    if (pGeometry) {
+    Microsoft::WRL::ComPtr<ID2D1Geometry> geometry;
+    if (CreateGeometry(pFactory, geometry)) {
         if (pFillBrush) {
-            context->FillGeometry(pGeometry, pFillBrush.Get());
+            context->FillGeometry(geometry.Get(), pFillBrush.Get());
         }
         if (pStrokeBrush) {
             UpdateStrokeStyle(context);
-            context->DrawGeometry(pGeometry, pStrokeBrush.Get(), m_StrokeWidth, m_StrokeStyle);
+            context->DrawGeometry(geometry.Get(), pStrokeBrush.Get(), m_StrokeWidth, m_StrokeStyle);
         }
-        pGeometry->Release();
     }
 
     RenderBevel(context);
