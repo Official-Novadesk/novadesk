@@ -3,7 +3,7 @@
 ;--------------------------------
 
 ; Define global version variable (Update this as needed)
-!define VERSION "0.2.0.0"
+!define VERSION "0.3.0.0"
 
 ; The name of the installer
 Name "Novadesk"
