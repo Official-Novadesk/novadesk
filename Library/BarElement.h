@@ -22,6 +22,8 @@ public:
 
     virtual void Render(ID2D1DeviceContext* context) override;
     virtual bool HitTest(int x, int y) override;
+    virtual int GetAutoWidth() override { return 0; }
+    virtual int GetAutoHeight() override { return 0; }
 
     float GetValue() const { return m_Value; }
     BarOrientation GetOrientation() const { return m_Orientation; }

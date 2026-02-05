@@ -14,6 +14,22 @@ RoundLineElement::RoundLineElement(const std::wstring& id, int x, int y, int w, 
 {
 }
 
+int RoundLineElement::GetAutoWidth()
+{
+    float radius = (float)m_Radius;
+    if (radius <= 0.0f) return 0;
+    int pad = m_Thickness > 0 ? (int)ceilf(m_Thickness / 2.0f) : 0;
+    return (int)ceilf(radius * 2.0f) + pad * 2;
+}
+
+int RoundLineElement::GetAutoHeight()
+{
+    float radius = (float)m_Radius;
+    if (radius <= 0.0f) return 0;
+    int pad = m_Thickness > 0 ? (int)ceilf(m_Thickness / 2.0f) : 0;
+    return (int)ceilf(radius * 2.0f) + pad * 2;
+}
+
 bool RoundLineElement::HitTest(int x, int y)
 {
     // Transform the point into local (unrotated) space if needed.
