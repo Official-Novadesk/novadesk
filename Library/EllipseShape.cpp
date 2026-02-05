@@ -41,7 +41,8 @@ void EllipseShape::Render(ID2D1DeviceContext* context)
         context->FillEllipse(ellipse, pFillBrush.Get());
     }
     if (pStrokeBrush) {
-        context->DrawEllipse(ellipse, pStrokeBrush.Get(), m_StrokeWidth);
+        UpdateStrokeStyle(context);
+        context->DrawEllipse(ellipse, pStrokeBrush.Get(), m_StrokeWidth, m_StrokeStyle);
     }
     RenderBevel(context);
     RestoreRenderTransform(context, originalTransform);
