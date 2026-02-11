@@ -41,6 +41,8 @@ void ImageElement::UpdateImage(const std::wstring& path)
 {
     m_ImagePath = path;
     m_D2DBitmap.Reset();
+    m_pWICBitmap.Reset();
+    Direct2D::LoadWICBitmapFromFile(m_ImagePath, m_pWICBitmap.ReleaseAndGetAddressOf());
 }
 
 void ImageElement::Render(ID2D1DeviceContext* context)
@@ -50,28 +52,7 @@ void ImageElement::Render(ID2D1DeviceContext* context)
     if (w <= 0 || h <= 0) return;
 
     D2D1_MATRIX_3X2_F originalTransform;
-    context->GetTransform(&originalTransform);
-
-    // Apply rotation around the center of the element's total bounds
-    GfxRect bounds = GetBounds();
-    float centerX = bounds.X + bounds.Width / 2.0f;
-    float centerY = bounds.Y + bounds.Height / 2.0f;
-
-    if (m_HasTransformMatrix)
-    {
-        D2D1::Matrix3x2F matrix = D2D1::Matrix3x2F(
-            m_TransformMatrix[0], m_TransformMatrix[1],
-            m_TransformMatrix[2], m_TransformMatrix[3],
-            m_TransformMatrix[4], m_TransformMatrix[5]
-        );
-        // Logging::Log(LogLevel::Debug, L"ImageElement(%s) Applying Transform: [%.2f, %.2f, %.2f, %.2f, %.2f, %.2f]", 
-        //     m_Id.c_str(), m_TransformMatrix[0], m_TransformMatrix[1], m_TransformMatrix[2], m_TransformMatrix[3], m_TransformMatrix[4], m_TransformMatrix[5]);
-        context->SetTransform(matrix * originalTransform);
-    }
-    else if (m_Rotate != 0.0f)
-    {
-        context->SetTransform(D2D1::Matrix3x2F::Rotation(m_Rotate, D2D1::Point2F(centerX, centerY)) * originalTransform);
-    }
+    ApplyRenderTransform(context, originalTransform);
 
     // Draw background and bevel inside the transform
     RenderBackground(context);
@@ -80,7 +61,7 @@ void ImageElement::Render(ID2D1DeviceContext* context)
     EnsureBitmap(context);
     if (!m_D2DBitmap)
     {
-        context->SetTransform(originalTransform);
+        RestoreRenderTransform(context, originalTransform);
         return;
     }
     
@@ -93,7 +74,7 @@ void ImageElement::Render(ID2D1DeviceContext* context)
     
     if (contentW <= 0 || contentH <= 0)
     {
-        context->SetTransform(originalTransform);
+        RestoreRenderTransform(context, originalTransform);
         return;
     }
     
@@ -251,17 +232,27 @@ void ImageElement::Render(ID2D1DeviceContext* context)
         }
     }
     
-    context->SetTransform(originalTransform);
+    RestoreRenderTransform(context, originalTransform);
 }
 
 int ImageElement::GetAutoWidth()
 {
+    if (m_pWICBitmap) {
+        UINT w = 0, h = 0;
+        m_pWICBitmap->GetSize(&w, &h);
+        return (int)w + m_PaddingLeft + m_PaddingRight;
+    }
     if (!m_D2DBitmap) return 0;
     return (int)m_D2DBitmap->GetSize().width + m_PaddingLeft + m_PaddingRight;
 }
 
 int ImageElement::GetAutoHeight()
 {
+    if (m_pWICBitmap) {
+        UINT w = 0, h = 0;
+        m_pWICBitmap->GetSize(&w, &h);
+        return (int)h + m_PaddingTop + m_PaddingBottom;
+    }
     if (!m_D2DBitmap) return 0;
     return (int)m_D2DBitmap->GetSize().height + m_PaddingTop + m_PaddingBottom;
 }

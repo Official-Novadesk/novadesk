@@ -1,7 +1,18 @@
 {
-  "name": "",
+  "name": "{NAME}",
   "version": "1.0.0.0",
   "author": "Your Name",
   "description": "Widget Description",
-  "icon": "assets/icon.ico"
+  "icon": "assets/icon.ico",
+  "setup": {
+    "createDesktopShortcut": true,
+    "createStartupShortcut": false,
+    "runOnStartup": false,
+    "installDir": "%ProgramFiles%\\{NAME}",
+    "startMenuFolder": "{NAME}",
+    "setupName": "setup",
+    "setupIcon": "assets/icon.ico",
+    "enableUninstall": true,
+    "launchAfterInstall": false
+  }
 }

@@ -29,7 +29,9 @@ enum ElementType
 {
     ELEMENT_IMAGE,
     ELEMENT_TEXT,
-    ELEMENT_BAR
+    ELEMENT_BAR,
+    ELEMENT_ROUNDLINE,
+    ELEMENT_SHAPE
 };
 
 struct GfxRect {
@@ -104,6 +106,7 @@ public:
     virtual int GetAutoHeight() { return 0; }
 
     virtual GfxRect GetBounds();
+    virtual GfxRect GetBackgroundBounds();
 
     virtual bool HitTest(int x, int y);
 
@@ -113,11 +116,9 @@ public:
         m_HasSolidColor = true; 
     }
 
-    void SetGradient(COLORREF color2, BYTE alpha2, float angle) {
-        m_SolidColor2 = color2;
-        m_SolidAlpha2 = alpha2;
-        m_GradientAngle = angle;
-        m_HasGradient = true;
+    void SetSolidGradient(const GradientInfo& gradient) {
+        m_SolidGradient = gradient;
+        m_HasSolidColor = true;
     }
 
     void SetCornerRadius(int radius) { 
@@ -156,10 +157,7 @@ public:
     BYTE GetSolidAlpha() const { return m_SolidAlpha; }
     int GetCornerRadius() const { return m_CornerRadius; }
 
-    bool HasGradient() const { return m_HasGradient; }
-    COLORREF GetSolidColor2() const { return m_SolidColor2; }
-    BYTE GetSolidAlpha2() const { return m_SolidAlpha2; }
-    float GetGradientAngle() const { return m_GradientAngle; }
+    const GradientInfo& GetSolidGradient() const { return m_SolidGradient; }
 
     int GetBevelType() const { return m_BevelType; }
     int GetBevelWidth() const { return m_BevelWidth; }
@@ -174,6 +172,21 @@ public:
     int GetPaddingBottom() const { return m_PaddingBottom; }
 
     bool GetAntiAlias() const { return m_AntiAlias; }
+
+    void SetShow(bool show) { m_Show = show; }
+    bool IsVisible() const { return m_Show; }
+
+    void SetContainerId(const std::wstring& id) { m_ContainerId = id; }
+    const std::wstring& GetContainerId() const { return m_ContainerId; }
+    void SetContainer(Element* container) { m_ContainerElement = container; }
+    Element* GetContainer() const { return m_ContainerElement; }
+    bool IsContained() const { return m_ContainerElement != nullptr; }
+
+    void AddContainerItem(Element* item) { m_ContainerItems.push_back(item); }
+    void RemoveContainerItem(Element* item);
+    void ClearContainerItems();
+    const std::vector<Element*>& GetContainerItems() const { return m_ContainerItems; }
+    bool IsContainer() const { return !m_ContainerItems.empty(); }
 
     virtual bool IsTransparentHit() const { return false; }
 
@@ -240,10 +253,7 @@ protected:
     int m_CornerRadius = 0;
 
     // Gradient properties
-    bool m_HasGradient = false;
-    COLORREF m_SolidColor2 = 0;
-    BYTE m_SolidAlpha2 = 0;
-    float m_GradientAngle = 0.0f;
+    GradientInfo m_SolidGradient;
 
     // Bevel properties
     int m_BevelType = 0;
@@ -255,6 +265,11 @@ protected:
 
     // Rendering properties
     bool m_AntiAlias = true;
+    bool m_Show = true;
+
+    std::wstring m_ContainerId;
+    Element* m_ContainerElement = nullptr;
+    std::vector<Element*> m_ContainerItems;
     
     // Padding properties
     int m_PaddingLeft = 0;
@@ -277,6 +292,8 @@ protected:
 
     void RenderBackground(ID2D1DeviceContext* context);
     void RenderBevel(ID2D1DeviceContext* context);
+    void ApplyRenderTransform(ID2D1DeviceContext* context, D2D1_MATRIX_3X2_F& originalTransform);
+    void RestoreRenderTransform(ID2D1DeviceContext* context, const D2D1_MATRIX_3X2_F& originalTransform);
 };
 
 #endif

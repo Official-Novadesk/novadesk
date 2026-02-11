@@ -3,7 +3,7 @@
 ;--------------------------------
 
 ; Define global version variable (Update this as needed)
-!define VERSION "0.3.0.0"
+!define VERSION "0.4.0.0"
 
 ; The name of the installer
 Name "Novadesk"
@@ -91,8 +91,13 @@ Section "Novadesk Core" SecMain
   nsExec::ExecToStack 'taskkill /F /IM "nwm.exe"'
 
   ; Add Novadesk files (x64 Release)
+  SetOutPath "$INSTDIR"
   File "..\x64\Release\Novadesk.exe"
+  ; Add installer stub (x64 Release)
+  SetOutPath "$INSTDIR\nwm"
+  File "..\x64\Release\nwm\installer_stub.exe"
   ; Copy Widgets folder
+  SetOutPath "$INSTDIR"
   File /r "..\x64\Release\Widgets"
   
   ; Add nwm files (x64 Release)
@@ -100,6 +105,7 @@ Section "Novadesk Core" SecMain
   File "..\x64\Release\nwm\nwm.exe"
   ; Copy nwm templates if they exist in output
   File /r "..\x64\Release\nwm\widget"
+  SetOutPath "$INSTDIR"
 
   ; Store installation folder
   WriteRegStr HKLM "Software\Novadesk" "Install_Dir" "$INSTDIR"
@@ -195,11 +201,17 @@ Section "Uninstall"
 
   ; Remove files
   Delete "$INSTDIR\Novadesk.exe"
+  Delete "$INSTDIR\nwm\installer_stub.exe"
   Delete "$INSTDIR\Uninstall.exe"
   RMDir /r "$INSTDIR\Widgets"
   
   ; Remove AppData (Settings, Logs, Config)
   RMDir /r "$APPDATA\Novadesk"
+
+  ; Remove files from root directory if in portable mode
+  Delete "$INSTDIR\settings.json"
+  Delete "$INSTDIR\logs.log"
+  Delete "$INSTDIR\config.json"
   
   ; Remove nwm directory
   RMDir /r "$INSTDIR\nwm"

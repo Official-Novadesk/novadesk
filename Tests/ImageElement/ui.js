@@ -374,7 +374,7 @@ win.addImage({
     y: 740,
     width: 100,
     height: 100,
-    solidColor: "rgb(255, 0, 0)"
+    backgroundColor: "rgb(255, 0, 0)"
 });
 win.addText({
     id: "label-solid",
@@ -393,8 +393,8 @@ win.addImage({
     y: 740,
     width: 100,
     height: 100,
-    solidColor: "rgb(0, 255, 0)",
-    solidColorRadius: 15
+    backgroundColor: "rgb(0, 255, 0)",
+    backgroundColorRadius: 15
 });
 win.addText({
     id: "label-rounded",

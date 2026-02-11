@@ -7,6 +7,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Novadesk", "Novadesk.vcxpro
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "nwm", "nwm\nwm.vcxproj", "{AABBCCDD-1122-3344-5566-77889900AABB}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "installer_stub", "installer_stub\installer_stub.vcxproj", "{B1B2B3B4-1111-2222-3333-444455556666}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -21,6 +23,10 @@ Global
 		{AABBCCDD-1122-3344-5566-77889900AABB}.Debug|x64.Build.0 = Debug|x64
 		{AABBCCDD-1122-3344-5566-77889900AABB}.Release|x64.ActiveCfg = Release|x64
 		{AABBCCDD-1122-3344-5566-77889900AABB}.Release|x64.Build.0 = Release|x64
+		{B1B2B3B4-1111-2222-3333-444455556666}.Debug|x64.ActiveCfg = Debug|x64
+		{B1B2B3B4-1111-2222-3333-444455556666}.Debug|x64.Build.0 = Debug|x64
+		{B1B2B3B4-1111-2222-3333-444455556666}.Release|x64.ActiveCfg = Release|x64
+		{B1B2B3B4-1111-2222-3333-444455556666}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

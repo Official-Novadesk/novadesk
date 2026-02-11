@@ -7,6 +7,7 @@
 
 #include "CPUMonitor.h"
 #include <algorithm>
+#include <vector>
 
 int CPUMonitor::s_NumProcessors = 0;
 CPUMonitor::FPNTQSI CPUMonitor::s_NtQuerySystemInformation = nullptr;
@@ -48,12 +49,12 @@ void CPUMonitor::UpdateTimes(double& idle, double& system) {
         }
     } else if (s_NtQuerySystemInformation) {
         ULONG size = sizeof(SYSTEM_PROCESSOR_PERFORMANCE_INFORMATION) * s_NumProcessors;
-        SYSTEM_PROCESSOR_PERFORMANCE_INFORMATION* info = (SYSTEM_PROCESSOR_PERFORMANCE_INFORMATION*)malloc(size);
-        if (s_NtQuerySystemInformation(SystemProcessorPerformanceInformation, info, size, &size) == 0) {
+        std::vector<SYSTEM_PROCESSOR_PERFORMANCE_INFORMATION> info;
+        info.resize(s_NumProcessors);
+        if (s_NtQuerySystemInformation(SystemProcessorPerformanceInformation, info.data(), size, &size) == 0) {
             idle = (double)info[m_Processor - 1].IdleTime.QuadPart;
             system = (double)info[m_Processor - 1].KernelTime.QuadPart + (double)info[m_Processor - 1].UserTime.QuadPart;
         }
-        free(info);
     }
 }
 

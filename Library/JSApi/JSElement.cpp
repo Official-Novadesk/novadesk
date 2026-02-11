@@ -15,67 +15,67 @@
 
 namespace JSApi {
 
+    namespace {
+        template <typename Options, typename ParseFn, typename AddFn>
+        duk_ret_t AddElementCommon(duk_context* ctx, ParseFn parseFn, AddFn addFn) {
+            Widget* widget = GetWidgetFromThis(ctx);
+            if (!widget || !duk_is_object(ctx, 0)) return DUK_RET_TYPE_ERROR;
+
+            duk_dup(ctx, 0);
+            Options options;
+            std::wstring baseDir = PathUtils::GetParentDir(widget->GetOptions().scriptPath);
+            parseFn(ctx, options, baseDir);
+            duk_pop(ctx);
+
+            addFn(widget, options);
+            duk_push_this(ctx);
+            return 1;
+        }
+    }
+
     duk_ret_t js_widget_add_image(duk_context* ctx) {
-        duk_push_this(ctx);
-        duk_get_prop_string(ctx, -1, "\xFF" "widgetPtr");
-        Widget* widget = (Widget*)duk_get_pointer(ctx, -1);
-        duk_pop_2(ctx);
-
-        if (!Widget::IsValid(widget) || !duk_is_object(ctx, 0)) return DUK_RET_TYPE_ERROR;
-        duk_dup(ctx, 0);
-        PropertyParser::ImageOptions options;
-        std::wstring baseDir = PathUtils::GetParentDir(widget->GetOptions().scriptPath);
-        PropertyParser::ParseImageOptions(ctx, options, baseDir);
-        duk_pop(ctx);
-
-        widget->AddImage(options);
-        duk_push_this(ctx);
-        return 1;
+        return AddElementCommon<PropertyParser::ImageOptions>(
+            ctx,
+            PropertyParser::ParseImageOptions,
+            [](Widget* w, const PropertyParser::ImageOptions& options) { w->AddImage(options); }
+        );
     }
 
     duk_ret_t js_widget_add_text(duk_context* ctx) {
-        duk_push_this(ctx);
-        duk_get_prop_string(ctx, -1, "\xFF" "widgetPtr");
-        Widget* widget = (Widget*)duk_get_pointer(ctx, -1);
-        duk_pop_2(ctx);
-
-        if (!Widget::IsValid(widget) || !duk_is_object(ctx, 0)) return DUK_RET_TYPE_ERROR;
-        duk_dup(ctx, 0);
-        PropertyParser::TextOptions options;
-        std::wstring baseDir = PathUtils::GetParentDir(widget->GetOptions().scriptPath);
-        PropertyParser::ParseTextOptions(ctx, options, baseDir);
-        duk_pop(ctx);
-
-        widget->AddText(options);
-        duk_push_this(ctx);
-        return 1;
+        return AddElementCommon<PropertyParser::TextOptions>(
+            ctx,
+            PropertyParser::ParseTextOptions,
+            [](Widget* w, const PropertyParser::TextOptions& options) { w->AddText(options); }
+        );
     }
 
     duk_ret_t js_widget_add_bar(duk_context* ctx) {
-        duk_push_this(ctx);
-        duk_get_prop_string(ctx, -1, "\xFF" "widgetPtr");
-        Widget* widget = (Widget*)duk_get_pointer(ctx, -1);
-        duk_pop_2(ctx);
+        return AddElementCommon<PropertyParser::BarOptions>(
+            ctx,
+            PropertyParser::ParseBarOptions,
+            [](Widget* w, const PropertyParser::BarOptions& options) { w->AddBar(options); }
+        );
+    }
 
-        if (!Widget::IsValid(widget) || !duk_is_object(ctx, 0)) return DUK_RET_TYPE_ERROR;
-        duk_dup(ctx, 0);
-        PropertyParser::BarOptions options;
-        std::wstring baseDir = PathUtils::GetParentDir(widget->GetOptions().scriptPath);
-        PropertyParser::ParseBarOptions(ctx, options, baseDir);
-        duk_pop(ctx);
+    duk_ret_t js_widget_add_round_line(duk_context* ctx) {
+        return AddElementCommon<PropertyParser::RoundLineOptions>(
+            ctx,
+            PropertyParser::ParseRoundLineOptions,
+            [](Widget* w, const PropertyParser::RoundLineOptions& options) { w->AddRoundLine(options); }
+        );
+    }
 
-        widget->AddBar(options);
-        duk_push_this(ctx);
-        return 1;
+    duk_ret_t js_widget_add_shape(duk_context* ctx) {
+        return AddElementCommon<PropertyParser::ShapeOptions>(
+            ctx,
+            PropertyParser::ParseShapeOptions,
+            [](Widget* w, const PropertyParser::ShapeOptions& options) { w->AddShape(options); }
+        );
     }
 
     duk_ret_t js_widget_set_element_properties(duk_context* ctx) {
-        duk_push_this(ctx);
-        duk_get_prop_string(ctx, -1, "\xFF" "widgetPtr");
-        Widget* widget = (Widget*)duk_get_pointer(ctx, -1);
-        duk_pop_2(ctx);
-
-        if (!Widget::IsValid(widget)) return DUK_RET_TYPE_ERROR;
+        Widget* widget = GetWidgetFromThis(ctx);
+        if (!widget) return DUK_RET_TYPE_ERROR;
         std::wstring id = Utils::ToWString(duk_get_string(ctx, 0));
         if (!duk_is_object(ctx, 1)) return DUK_RET_TYPE_ERROR;
         duk_dup(ctx, 1);
@@ -86,12 +86,8 @@ namespace JSApi {
     }
 
     duk_ret_t js_widget_remove_elements(duk_context* ctx) {
-        duk_push_this(ctx);
-        duk_get_prop_string(ctx, -1, "\xFF" "widgetPtr");
-        Widget* widget = (Widget*)duk_get_pointer(ctx, -1);
-        duk_pop_2(ctx);
-
-        if (!Widget::IsValid(widget)) return DUK_RET_TYPE_ERROR;
+        Widget* widget = GetWidgetFromThis(ctx);
+        if (!widget) return DUK_RET_TYPE_ERROR;
         if (duk_is_null_or_undefined(ctx, 0)) {
             widget->RemoveElements();
         } else if (duk_is_array(ctx, 0)) {
@@ -112,12 +108,8 @@ namespace JSApi {
     }
 
     duk_ret_t js_widget_get_element_property(duk_context* ctx) {
-        duk_push_this(ctx);
-        duk_get_prop_string(ctx, -1, "\xFF" "widgetPtr");
-        Widget* widget = (Widget*)duk_get_pointer(ctx, -1);
-        duk_pop_2(ctx);
-
-        if (!Widget::IsValid(widget)) return DUK_RET_TYPE_ERROR;
+        Widget* widget = GetWidgetFromThis(ctx);
+        if (!widget) return DUK_RET_TYPE_ERROR;
         std::wstring id = Utils::ToWString(duk_get_string(ctx, 0));
         std::string propertyName = duk_get_string(ctx, 1);
 
@@ -139,19 +131,31 @@ namespace JSApi {
         return 1;
     }
 
-    void BindWidgetUIMethods(duk_context* ctx) {
-        duk_push_c_function(ctx, js_widget_add_image, 1);
-        duk_put_prop_string(ctx, -2, "addImage");
-        duk_push_c_function(ctx, js_widget_add_text, 1);
-        duk_put_prop_string(ctx, -2, "addText");
-        duk_push_c_function(ctx, js_widget_add_bar, 1);
-        duk_put_prop_string(ctx, -2, "addBar");
+    duk_ret_t js_widget_begin_update(duk_context* ctx) {
+        Widget* widget = GetWidgetFromThis(ctx);
+        if (widget) widget->BeginUpdate();
+        return 0;
+    }
 
-        duk_push_c_function(ctx, js_widget_remove_elements, 1);
-        duk_put_prop_string(ctx, -2, "removeElements");
-        duk_push_c_function(ctx, js_widget_set_element_properties, 2);
-        duk_put_prop_string(ctx, -2, "setElementProperties");
-        duk_push_c_function(ctx, js_widget_get_element_property, 2);
-        duk_put_prop_string(ctx, -2, "getElementProperty");
+    duk_ret_t js_widget_end_update(duk_context* ctx) {
+        Widget* widget = GetWidgetFromThis(ctx);
+        if (widget) widget->EndUpdate();
+        return 0;
+    }
+
+    void BindWidgetUIMethods(duk_context* ctx) {
+        const JsBinding bindings[] = {
+            { "addImage", js_widget_add_image, 1 },
+            { "addText", js_widget_add_text, 1 },
+            { "addBar", js_widget_add_bar, 1 },
+            { "addRoundLine", js_widget_add_round_line, 1 },
+            { "addShape", js_widget_add_shape, 1 },
+            { "removeElements", js_widget_remove_elements, 1 },
+            { "setElementProperties", js_widget_set_element_properties, 2 },
+            { "getElementProperty", js_widget_get_element_property, 2 },
+            { "beginUpdate", js_widget_begin_update, 0 },
+            { "endUpdate", js_widget_end_update, 0 }
+        };
+        BindMethods(ctx, bindings, sizeof(bindings) / sizeof(bindings[0]));
     }
 }

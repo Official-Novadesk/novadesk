@@ -30,6 +30,8 @@ namespace PropertyParser {
     struct ImageOptions;
     struct TextOptions;
     struct BarOptions;
+    struct RoundLineOptions;
+    struct ShapeOptions;
 }
 
 #include "MenuItem.h"
@@ -46,6 +48,7 @@ struct WidgetOptions
     BYTE bgAlpha = 255;        // Alpha component of background color (0-255)
     BYTE windowOpacity = 255;  // Overall window opacity (0-255)
     COLORREF color = RGB(255, 255, 255);
+    GradientInfo bgGradient;
     bool draggable = true;
     bool clickThrough = false;
     bool keepOnScreen = false;
@@ -68,9 +71,9 @@ public:
     void Show();
     void Hide();
     void Refresh();
-
-    void BeginUpdate() { m_UpdateCount++; }
-    void EndUpdate() { if (--m_UpdateCount == 0) Redraw(); }
+    void SetFocus();
+    void UnFocus();
+    std::wstring GetTitle() const;
 
     void ChangeZPos(ZPOSITION zPos, bool all = false);
     void ChangeSingleZPos(ZPOSITION zPos, bool all = false);
@@ -89,6 +92,8 @@ public:
     void AddImage(const PropertyParser::ImageOptions& options);
     void AddText(const PropertyParser::TextOptions& options);
     void AddBar(const PropertyParser::BarOptions& options);
+    void AddRoundLine(const PropertyParser::RoundLineOptions& options);
+    void AddShape(const PropertyParser::ShapeOptions& options);
 
     void SetElementProperties(const std::wstring& id, duk_context* ctx);
     bool RemoveElements(const std::wstring& id = L"");
@@ -98,6 +103,9 @@ public:
     void ClearContextMenu();
     void SetContextMenuDisabled(bool disabled) { m_ContextMenuDisabled = disabled; }
     void SetShowDefaultContextMenuItems(bool show) { m_ShowDefaultContextMenuItems = show; }
+
+    void BeginUpdate();
+    void EndUpdate();
 
     void Redraw();
 
@@ -116,26 +124,35 @@ private:
     bool HandleMouseMessage(UINT message, WPARAM wParam, LPARAM lParam);
 
     void OnContextMenu();
+    bool BuildCombinedShapeGeometry(class PathShape* target, const PropertyParser::ShapeOptions& options);
+    void ReleaseCombinedConsumes(class PathShape* target);
+    void UpdateContainerForElement(Element* element, const std::wstring& newContainerId);
+    bool WouldCreateContainerCycle(Element* element, Element* container) const;
+    void RenderContainerChildren(Element* container);
+    bool HitTestContainerChildren(Element* container, int x, int y, Element*& outElement);
 
+private:
+    std::wstring m_Id;
+    std::wstring m_Name;
+    WidgetOptions m_Options;
     HWND m_hWnd;
     Tooltip m_Tooltip;
-    WidgetOptions m_Options;
     ZPOSITION m_WindowZPosition;
     std::vector<Element*> m_Elements;
-    int m_UpdateCount = 0;
+    Element* m_MouseOverElement = nullptr;
+    bool m_IsBatchUpdating = false;
     
     // Context Menu
     std::vector<MenuItem> m_ContextMenu;
     bool m_ShowDefaultContextMenuItems = true;
     bool m_ContextMenuDisabled = false;
 
-    Element* m_MouseOverElement = nullptr;
-
     // Dragging State
     bool m_IsDragging = false;
     bool m_DragThresholdMet = false;
     POINT m_DragStartCursor = { 0, 0 };
     POINT m_DragStartWindow = { 0, 0 };
+    bool m_IsMouseOverWidget = false;
     
     // Rendering
     Microsoft::WRL::ComPtr<ID2D1DeviceContext> m_pContext;

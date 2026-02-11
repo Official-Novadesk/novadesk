@@ -69,7 +69,7 @@ namespace JSApi {
         // Save and remove timers and constructors
         const char* forbidden[] = { 
             "setInterval", "setTimeout", "clearInterval", "clearTimeout", "setImmediate",
-            "widgetWindow", "system"
+            "widgetWindow", "system", "require"
         };
         for (const char* f : forbidden) {
             duk_get_global_string(s_JsContext, f);

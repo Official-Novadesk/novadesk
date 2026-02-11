@@ -39,13 +39,21 @@ int Element::GetHeight() {
 ** Get the bounding box of the element.
 */
 GfxRect Element::GetBounds() {
+    if (!m_Show) {
+        return GfxRect(m_X, m_Y, 0, 0);
+    }
     return GfxRect(m_X, m_Y, GetWidth(), GetHeight());
+}
+
+GfxRect Element::GetBackgroundBounds() {
+    return GetBounds();
 }
 
 /*
 ** Check if a point is within the element's bounds.
 */
 bool Element::HitTest(int x, int y) {
+    if (!m_Show) return false;
     if (!m_HasTransformMatrix && m_Rotate == 0.0f) {
         GfxRect bounds = GetBounds();
         return (x >= bounds.X && x < bounds.X + bounds.Width &&
@@ -155,6 +163,16 @@ void Element::SetPadding(int left, int top, int right, int bottom) {
     m_PaddingBottom = bottom;
 }
 
+void Element::RemoveContainerItem(Element* item)
+{
+    m_ContainerItems.erase(std::remove(m_ContainerItems.begin(), m_ContainerItems.end(), item), m_ContainerItems.end());
+}
+
+void Element::ClearContainerItems()
+{
+    m_ContainerItems.clear();
+}
+
 /*
 ** Render the background of the element.
 */
@@ -163,24 +181,20 @@ void Element::RenderBackground(ID2D1DeviceContext* context) {
 
     context->SetAntialiasMode(m_AntiAlias ? D2D1_ANTIALIAS_MODE_PER_PRIMITIVE : D2D1_ANTIALIAS_MODE_ALIASED);
 
-    GfxRect bounds = GetBounds();
+    GfxRect bounds = GetBackgroundBounds();
     D2D1_RECT_F rect = D2D1::RectF((float)bounds.X, (float)bounds.Y, (float)(bounds.X + bounds.Width), (float)(bounds.Y + bounds.Height));
     
     if (rect.right <= rect.left || rect.bottom <= rect.top) return;
 
     Microsoft::WRL::ComPtr<ID2D1Brush> brush;
-    if (m_HasGradient) {
-        D2D1_POINT_2F p1 = Direct2D::FindEdgePoint(m_GradientAngle + 180.0f, rect);
-        D2D1_POINT_2F p2 = Direct2D::FindEdgePoint(m_GradientAngle, rect);
-
-        Microsoft::WRL::ComPtr<ID2D1LinearGradientBrush> lgBrush;
-        Direct2D::CreateLinearGradientBrush(context, p1, p2, m_SolidColor, m_SolidAlpha / 255.0f, m_SolidColor2, m_SolidAlpha2 / 255.0f, lgBrush.GetAddressOf());
-        brush = lgBrush;
-    } else {
-        Microsoft::WRL::ComPtr<ID2D1SolidColorBrush> sBrush;
-        Direct2D::CreateSolidBrush(context, m_SolidColor, m_SolidAlpha / 255.0f, sBrush.GetAddressOf());
-        brush = sBrush;
-    }
+    Direct2D::CreateBrushFromGradientOrColor(
+        context,
+        rect,
+        &m_SolidGradient,
+        m_SolidColor,
+        m_SolidAlpha / 255.0f,
+        brush.GetAddressOf()
+    );
 
     if (brush) {
         if (m_CornerRadius > 0) {
@@ -200,8 +214,14 @@ void Element::RenderBevel(ID2D1DeviceContext* context) {
 
     context->SetAntialiasMode(m_AntiAlias ? D2D1_ANTIALIAS_MODE_PER_PRIMITIVE : D2D1_ANTIALIAS_MODE_ALIASED);
 
+    const float pad = 2.0f;
     GfxRect bounds = GetBounds();
-    D2D1_RECT_F rect = D2D1::RectF((float)bounds.X, (float)bounds.Y, (float)(bounds.X + bounds.Width), (float)(bounds.Y + bounds.Height));
+    D2D1_RECT_F rect = D2D1::RectF(
+        (float)bounds.X - pad,
+        (float)bounds.Y - pad,
+        (float)(bounds.X + bounds.Width) + pad,
+        (float)(bounds.Y + bounds.Height) + pad
+    );
     
     Microsoft::WRL::ComPtr<ID2D1SolidColorBrush> highlightBrush;
     Microsoft::WRL::ComPtr<ID2D1SolidColorBrush> shadowBrush;
@@ -244,4 +264,33 @@ void Element::RenderBevel(ID2D1DeviceContext* context) {
         }
         break;
     }
+}
+
+void Element::ApplyRenderTransform(ID2D1DeviceContext* context, D2D1_MATRIX_3X2_F& originalTransform) {
+    if (!context) return;
+    context->GetTransform(&originalTransform);
+
+    if (!m_HasTransformMatrix && m_Rotate == 0.0f) {
+        return;
+    }
+
+    if (m_HasTransformMatrix) {
+        D2D1::Matrix3x2F matrix = D2D1::Matrix3x2F(
+            m_TransformMatrix[0], m_TransformMatrix[1],
+            m_TransformMatrix[2], m_TransformMatrix[3],
+            m_TransformMatrix[4], m_TransformMatrix[5]
+        );
+        context->SetTransform(matrix * originalTransform);
+        return;
+    }
+
+    GfxRect bounds = GetBounds();
+    float centerX = bounds.X + bounds.Width / 2.0f;
+    float centerY = bounds.Y + bounds.Height / 2.0f;
+    context->SetTransform(D2D1::Matrix3x2F::Rotation(m_Rotate, D2D1::Point2F(centerX, centerY)) * originalTransform);
+}
+
+void Element::RestoreRenderTransform(ID2D1DeviceContext* context, const D2D1_MATRIX_3X2_F& originalTransform) {
+    if (!context) return;
+    context->SetTransform(originalTransform);
 }

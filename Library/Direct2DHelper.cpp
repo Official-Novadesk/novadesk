@@ -137,6 +137,23 @@ namespace Direct2D
         return false;
     }
 
+    bool CreateBrushFromGradientOrColor(ID2D1RenderTarget* context, const D2D1_RECT_F& rect, const GradientInfo* gradient, COLORREF color, float alpha, ID2D1Brush** brush)
+    {
+        if (!context || !brush) return false;
+
+        if (gradient && gradient->type != GRADIENT_NONE && !gradient->stops.empty()) {
+            if (CreateGradientBrush(context, rect, *gradient, brush)) return true;
+        }
+
+        Microsoft::WRL::ComPtr<ID2D1SolidColorBrush> sBrush;
+        if (CreateSolidBrush(context, color, alpha, sBrush.GetAddressOf())) {
+            *brush = sBrush.Detach();
+            return true;
+        }
+
+        return false;
+    }
+
     bool LoadWICBitmapFromFile(const std::wstring& path, IWICBitmap** wicBitmap)
     {
         if (!g_pWICFactory) return false;

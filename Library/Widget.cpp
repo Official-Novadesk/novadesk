@@ -20,9 +20,17 @@
 #include "ImageElement.h"
 #include "TextElement.h"
 #include "BarElement.h"
+#include "RoundLineElement.h"
 #include "JSApi/JSApi.h"
 #include "JSApi/JSCommon.h"
 #include "JSApi/JSEvents.h"
+#include "RectangleShape.h"
+#include "EllipseShape.h"
+#include "LineShape.h"
+#include "ArcShape.h"
+#include "PathShape.h"
+#include "CurveShape.h"
+#include "ShapeElement.h"
 #include "ColorUtil.h"
 #include "PathUtils.h"
 
@@ -51,7 +59,7 @@ bool Widget::IsValid(Widget* pWidget)
 ** Options include size, position, colors, z-order, and behavior flags.
 */
 Widget::Widget(const WidgetOptions& options) 
-    : m_hWnd(nullptr), m_Options(options), m_WindowZPosition(options.zPos)
+    : m_hWnd(nullptr), m_Options(options), m_WindowZPosition(options.zPos), m_IsBatchUpdating(false)
 {
 }
 
@@ -193,6 +201,32 @@ void Widget::Refresh()
     }
     EndUpdate();
 }
+
+void Widget::SetFocus()
+{
+    if (m_hWnd) {
+        ::SetFocus(m_hWnd);
+    }
+}
+
+void Widget::UnFocus()
+{
+    if (m_hWnd && ::GetFocus() == m_hWnd) {
+        ::SetFocus(NULL);
+    }
+}
+
+std::wstring Widget::GetTitle() const
+{
+    if (!m_hWnd) return L"";
+    int len = GetWindowTextLength(m_hWnd);
+    if (len == 0) return L"";
+    std::vector<wchar_t> buf(len + 1);
+    GetWindowText(m_hWnd, buf.data(), len + 1);
+    return std::wstring(buf.data());
+}
+
+
 
 /*
 ** Change the z-order position of this widget.
@@ -371,14 +405,37 @@ void Widget::SetBackgroundColor(const std::wstring& colorStr)
 {
     COLORREF color = m_Options.color;
     BYTE alpha = m_Options.bgAlpha;
+    GradientInfo grad;
     
-    if (ColorUtil::ParseRGBA(colorStr, color, alpha))
+    bool isGradient = Utils::ParseGradientString(colorStr, grad);
+    bool isColor = ColorUtil::ParseRGBA(colorStr, color, alpha);
+
+    if (isGradient || isColor)
     {
-        if (m_Options.backgroundColor != colorStr || m_Options.color != color || m_Options.bgAlpha != alpha)
-        {
+        bool changed = false;
+        if (m_Options.backgroundColor != colorStr) {
             m_Options.backgroundColor = colorStr;
-            m_Options.color = color;
-            m_Options.bgAlpha = alpha;
+            changed = true;
+        }
+
+        if (isGradient) {
+            if (m_Options.bgGradient.type != grad.type || m_Options.bgGradient.angle != grad.angle || m_Options.bgGradient.stops.size() != grad.stops.size()) {
+                m_Options.bgGradient = grad;
+                changed = true;
+            }
+        } else {
+            if (m_Options.bgGradient.type != GRADIENT_NONE) {
+                m_Options.bgGradient.type = GRADIENT_NONE;
+                changed = true;
+            }
+            if (m_Options.color != color || m_Options.bgAlpha != alpha) {
+                m_Options.color = color;
+                m_Options.bgAlpha = alpha;
+                changed = true;
+            }
+        }
+
+        if (changed) {
             Redraw();
             Settings::SaveWidget(m_Options.id, m_Options);
         }
@@ -434,6 +491,14 @@ LRESULT CALLBACK Widget::WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
 
     switch (message)
     {
+    case WM_SETFOCUS:
+        if (widget) JSApi::TriggerWidgetEvent(widget, "focus");
+        return 0;
+
+    case WM_KILLFOCUS:
+        if (widget) JSApi::TriggerWidgetEvent(widget, "unFocus");
+        return 0;
+
     case WM_ERASEBKGND:
         return 1; // Handled, we don't need to erase background for layered window
         
@@ -516,6 +581,13 @@ LRESULT CALLBACK Widget::WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
         }
         return 0;
 
+    case WM_MOUSELEAVE:
+        if (widget)
+        {
+            widget->HandleMouseMessage(message, wParam, lParam);
+        }
+        return 0;
+
     case WM_LBUTTONDBLCLK:
     case WM_RBUTTONDOWN:
     // case WM_RBUTTONUP: // Handled above
@@ -544,9 +616,18 @@ LRESULT CALLBACK Widget::WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
             Element* hitElement = nullptr;
             for (auto it = widget->m_Elements.rbegin(); it != widget->m_Elements.rend(); ++it)
             {
-                if ((*it)->HitTest(pt.x, pt.y))
-                {
-                    hitElement = *it;
+                Element* candidate = *it;
+                if (!candidate || !candidate->IsVisible()) continue;
+                if (candidate->IsContained()) continue;
+
+                if (candidate->IsContainer()) {
+                    if (widget->HitTestContainerChildren(candidate, pt.x, pt.y, hitElement)) {
+                        break;
+                    }
+                }
+
+                if (candidate->HitTest(pt.x, pt.y)) {
+                    hitElement = candidate;
                     break;
                 }
             }
@@ -784,6 +865,7 @@ LRESULT CALLBACK Widget::WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
             LPWINDOWPOS wp = (LPWINDOWPOS)lParam;
             if (!(wp->flags & SWP_NOMOVE))
             {
+                JSApi::TriggerWidgetEvent(widget, "move");
                 widget->m_Options.x = wp->x;
                 widget->m_Options.y = wp->y;
             }
@@ -865,6 +947,7 @@ void Widget::AddImage(const PropertyParser::ImageOptions& options)
     }
     
     m_Elements.push_back(element);
+    UpdateContainerForElement(element, options.containerId);
     
     Redraw();
 }
@@ -893,6 +976,7 @@ void Widget::AddText(const PropertyParser::TextOptions& options)
     PropertyParser::ApplyTextOptions(element, options); // Changed from ApplyElementOptions
 
     m_Elements.push_back(element);
+    UpdateContainerForElement(element, options.containerId);
     
     Redraw();
 }
@@ -916,8 +1000,422 @@ void Widget::AddBar(const PropertyParser::BarOptions& options)
     PropertyParser::ApplyBarOptions(element, options); // Changed from ApplyElementOptions
 
     m_Elements.push_back(element);
+    UpdateContainerForElement(element, options.containerId);
     
     Redraw();
+}
+
+/*
+** Add a round line content item to the widget.
+*/
+void Widget::AddRoundLine(const PropertyParser::RoundLineOptions& options)
+{
+    if (options.id.empty()) {
+        Logging::Log(LogLevel::Error, L"AddRoundLine failed: Element ID cannot be empty.");
+        return;
+    }
+
+    if (FindElementById(options.id)) {
+        RemoveElements(options.id);
+    }
+
+    RoundLineElement* element = new RoundLineElement(options.id, options.x, options.y, options.width, options.height, options.value);
+    
+    PropertyParser::ApplyRoundLineOptions(element, options);
+
+    m_Elements.push_back(element);
+    UpdateContainerForElement(element, options.containerId);
+    
+    Redraw();
+}
+
+/*
+** Add shapes item to the widget.
+*/
+void Widget::AddShape(const PropertyParser::ShapeOptions& options)
+{
+    if (options.id.empty()) {
+        Logging::Log(LogLevel::Error, L"AddShape failed: Element ID cannot be empty.");
+        return;
+    }
+
+    if (FindElementById(options.id)) {
+        RemoveElements(options.id);
+    }
+
+    ShapeElement* element = nullptr;
+
+    if (options.isCombine) {
+        element = new PathShape(options.id, options.x, options.y, options.width, options.height);
+    }
+    else if (options.shapeType == L"ellipse") {
+        element = new EllipseShape(options.id, options.x, options.y, options.width, options.height);
+    }
+    else if (options.shapeType == L"line") {
+        element = new LineShape(options.id, options.x, options.y, options.width, options.height);
+    }
+    else if (options.shapeType == L"arc") {
+        element = new ArcShape(options.id, options.x, options.y, options.width, options.height);
+    }
+    else if (options.shapeType == L"path") {
+        element = new PathShape(options.id, options.x, options.y, options.width, options.height);
+    }
+    else if (options.shapeType == L"curve") {
+        element = new CurveShape(options.id, options.x, options.y, options.width, options.height);
+    }
+    else {
+        element = new RectangleShape(options.id, options.x, options.y, options.width, options.height);
+    }
+
+    PropertyParser::ApplyShapeOptions(element, options);
+
+    if (options.isCombine) {
+        PathShape* path = static_cast<PathShape*>(element);
+        BuildCombinedShapeGeometry(path, options);
+    }
+
+    m_Elements.push_back(element);
+    UpdateContainerForElement(element, options.containerId);
+
+    Redraw();
+}
+
+bool Widget::BuildCombinedShapeGeometry(PathShape* target, const PropertyParser::ShapeOptions& options)
+{
+    if (!target) return false;
+
+    target->ClearCombinedGeometry();
+
+    if (options.combineBaseId.empty()) {
+        Logging::Log(LogLevel::Error, L"Combine shape '%s' missing base id.", options.id.c_str());
+        return false;
+    }
+
+    Element* baseElement = FindElementById(options.combineBaseId);
+    ShapeElement* baseShape = dynamic_cast<ShapeElement*>(baseElement);
+    if (!baseShape) {
+        Logging::Log(LogLevel::Error, L"Combine shape '%s' base '%s' is not a shape.", options.id.c_str(), options.combineBaseId.c_str());
+        return false;
+    }
+    if (baseShape == target) {
+        Logging::Log(LogLevel::Error, L"Combine shape '%s' cannot use itself as base.", options.id.c_str());
+        return false;
+    }
+
+    ID2D1Factory1* factory = Direct2D::GetFactory();
+    if (!factory) {
+        Logging::Log(LogLevel::Error, L"Combine shape '%s' failed: Direct2D factory unavailable.", options.id.c_str());
+        return false;
+    }
+
+    Microsoft::WRL::ComPtr<ID2D1Geometry> baseGeometry;
+    if (!baseShape->CreateGeometry(factory, baseGeometry) || !baseGeometry) {
+        Logging::Log(LogLevel::Error, L"Combine shape '%s' failed: base geometry could not be created.", options.id.c_str());
+        return false;
+    }
+
+    D2D1_MATRIX_3X2_F baseTransform = baseShape->GetRenderTransformMatrix();
+    Microsoft::WRL::ComPtr<ID2D1Geometry> combinedGeometry;
+
+    bool baseTransformIsIdentity =
+        baseTransform._11 == 1.0f && baseTransform._12 == 0.0f &&
+        baseTransform._21 == 0.0f && baseTransform._22 == 1.0f &&
+        baseTransform._31 == 0.0f && baseTransform._32 == 0.0f;
+
+    if (baseTransformIsIdentity) {
+        combinedGeometry = baseGeometry;
+    }
+    else {
+        Microsoft::WRL::ComPtr<ID2D1TransformedGeometry> transformed;
+        if (FAILED(factory->CreateTransformedGeometry(baseGeometry.Get(), &baseTransform, transformed.GetAddressOf()))) {
+            Logging::Log(LogLevel::Error, L"Combine shape '%s' failed: base transform could not be applied.", options.id.c_str());
+            return false;
+        }
+        combinedGeometry = transformed;
+    }
+
+    std::vector<PathShape::CombineOp> resolvedOps;
+    resolvedOps.reserve(options.combineOps.size());
+
+    for (const auto& op : options.combineOps) {
+        PathShape::CombineOp resolved;
+        resolved.id = op.id;
+        resolved.mode = op.mode;
+        resolved.consume = op.hasConsume ? op.consume : (options.hasCombineConsumeAll ? options.combineConsumeAll : false);
+        resolvedOps.push_back(resolved);
+
+        Element* opElement = FindElementById(op.id);
+        ShapeElement* opShape = dynamic_cast<ShapeElement*>(opElement);
+        if (!opShape) {
+            Logging::Log(LogLevel::Error, L"Combine shape '%s' cannot combine with '%s' (not a shape).", options.id.c_str(), op.id.c_str());
+            return false;
+        }
+        if (opShape == target) {
+            Logging::Log(LogLevel::Error, L"Combine shape '%s' cannot combine with itself.", options.id.c_str());
+            return false;
+        }
+
+        Microsoft::WRL::ComPtr<ID2D1Geometry> opGeometry;
+        if (!opShape->CreateGeometry(factory, opGeometry) || !opGeometry) {
+            Logging::Log(LogLevel::Error, L"Combine shape '%s' failed: geometry for '%s' could not be created.", options.id.c_str(), op.id.c_str());
+            return false;
+        }
+
+        D2D1_MATRIX_3X2_F opTransform = opShape->GetRenderTransformMatrix();
+
+        Microsoft::WRL::ComPtr<ID2D1PathGeometry> path;
+        if (FAILED(factory->CreatePathGeometry(path.GetAddressOf()))) {
+            Logging::Log(LogLevel::Error, L"Combine shape '%s' failed: could not create path geometry.", options.id.c_str());
+            return false;
+        }
+
+        Microsoft::WRL::ComPtr<ID2D1GeometrySink> sink;
+        if (FAILED(path->Open(sink.GetAddressOf()))) {
+            Logging::Log(LogLevel::Error, L"Combine shape '%s' failed: could not open geometry sink.", options.id.c_str());
+            return false;
+        }
+
+        HRESULT hr = combinedGeometry->CombineWithGeometry(opGeometry.Get(), op.mode, opTransform, sink.Get());
+        sink->Close();
+        if (FAILED(hr)) {
+            Logging::Log(LogLevel::Error, L"Combine shape '%s' failed: combine operation with '%s' failed.", options.id.c_str(), op.id.c_str());
+            return false;
+        }
+
+        combinedGeometry = path;
+    }
+
+    D2D1_RECT_F bounds = D2D1::RectF();
+    HRESULT hr = combinedGeometry->GetBounds(nullptr, &bounds);
+    if (FAILED(hr)) {
+        Logging::Log(LogLevel::Error, L"Combine shape '%s' failed: could not compute bounds.", options.id.c_str());
+        return false;
+    }
+
+    bool consumeBase = options.hasCombineConsumeAll ? options.combineConsumeAll : false;
+    target->SetCombineData(options.combineBaseId, resolvedOps, consumeBase);
+    target->SetCombinedGeometry(combinedGeometry, bounds);
+
+    if (consumeBase) {
+        baseShape->AddCombineConsumer();
+    }
+    for (const auto& resolved : resolvedOps) {
+        if (!resolved.consume) continue;
+        Element* opElement = FindElementById(resolved.id);
+        if (ShapeElement* opShape = dynamic_cast<ShapeElement*>(opElement)) {
+            opShape->AddCombineConsumer();
+        }
+    }
+
+    return true;
+}
+
+void Widget::ReleaseCombinedConsumes(PathShape* target)
+{
+    if (!target || !target->IsCombineShape()) return;
+
+    std::wstring baseId;
+    std::vector<PathShape::CombineOp> ops;
+    bool consumeBase = false;
+    target->GetCombineData(baseId, ops, consumeBase);
+
+    if (consumeBase && !baseId.empty()) {
+        if (ShapeElement* baseShape = dynamic_cast<ShapeElement*>(FindElementById(baseId))) {
+            baseShape->RemoveCombineConsumer();
+        }
+    }
+
+    for (const auto& op : ops) {
+        if (!op.consume) continue;
+        if (ShapeElement* opShape = dynamic_cast<ShapeElement*>(FindElementById(op.id))) {
+            opShape->RemoveCombineConsumer();
+        }
+    }
+}
+
+void Widget::UpdateContainerForElement(Element* element, const std::wstring& newContainerId)
+{
+    if (!element) return;
+
+    Element* currentContainer = element->GetContainer();
+    if (newContainerId.empty()) {
+        if (currentContainer) {
+            currentContainer->RemoveContainerItem(element);
+            element->SetContainer(nullptr);
+        }
+        element->SetContainerId(L"");
+        return;
+    }
+
+    if (element->GetId() == newContainerId) {
+        Logging::Log(LogLevel::Error, L"Container cannot self-reference: %s", newContainerId.c_str());
+        return;
+    }
+
+    Element* newContainer = FindElementById(newContainerId);
+    if (!newContainer) {
+        Logging::Log(LogLevel::Error, L"Invalid container: %s", newContainerId.c_str());
+        return;
+    }
+
+    if (element->IsContainer()) {
+        Logging::Log(LogLevel::Error, L"Container cannot be contained: %s", element->GetId().c_str());
+        return;
+    }
+
+    if (newContainer->IsContained()) {
+        Logging::Log(LogLevel::Error, L"Nested containers are not allowed: %s", newContainerId.c_str());
+        return;
+    }
+
+    if (WouldCreateContainerCycle(element, newContainer)) {
+        Logging::Log(LogLevel::Error, L"Container cycle detected for: %s", newContainerId.c_str());
+        return;
+    }
+
+    if (currentContainer != newContainer) {
+        if (currentContainer) currentContainer->RemoveContainerItem(element);
+        newContainer->AddContainerItem(element);
+        element->SetContainer(newContainer);
+    }
+
+    element->SetContainerId(newContainerId);
+}
+
+bool Widget::WouldCreateContainerCycle(Element* element, Element* container) const
+{
+    if (!element || !container) return false;
+    if (element == container) return true;
+
+    Element* cursor = container;
+    while (cursor) {
+        if (cursor == element) return true;
+        cursor = cursor->GetContainer();
+    }
+    return false;
+}
+
+void Widget::RenderContainerChildren(Element* container)
+{
+    if (!container || !container->IsContainer() || !m_pContext) return;
+
+    GfxRect bounds = container->GetBounds();
+    D2D1_RECT_F clipRect = D2D1::RectF(
+        (float)bounds.X, (float)bounds.Y,
+        (float)(bounds.X + bounds.Width), (float)(bounds.Y + bounds.Height)
+    );
+
+    Microsoft::WRL::ComPtr<ID2D1Layer> layer;
+    m_pContext->CreateLayer(layer.GetAddressOf());
+    if (!layer) return;
+
+    Microsoft::WRL::ComPtr<ID2D1BitmapBrush> opacityBrush;
+    bool hasOpacityMask = false;
+
+    if (bounds.Width > 0 && bounds.Height > 0) {
+        Microsoft::WRL::ComPtr<ID2D1BitmapRenderTarget> maskTarget;
+        HRESULT hr = m_pContext->CreateCompatibleRenderTarget(
+            D2D1::SizeF((FLOAT)bounds.Width, (FLOAT)bounds.Height),
+            maskTarget.GetAddressOf());
+        if (SUCCEEDED(hr) && maskTarget) {
+            Microsoft::WRL::ComPtr<ID2D1DeviceContext> maskContext;
+            maskTarget.As(&maskContext);
+            if (maskContext) {
+                maskContext->BeginDraw();
+                maskContext->Clear(D2D1::ColorF(0, 0, 0, 0));
+
+                D2D1_MATRIX_3X2_F originalTransform;
+                maskContext->GetTransform(&originalTransform);
+                D2D1_MATRIX_3X2_F translate = D2D1::Matrix3x2F::Translation((FLOAT)-bounds.X, (FLOAT)-bounds.Y);
+                maskContext->SetTransform(translate * originalTransform);
+
+                // Render the container itself to build a pixel-alpha mask.
+                container->Render(maskContext.Get());
+
+                maskContext->SetTransform(originalTransform);
+                if (SUCCEEDED(maskContext->EndDraw())) {
+                    Microsoft::WRL::ComPtr<ID2D1Bitmap> maskBitmap;
+                    if (SUCCEEDED(maskTarget->GetBitmap(maskBitmap.GetAddressOf())) && maskBitmap) {
+                        D2D1_BITMAP_BRUSH_PROPERTIES1 props = D2D1::BitmapBrushProperties1(
+                            D2D1_EXTEND_MODE_CLAMP,
+                            D2D1_EXTEND_MODE_CLAMP,
+                            D2D1_INTERPOLATION_MODE_LINEAR
+                        );
+                        D2D1_BRUSH_PROPERTIES brushProps = D2D1::BrushProperties(1.0f);
+                        Microsoft::WRL::ComPtr<ID2D1BitmapBrush1> brush1;
+                        if (SUCCEEDED(m_pContext->CreateBitmapBrush(maskBitmap.Get(), &props, &brushProps, brush1.GetAddressOf()))) {
+                            brush1->SetTransform(D2D1::Matrix3x2F::Translation((FLOAT)bounds.X, (FLOAT)bounds.Y));
+                            opacityBrush = brush1;
+                            hasOpacityMask = true;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (hasOpacityMask) {
+        m_pContext->PushLayer(D2D1::LayerParameters(clipRect, nullptr, D2D1_ANTIALIAS_MODE_PER_PRIMITIVE,
+            D2D1::Matrix3x2F::Identity(), 1.0f, opacityBrush.Get()), layer.Get());
+    }
+    else {
+        m_pContext->PushLayer(D2D1::LayerParameters(clipRect), layer.Get());
+    }
+
+    D2D1_MATRIX_3X2_F originalTransform;
+    m_pContext->GetTransform(&originalTransform);
+    D2D1_MATRIX_3X2_F translate = D2D1::Matrix3x2F::Translation((float)bounds.X, (float)bounds.Y);
+    m_pContext->SetTransform(translate * originalTransform);
+
+    for (Element* child : container->GetContainerItems()) {
+        if (!child || !child->IsVisible()) continue;
+        child->Render(m_pContext.Get());
+        if (child->IsContainer()) {
+            RenderContainerChildren(child);
+        }
+    }
+
+    m_pContext->SetTransform(originalTransform);
+    m_pContext->PopLayer();
+}
+
+bool Widget::HitTestContainerChildren(Element* container, int x, int y, Element*& outElement)
+{
+    if (!container || !container->IsContainer() || !container->IsVisible()) return false;
+
+    GfxRect bounds = container->GetBounds();
+    if (x < bounds.X || x >= bounds.X + bounds.Width ||
+        y < bounds.Y || y >= bounds.Y + bounds.Height) {
+        return false;
+    }
+
+    if (ShapeElement* shapeContainer = dynamic_cast<ShapeElement*>(container)) {
+        if (!shapeContainer->HitTest(x, y)) {
+            return false;
+        }
+    }
+
+    int localX = x - bounds.X;
+    int localY = y - bounds.Y;
+
+    const auto& items = container->GetContainerItems();
+    for (auto it = items.rbegin(); it != items.rend(); ++it) {
+        Element* child = *it;
+        if (!child || !child->IsVisible()) continue;
+
+        if (child->IsContainer()) {
+            if (HitTestContainerChildren(child, localX, localY, outElement)) {
+                return true;
+            }
+        }
+
+        if (child->HitTest(localX, localY)) {
+            outElement = child;
+            return true;
+        }
+    }
+
+    return false;
 }
 
 /*
@@ -933,19 +1431,44 @@ void Widget::SetElementProperties(const std::wstring& id, duk_context* ctx)
         PropertyParser::PreFillTextOptions(options, static_cast<TextElement*>(element));
         PropertyParser::ParseTextOptions(ctx, options);
         PropertyParser::ApplyTextOptions(static_cast<TextElement*>(element), options);
+        UpdateContainerForElement(element, options.containerId);
     } else if (element->GetType() == ELEMENT_IMAGE) {
         PropertyParser::ImageOptions options;
         PropertyParser::PreFillImageOptions(options, static_cast<ImageElement*>(element));
         PropertyParser::ParseImageOptions(ctx, options);
         PropertyParser::ApplyImageOptions(static_cast<ImageElement*>(element), options);
+        UpdateContainerForElement(element, options.containerId);
     } else if (element->GetType() == ELEMENT_BAR) {
         PropertyParser::BarOptions options;
         PropertyParser::PreFillBarOptions(options, static_cast<BarElement*>(element));
         PropertyParser::ParseBarOptions(ctx, options);
         PropertyParser::ApplyBarOptions(static_cast<BarElement*>(element), options);
-    }
+        UpdateContainerForElement(element, options.containerId);
+    } else if (element->GetType() == ELEMENT_ROUNDLINE) {
+        PropertyParser::RoundLineOptions options;
+        PropertyParser::PreFillRoundLineOptions(options, static_cast<RoundLineElement*>(element));
+        PropertyParser::ParseRoundLineOptions(ctx, options);
+        PropertyParser::ApplyRoundLineOptions(static_cast<RoundLineElement*>(element), options);
+        UpdateContainerForElement(element, options.containerId);
+    } else if (element->GetType() == ELEMENT_SHAPE) {
+        PropertyParser::ShapeOptions options;
+        PropertyParser::PreFillShapeOptions(options, static_cast<ShapeElement*>(element));
+        PropertyParser::ParseShapeOptions(ctx, options);
+        PropertyParser::ApplyShapeOptions(static_cast<ShapeElement*>(element), options);
+        UpdateContainerForElement(element, options.containerId);
 
-    Redraw();
+        PathShape* path = dynamic_cast<PathShape*>(element);
+        if (path && (options.isCombine || path->IsCombineShape())) {
+            if (options.isCombine) {
+                ReleaseCombinedConsumes(path);
+                BuildCombinedShapeGeometry(path, options);
+            }
+        }
+    }
+    
+    if (!m_IsBatchUpdating) {
+        Redraw();
+    }
 }
 
 /*
@@ -956,7 +1479,21 @@ bool Widget::RemoveElements(const std::wstring& id)
 {
     if (id.empty())
     {
-        for (auto* el : m_Elements) delete el;
+        for (auto* el : m_Elements) {
+            if (PathShape* path = dynamic_cast<PathShape*>(el)) {
+                ReleaseCombinedConsumes(path);
+            }
+            if (el && el->IsContainer()) {
+                for (Element* child : el->GetContainerItems()) {
+                    if (!child) continue;
+                    child->SetContainer(nullptr);
+                    child->SetContainerId(L"");
+                }
+                el->ClearContainerItems();
+            }
+            UpdateContainerForElement(el, L"");
+            delete el;
+        }
         m_Elements.clear();
         m_MouseOverElement = nullptr;
         Redraw();
@@ -968,6 +1505,18 @@ bool Widget::RemoveElements(const std::wstring& id)
         if ((*it)->GetId() == id)
         {
             if (*it == m_MouseOverElement) m_MouseOverElement = nullptr;
+            if (PathShape* path = dynamic_cast<PathShape*>(*it)) {
+                ReleaseCombinedConsumes(path);
+            }
+            if (*it && (*it)->IsContainer()) {
+                for (Element* child : (*it)->GetContainerItems()) {
+                    if (!child) continue;
+                    child->SetContainer(nullptr);
+                    child->SetContainerId(L"");
+                }
+                (*it)->ClearContainerItems();
+            }
+            UpdateContainerForElement(*it, L"");
             delete *it;
             m_Elements.erase(it);
             Redraw();
@@ -990,6 +1539,18 @@ void Widget::RemoveElements(const std::vector<std::wstring>& ids)
             if ((*it)->GetId() == id)
             {
                 if (*it == m_MouseOverElement) m_MouseOverElement = nullptr;
+                if (PathShape* path = dynamic_cast<PathShape*>(*it)) {
+                    ReleaseCombinedConsumes(path);
+                }
+                if (*it && (*it)->IsContainer()) {
+                    for (Element* child : (*it)->GetContainerItems()) {
+                        if (!child) continue;
+                        child->SetContainer(nullptr);
+                        child->SetContainerId(L"");
+                    }
+                    (*it)->ClearContainerItems();
+                }
+                UpdateContainerForElement(*it, L"");
                 delete *it;
                 m_Elements.erase(it);
                 changed = true;
@@ -1021,8 +1582,7 @@ void Widget::ClearContextMenu()
 */
 void Widget::Redraw()
 {
-    if (m_UpdateCount == 0)
-    {
+    if (!m_IsBatchUpdating) {
         UpdateLayeredWindowContent();
     }
 }
@@ -1048,6 +1608,7 @@ void Widget::UpdateLayeredWindowContent()
         int maxY = 0;
         for (Element* element : m_Elements)
         {
+            if (!element || element->IsContained()) continue;
             GfxRect bounds = element->GetBounds();
             maxX = (std::max)(maxX, bounds.X + bounds.Width);
             maxY = (std::max)(maxY, bounds.Y + bounds.Height);
@@ -1145,8 +1706,16 @@ void Widget::UpdateLayeredWindowContent()
 
             // Draw Background
             D2D1_RECT_F backRect = D2D1::RectF(0, 0, (float)w, (float)h);
-            Microsoft::WRL::ComPtr<ID2D1SolidColorBrush> pBackBrush;
-            Direct2D::CreateSolidBrush(m_pContext.Get(), m_Options.color, m_Options.bgAlpha / 255.0f, pBackBrush.GetAddressOf());
+            Microsoft::WRL::ComPtr<ID2D1Brush> pBackBrush;
+            Direct2D::CreateBrushFromGradientOrColor(
+                m_pContext.Get(),
+                backRect,
+                &m_Options.bgGradient,
+                m_Options.color,
+                m_Options.bgAlpha / 255.0f,
+                pBackBrush.GetAddressOf()
+            );
+
             if (pBackBrush)
             {
                 m_pContext->FillRectangle(backRect, pBackBrush.Get());
@@ -1155,7 +1724,14 @@ void Widget::UpdateLayeredWindowContent()
             // Draw Elements
             for (Element* element : m_Elements)
             {
-                element->Render(m_pContext.Get());
+                if (!element->IsVisible()) continue;
+                if (element->IsContained()) continue;
+                if (!element->IsContainer()) {
+                    element->Render(m_pContext.Get());
+                }
+                if (element->IsContainer()) {
+                    RenderContainerChildren(element);
+                }
             }
 
             HRESULT hr = m_pContext->EndDraw();
@@ -1223,6 +1799,10 @@ bool Widget::HandleMouseMessage(UINT message, WPARAM wParam, LPARAM lParam)
 
     if (message == WM_MOUSEMOVE)
     {
+        if (!m_IsMouseOverWidget) {
+            m_IsMouseOverWidget = true;
+            JSApi::TriggerWidgetEvent(this, "over");
+        }
         m_Tooltip.Move();
     }
 
@@ -1243,13 +1823,23 @@ bool Widget::HandleMouseMessage(UINT message, WPARAM wParam, LPARAM lParam)
     {
         Element* el = *it;
         if (!el) continue;
-        if (el->HitTest(x, y))
-        {
-            if (!hitElement) hitElement = el;
+        if (!el->IsVisible()) continue;
+        if (el->IsContained()) continue;
 
-            // Check if this element HANDLES the action
-            if (el->HasAction(message, wParam))
-            {
+        if (el->IsContainer()) {
+            Element* childHit = nullptr;
+            if (HitTestContainerChildren(el, x, y, childHit)) {
+                if (!hitElement) hitElement = childHit;
+                if (childHit && childHit->HasAction(message, wParam)) {
+                    actionElement = childHit;
+                    break;
+                }
+            }
+        }
+
+        if (el->HitTest(x, y)) {
+            if (!hitElement) hitElement = el;
+            if (el->HasAction(message, wParam)) {
                 actionElement = el;
                 break;
             }
@@ -1317,6 +1907,10 @@ bool Widget::HandleMouseMessage(UINT message, WPARAM wParam, LPARAM lParam)
     }
     else if (message == WM_MOUSELEAVE)
     {
+        if (m_IsMouseOverWidget) {
+            m_IsMouseOverWidget = false;
+            JSApi::TriggerWidgetEvent(this, "leave");
+        }
         if (m_MouseOverElement)
         {
 
@@ -1431,6 +2025,17 @@ void Widget::OnContextMenu()
     {
         PostQuitMessage(0);
     }
+}
+
+void Widget::BeginUpdate()
+{
+    m_IsBatchUpdating = true;
+}
+
+void Widget::EndUpdate()
+{
+    m_IsBatchUpdating = false;
+    Redraw();
 }
 
 

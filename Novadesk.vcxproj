@@ -78,16 +78,30 @@
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="Library\EllipseShape.h" />
     <ClInclude Include="Library\Hotkey.h" />
     <ClInclude Include="Library\DiskMonitor.h" />
     <ClInclude Include="Library\Element.h" />
+    <ClInclude Include="Library\LineShape.h" />
+    <ClInclude Include="Library\nanosvg\nanosvg.h" />
+    <ClInclude Include="Library\PathShape.h" />
+    <ClInclude Include="Library\CurveShape.h" />
+    <ClInclude Include="Library\RectangleShape.h" />
+    <ClInclude Include="Library\RoundLineElement.h" />
+    <ClInclude Include="Library\ShapeElement.h" />
+    <ClInclude Include="Library\ArcShape.h" />
     <ClInclude Include="Library\ImageElement.h" />
+    <ClInclude Include="Library\AudioLevel.h" />
+    <ClInclude Include="Library\kiss_fft130\kiss_fft.h" />
+    <ClInclude Include="Library\kiss_fft130\kiss_fftr.h" />
+    <ClInclude Include="Library\kiss_fft130\_kiss_fft_guts.h" />
     <ClInclude Include="Library\BarElement.h" />
     <ClInclude Include="Library\JSApi\JSIPC.h" />
     <ClInclude Include="Library\JSApi\JSJson.h" />
     <ClInclude Include="Library\JSApi\JSPath.h" />
     <ClInclude Include="Library\JSApi\JSWebFetch.h" />
     <ClInclude Include="Library\JSApi\JSAudio.h" />
+    <ClInclude Include="Library\JSApi\JSAudioLevel.h" />
     <ClInclude Include="Library\JSApi\JSRegistry.h" />
     <ClInclude Include="Library\JSApi\JSClipboard.h" />
     <ClInclude Include="Library\JSApi\JSPower.h" />
@@ -130,15 +144,27 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Library\Element.cpp" />
+    <ClCompile Include="Library\EllipseShape.cpp" />
     <ClCompile Include="Library\Hotkey.cpp" />
     <ClCompile Include="Library\DiskMonitor.cpp" />
     <ClCompile Include="Library\ImageElement.cpp" />
     <ClCompile Include="Library\BarElement.cpp" />
+    <ClCompile Include="Library\AudioLevel.cpp" />
+    <ClCompile Include="Library\kiss_fft130\kiss_fft.c" />
+    <ClCompile Include="Library\kiss_fft130\kiss_fftr.c" />
+    <ClCompile Include="Library\LineShape.cpp" />
+    <ClCompile Include="Library\PathShape.cpp" />
+    <ClCompile Include="Library\CurveShape.cpp" />
+    <ClCompile Include="Library\RectangleShape.cpp" />
+    <ClCompile Include="Library\RoundLineElement.cpp" />
+    <ClCompile Include="Library\ShapeElement.cpp" />
+    <ClCompile Include="Library\ArcShape.cpp" />
     <ClCompile Include="Library\JSApi\JSIPC.cpp" />
     <ClCompile Include="Library\JSApi\JSJson.cpp" />
     <ClCompile Include="Library\JSApi\JSPath.cpp" />
     <ClCompile Include="Library\JSApi\JSWebFetch.cpp" />
     <ClCompile Include="Library\JSApi\JSAudio.cpp" />
+    <ClCompile Include="Library\JSApi\JSAudioLevel.cpp" />
     <ClCompile Include="Library\JSApi\JSRegistry.cpp" />
     <ClCompile Include="Library\JSApi\JSClipboard.cpp" />
     <ClCompile Include="Library\JSApi\JSPower.cpp" />

@@ -19,39 +19,31 @@
  namespace JSApi {
      static const UINT WM_DISPATCH_IPC = WM_USER + 102;
  
-     static std::string GetCurrentContextListenersKey(duk_context* ctx) {
-         duk_push_global_stash(ctx);
-         if (duk_has_prop_string(ctx, -1, "original_win")) {
-             duk_pop(ctx);
-             duk_get_global_string(ctx, "win");
-             if (duk_is_object(ctx, -1) && duk_get_prop_string(ctx, -1, "\xFF" "id")) {
-                 if (duk_is_string(ctx, -1)) {
-                     std::string widgetId = duk_get_string(ctx, -1);
-                     duk_pop_2(ctx); 
-                     return widgetId;
-                 }
-                 duk_pop(ctx); 
-             }
-             duk_pop(ctx); 
-         } else {
-             duk_pop(ctx);
-         }
+    static std::string GetCurrentContextListenersKey(duk_context* ctx) {
+        duk_push_global_stash(ctx);
+        if (duk_has_prop_string(ctx, -1, "original_win")) {
+            duk_pop(ctx);
+            duk_get_global_string(ctx, "win");
+            std::string widgetId;
+            if (TryGetWidgetIdFromObject(ctx, -1, widgetId)) {
+                duk_pop(ctx);
+                return widgetId;
+            }
+            duk_pop(ctx);
+        } else {
+            duk_pop(ctx);
+        }
  
-         duk_get_global_string(ctx, "win");
-         if (duk_is_object(ctx, -1) && duk_has_prop_string(ctx, -1, "\xFF" "widgetPtr")) {
-             if (duk_get_prop_string(ctx, -1, "\xFF" "id")) {
-                 if (duk_is_string(ctx, -1)) {
-                     std::string widgetId = duk_get_string(ctx, -1);
-                     duk_pop_2(ctx); 
-                     return widgetId;
-                 }
-                 duk_pop(ctx); 
-             }
-         }
-         duk_pop(ctx); 
+        duk_get_global_string(ctx, "win");
+        std::string widgetId;
+        if (TryGetWidgetIdFromObject(ctx, -1, widgetId)) {
+            duk_pop(ctx);
+            return widgetId;
+        }
+        duk_pop(ctx);
  
-         return "main";
-     }
+        return "main";
+    }
  
      static std::string GetTargetContextListenersKey(duk_context* ctx) {
          std::string current = GetCurrentContextListenersKey(ctx);
@@ -251,12 +243,13 @@
          duk_pop_2(ctx);
      }
  
-     void BindIPCMethods(duk_context* ctx) {
-         duk_push_object(ctx);
-         duk_push_c_function(ctx, js_ipc_on, 2);
-         duk_put_prop_string(ctx, -2, "on");
-         duk_push_c_function(ctx, js_ipc_send, 2);
-         duk_put_prop_string(ctx, -2, "send");
-         duk_put_global_string(ctx, "ipc");
-     }
- }
+    void BindIPCMethods(duk_context* ctx) {
+        duk_push_object(ctx);
+        const JsBinding bindings[] = {
+            { "on", js_ipc_on, 2 },
+            { "send", js_ipc_send, 2 }
+        };
+        BindMethods(ctx, bindings, sizeof(bindings) / sizeof(bindings[0]));
+        duk_put_global_string(ctx, "ipc");
+    }
+}

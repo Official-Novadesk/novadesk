@@ -22,25 +22,32 @@ DiskMonitor::~DiskMonitor()
 {
 }
 
-DiskMonitor::Stats DiskMonitor::GetStats()
+static bool FillStatsForDrive(const std::wstring& driveLetter, DiskMonitor::Stats& stats)
 {
-    Stats stats = { 0, 0, 0, 0, L"" };
-    stats.driveLetter = m_DriveLetter;
+    stats = { 0, 0, 0, 0, driveLetter };
 
-    // Get disk space information
     ULARGE_INTEGER freeBytesAvailable, totalBytes, totalFreeBytes;
-    if (GetDiskFreeSpaceEx(m_DriveLetter.c_str(), &freeBytesAvailable, &totalBytes, &totalFreeBytes))
+    if (!GetDiskFreeSpaceEx(driveLetter.c_str(), &freeBytesAvailable, &totalBytes, &totalFreeBytes))
     {
-        stats.totalSpace = totalBytes.QuadPart;
-        stats.freeSpace = totalFreeBytes.QuadPart;
-        stats.usedSpace = totalBytes.QuadPart - totalFreeBytes.QuadPart;
-        
-        if (totalBytes.QuadPart > 0)
-        {
-            stats.percentUsed = (int)((stats.usedSpace * 100) / totalBytes.QuadPart);
-        }
+        return false;
     }
 
+    stats.totalSpace = totalBytes.QuadPart;
+    stats.freeSpace = totalFreeBytes.QuadPart;
+    stats.usedSpace = totalBytes.QuadPart - totalFreeBytes.QuadPart;
+
+    if (totalBytes.QuadPart > 0)
+    {
+        stats.percentUsed = (int)((stats.usedSpace * 100) / totalBytes.QuadPart);
+    }
+
+    return true;
+}
+
+DiskMonitor::Stats DiskMonitor::GetStats()
+{
+    Stats stats;
+    FillStatsForDrive(m_DriveLetter, stats);
     return stats;
 }
 
@@ -68,20 +75,9 @@ std::vector<DiskMonitor::Stats> DiskMonitor::GetAllDrives()
             UINT driveType = GetDriveType(driveLetter);
             if (driveType == DRIVE_FIXED || driveType == DRIVE_REMOVABLE)
             {
-                Stats stats = { 0, 0, 0, 0, driveLetter };
-                
-                ULARGE_INTEGER freeBytesAvailable, totalBytes, totalFreeBytes;
-                if (GetDiskFreeSpaceEx(driveLetter, &freeBytesAvailable, &totalBytes, &totalFreeBytes))
+                Stats stats;
+                if (FillStatsForDrive(driveLetter, stats))
                 {
-                    stats.totalSpace = totalBytes.QuadPart;
-                    stats.freeSpace = totalFreeBytes.QuadPart;
-                    stats.usedSpace = totalBytes.QuadPart - totalFreeBytes.QuadPart;
-                    
-                    if (totalBytes.QuadPart > 0)
-                    {
-                        stats.percentUsed = (int)((stats.usedSpace * 100) / totalBytes.QuadPart);
-                    }
-                    
                     allDrives.push_back(stats);
                 }
             }

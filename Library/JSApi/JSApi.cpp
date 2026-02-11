@@ -32,12 +32,215 @@
 #include "../Utils.h"
 
 #include <vector>
+#include <algorithm>
 
 extern std::vector<Widget*> widgets;
 
 namespace JSApi {
 
     static HWND s_MessageWindow = nullptr;
+
+    static bool IsMainScriptPath(const std::wstring& scriptPath) {
+        std::wstring normalized = PathUtils::NormalizePath(scriptPath);
+        size_t slash = normalized.find_last_of(L"/\\");
+        std::wstring filename = (slash == std::wstring::npos) ? normalized : normalized.substr(slash + 1);
+        return filename == L"index.js";
+    }
+
+    static bool HasJsExtension(const std::wstring& path) {
+        size_t slash = path.find_last_of(L"/\\");
+        size_t dot = path.find_last_of(L'.');
+        if (dot == std::wstring::npos) return false;
+        if (slash != std::wstring::npos && dot < slash) return false;
+        return true;
+    }
+
+    static void PushRequireStackPath(duk_context* ctx, const std::string& path) {
+        duk_push_global_stash(ctx);
+        if (!duk_get_prop_string(ctx, -1, "__require_stack")) {
+            duk_pop(ctx);
+            duk_push_array(ctx);
+            duk_put_prop_string(ctx, -2, "__require_stack");
+            duk_get_prop_string(ctx, -1, "__require_stack");
+        }
+
+        duk_uarridx_t len = (duk_uarridx_t)duk_get_length(ctx, -1);
+        duk_push_string(ctx, path.c_str());
+        duk_put_prop_index(ctx, -2, len);
+        duk_pop_2(ctx);
+    }
+
+    static void PopRequireStackPath(duk_context* ctx) {
+        duk_push_global_stash(ctx);
+        if (duk_get_prop_string(ctx, -1, "__require_stack")) {
+            duk_uarridx_t len = (duk_uarridx_t)duk_get_length(ctx, -1);
+            if (len > 0) {
+                duk_set_length(ctx, -1, (duk_size_t)(len - 1));
+            }
+        }
+        duk_pop_2(ctx);
+    }
+
+    static bool GetRequireBasePath(duk_context* ctx, std::wstring& outPath) {
+        outPath.clear();
+        duk_push_global_stash(ctx);
+        if (duk_get_prop_string(ctx, -1, "__require_stack")) {
+            duk_uarridx_t len = (duk_uarridx_t)duk_get_length(ctx, -1);
+            if (len > 0) {
+                duk_get_prop_index(ctx, -1, len - 1);
+                if (duk_is_string(ctx, -1)) {
+                    outPath = Utils::ToWString(duk_get_string(ctx, -1));
+                }
+                duk_pop(ctx);
+            }
+        }
+        duk_pop_2(ctx);
+        return !outPath.empty();
+    }
+
+    static bool IsInRequireStack(duk_context* ctx, const std::string& pathKey) {
+        bool found = false;
+        duk_push_global_stash(ctx);
+        if (duk_get_prop_string(ctx, -1, "__require_stack")) {
+            duk_uarridx_t len = (duk_uarridx_t)duk_get_length(ctx, -1);
+            for (duk_uarridx_t i = 0; i < len; ++i) {
+                duk_get_prop_index(ctx, -1, i);
+                if (duk_is_string(ctx, -1)) {
+                    const char* cur = duk_get_string(ctx, -1);
+                    if (cur && pathKey == cur) {
+                        found = true;
+                        duk_pop(ctx);
+                        break;
+                    }
+                }
+                duk_pop(ctx);
+            }
+        }
+        duk_pop_2(ctx);
+        return found;
+    }
+
+    static duk_ret_t js_require(duk_context* ctx) {
+        if (!duk_is_string(ctx, 0)) return DUK_RET_TYPE_ERROR;
+
+        std::wstring request = Utils::ToWString(duk_get_string(ctx, 0));
+        std::wstring basePath;
+        if (!GetRequireBasePath(ctx, basePath)) {
+            basePath = s_CurrentScriptPath;
+        }
+
+        if (basePath.empty()) {
+            basePath = PathUtils::ResolvePath(L"index.js", PathUtils::GetWidgetsDir());
+        }
+
+        std::wstring baseDir = PathUtils::GetParentDir(basePath);
+        std::wstring resolved = request;
+        if (!HasJsExtension(resolved)) {
+            resolved += L".js";
+        }
+
+        if (PathUtils::IsPathRelative(resolved)) {
+            resolved = PathUtils::ResolvePath(resolved, baseDir);
+        } else {
+            resolved = PathUtils::ResolvePath(resolved);
+        }
+
+        resolved = PathUtils::NormalizePath(resolved);
+        std::string resolvedKey = Utils::ToString(resolved);
+
+        duk_push_global_stash(ctx);
+        if (!duk_get_prop_string(ctx, -1, "__module_cache")) {
+            duk_pop(ctx);
+            duk_push_object(ctx);
+            duk_put_prop_string(ctx, -2, "__module_cache");
+            duk_get_prop_string(ctx, -1, "__module_cache");
+        }
+
+        if (IsInRequireStack(ctx, resolvedKey)) {
+            Logging::Log(LogLevel::Warn, L"require: circular dependency detected for %s", resolved.c_str());
+            if (duk_get_prop_string(ctx, -1, resolvedKey.c_str())) {
+                duk_remove(ctx, -2); // remove cache object, leave exports
+                duk_remove(ctx, -2); // remove stash
+                return 1;
+            }
+            duk_pop(ctx); // cached value
+            duk_pop_2(ctx); // cache + stash
+            duk_push_object(ctx); // fallback empty exports
+            return 1;
+        }
+
+        if (duk_get_prop_string(ctx, -1, resolvedKey.c_str())) {
+            duk_remove(ctx, -2); // remove cache object, leave exports
+            duk_remove(ctx, -2); // remove stash
+            return 1;
+        }
+        duk_pop(ctx); // cached value
+
+        // Create module + exports and cache immediately to support circular deps
+        duk_push_object(ctx); // module
+        duk_push_object(ctx); // exports
+        duk_dup(ctx, -1);
+        duk_put_prop_string(ctx, -3, "exports");
+        duk_dup(ctx, -1); // exports
+        duk_put_prop_string(ctx, -4, resolvedKey.c_str()); // cache[path] = exports
+
+        std::string content = FileUtils::ReadFileContent(resolved);
+        if (content.empty()) {
+            duk_pop_2(ctx);
+            duk_error(ctx, DUK_ERR_ERROR, "require: failed to load module '%s'", resolvedKey.c_str());
+            return DUK_RET_ERROR;
+        }
+
+        std::string wrapped = "(function(require, module, exports, __filename, __dirname) {\n";
+        wrapped += content;
+        wrapped += "\n})";
+
+        if (duk_peval_string(ctx, wrapped.c_str()) != 0) {
+            std::string err = duk_safe_to_string(ctx, -1);
+            duk_pop(ctx); // error
+            duk_del_prop_string(ctx, -3, resolvedKey.c_str()); // remove cached exports
+            duk_pop_2(ctx); // cache + stash
+            duk_error(ctx, DUK_ERR_ERROR, "require: failed to compile '%s': %s", resolvedKey.c_str(), err.c_str());
+            return DUK_RET_ERROR;
+        }
+
+        std::string dirname = Utils::ToString(PathUtils::GetParentDir(resolved));
+        if (dirname.length() > 3 && dirname.back() == '\\') dirname.pop_back();
+
+        PushRequireStackPath(ctx, resolvedKey);
+
+        duk_push_c_function(ctx, js_require, 1); // require
+        duk_dup(ctx, -4); // module
+        duk_dup(ctx, -4); // exports
+        duk_push_string(ctx, resolvedKey.c_str()); // __filename
+        duk_push_string(ctx, dirname.c_str()); // __dirname
+
+        if (duk_pcall(ctx, 5) != 0) {
+            std::string err = duk_safe_to_string(ctx, -1);
+            duk_pop(ctx); // error
+            PopRequireStackPath(ctx);
+            duk_del_prop_string(ctx, -3, resolvedKey.c_str()); // remove cached exports
+            duk_pop_2(ctx); // cache, stash
+            duk_error(ctx, DUK_ERR_ERROR, "require: error in '%s': %s", resolvedKey.c_str(), err.c_str());
+            return DUK_RET_ERROR;
+        }
+        duk_pop(ctx); // wrapper result
+
+        PopRequireStackPath(ctx);
+
+        // module.exports may have been replaced
+        duk_get_prop_string(ctx, -2, "exports"); // module.exports
+
+        // cache[modulePath] = module.exports (update in case replaced)
+        duk_dup(ctx, -1);
+        duk_put_prop_string(ctx, -4, resolvedKey.c_str());
+
+        duk_remove(ctx, -2); // exports
+        duk_remove(ctx, -2); // module
+        duk_remove(ctx, -2); // cache
+        duk_remove(ctx, -2); // stash
+        return 1;
+    }
 
     void InitializeJavaScriptAPI(duk_context* ctx) {
         s_JsContext = ctx;
@@ -142,6 +345,15 @@ namespace JSApi {
         duk_push_string(ctx, filename.c_str());
         duk_put_global_string(ctx, "__filename");
 
+        if (IsMainScriptPath(finalScriptPath)) {
+            duk_push_c_function(ctx, js_require, 1);
+            duk_put_global_string(ctx, "require");
+        } else {
+            duk_push_global_object(ctx);
+            duk_del_prop_string(ctx, -1, "require");
+            duk_pop(ctx);
+        }
+
         // Wrap the script in an IIFE to prevent global scope pollution
         std::string wrappedContent = "(function() {\n";
         wrappedContent += content;
@@ -177,6 +389,8 @@ namespace JSApi {
         duk_del_prop_string(ctx, -1, "__hotkeys");
         duk_del_prop_string(ctx, -1, "__timers");
         duk_del_prop_string(ctx, -1, "__trayCallbacks");
+        duk_del_prop_string(ctx, -1, "__module_cache");
+        duk_del_prop_string(ctx, -1, "__require_stack");
         duk_pop(ctx);
  
         CleanupAddons();

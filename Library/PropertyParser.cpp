@@ -17,214 +17,7 @@
 #include "Logging.h"
 
 namespace PropertyParser {
-    
-    std::vector<std::wstring> SplitByComma(const std::wstring& s) {
-        std::vector<std::wstring> parts;
-        int depth = 0;
-        size_t last = 0;
-        for (size_t i = 0; i < s.length(); i++) {
-            if (s[i] == L'(') depth++;
-            else if (s[i] == L')') depth--;
-            else if (s[i] == L',' && depth == 0) {
-                parts.push_back(s.substr(last, i - last));
-                last = i + 1;
-            }
-        }
-        parts.push_back(s.substr(last));
-        for (auto& p : parts) {
-            p.erase(0, p.find_first_not_of(L' '));
-            p.erase(p.find_last_not_of(L' ') + 1);
-        }
-        return parts;
-    }
 
-    bool ParseGradientString(const std::wstring& str, GradientInfo& out) {
-        if (str.empty()) return false;
-        std::wstring s = str;
-        // Trim only at ends, not middle because color names like "rgba(0, 0, 0, 1)" have spaces
-        s.erase(0, s.find_first_not_of(L' '));
-        s.erase(s.find_last_not_of(L' ') + 1);
-        
-        std::wstring lowerS = s;
-        std::transform(lowerS.begin(), lowerS.end(), lowerS.begin(), ::towlower);
-
-        if (lowerS.find(L"lineargradient(") == 0) out.type = GRADIENT_LINEAR;
-        else if (lowerS.find(L"radialgradient(") == 0) out.type = GRADIENT_RADIAL;
-        else return false;
-
-        size_t start = lowerS.find(L'(') + 1;
-        size_t end = lowerS.find_last_of(L')');
-        if (end == std::wstring::npos || end <= start) return false;
-
-        std::wstring content = s.substr(start, end - start);
-        std::vector<std::wstring> parts = SplitByComma(content);
-        if (parts.empty()) return false;
-
-        int colorStartIndex = 0;
-        if (out.type == GRADIENT_LINEAR) {
-            std::wstring dir = parts[0];
-            std::transform(dir.begin(), dir.end(), dir.begin(), ::towlower);
-            dir.erase(std::remove_if(dir.begin(), dir.end(), isspace), dir.end());
-
-            if (!dir.empty() && (iswdigit(dir[0]) || dir[0] == L'-' || dir[0] == L'.')) {
-                try { 
-                    size_t pos = 0;
-                    out.angle = std::stof(dir, &pos);
-                    if (pos > 0) colorStartIndex = 1;
-                } catch(...) {}
-            }
-        } else {
-             std::wstring shape = parts[0];
-             std::transform(shape.begin(), shape.end(), shape.begin(), ::towlower);
-             shape.erase(std::remove_if(shape.begin(), shape.end(), isspace), shape.end());
-
-             if (shape == L"circle" || shape == L"ellipse") {
-                 out.shape = shape;
-                 colorStartIndex = 1;
-             }
-        }
-
-        out.stops.clear();
-        for (size_t i = colorStartIndex; i < parts.size(); i++) {
-            GradientStop stop;
-            if (ColorUtil::ParseRGBA(parts[i], stop.color, stop.alpha)) {
-                out.stops.push_back(stop);
-            }
-        }
-
-        if (out.stops.size() < 2) return false;
-
-        for (size_t i = 0; i < out.stops.size(); i++) {
-            out.stops[i].position = (float)i / (out.stops.size() - 1);
-        }
-
-        return true;
-    }
-
-    // Helper class for standardized property reading
-    class PropertyReader {
-    public:
-        PropertyReader(duk_context* ctx) : m_Ctx(ctx) {}
-
-        bool GetString(const char* key, std::wstring& outStr) {
-            if (duk_get_prop_string(m_Ctx, -1, key)) {
-                if (duk_is_string(m_Ctx, -1)) {
-                    outStr = Utils::ToWString(duk_get_string(m_Ctx, -1));
-                    duk_pop(m_Ctx);
-                    return true;
-                }
-            }
-            duk_pop(m_Ctx);
-
-        return false;
-    }
-        
-        bool GetInt(const char* key, int& outInt) {
-            if (duk_get_prop_string(m_Ctx, -1, key)) {
-                if (duk_is_number(m_Ctx, -1)) {
-                    outInt = duk_get_int(m_Ctx, -1);
-                    duk_pop(m_Ctx);
-                    return true;
-                }
-            }
-            duk_pop(m_Ctx);
-            return false;
-        }
-
-        bool GetFloat(const char* key, float& outFloat) {
-            if (duk_get_prop_string(m_Ctx, -1, key)) {
-                if (duk_is_number(m_Ctx, -1)) {
-                    outFloat = (float)duk_get_number(m_Ctx, -1);
-                    duk_pop(m_Ctx);
-                    return true;
-                }
-            }
-            duk_pop(m_Ctx);
-            return false;
-        }
-
-        bool GetBool(const char* key, bool& outBool) {
-            if (duk_get_prop_string(m_Ctx, -1, key)) {
-                if (duk_is_boolean(m_Ctx, -1)) {
-                    outBool = duk_get_boolean(m_Ctx, -1) != 0;
-                    duk_pop(m_Ctx);
-                    return true;
-                }
-            }
-            duk_pop(m_Ctx);
-            return false;
-        }
-
-        bool GetColor(const char* key, COLORREF& outColor, BYTE& outAlpha) {
-            std::wstring colorStr;
-            if (GetString(key, colorStr)) {
-                return ColorUtil::ParseRGBA(colorStr, outColor, outAlpha);
-            }
-            return false;
-        }
-
-        bool GetGradientOrColor(const char* key, COLORREF& outColor, BYTE& outAlpha, GradientInfo& outGradient) {
-            std::wstring colorStr;
-            if (GetString(key, colorStr)) {
-                if (ParseGradientString(colorStr, outGradient)) {
-                    return true;
-                }
-                return ColorUtil::ParseRGBA(colorStr, outColor, outAlpha);
-            }
-            return false;
-        }
-
-        bool GetFloatArray(const char* key, std::vector<float>& outArray, int minSize) {
-            if (duk_get_prop_string(m_Ctx, -1, key)) {
-                if (duk_is_array(m_Ctx, -1)) {
-                    int len = (int)duk_get_length(m_Ctx, -1);
-                    if (len >= minSize) {
-                         outArray.resize(len);
-                         for (int i = 0; i < len; i++) {
-                             duk_get_prop_index(m_Ctx, -1, i);
-                             outArray[i] = (float)duk_get_number(m_Ctx, -1);
-                             duk_pop(m_Ctx);
-                         }
-                         duk_pop(m_Ctx);
-                         return true;
-                    }
-                }
-            }
-            duk_pop(m_Ctx);
-            return false;
-        }
-
-        void GetEvent(const char* key, int& outId) {
-            if (duk_get_prop_string(m_Ctx, -1, key)) {
-                if (duk_is_function(m_Ctx, -1)) {
-                    outId = JSApi::RegisterEventCallback(m_Ctx, -1);
-                }
-            }
-            duk_pop(m_Ctx);
-        }
-
-        bool ParseShadow(TextShadow& shadow) {
-            if (duk_is_object(m_Ctx, -1)) {
-                if (duk_get_prop_string(m_Ctx, -1, "x")) shadow.offsetX = (float)duk_get_number(m_Ctx, -1);
-                duk_pop(m_Ctx);
-                if (duk_get_prop_string(m_Ctx, -1, "y")) shadow.offsetY = (float)duk_get_number(m_Ctx, -1);
-                duk_pop(m_Ctx);
-                if (duk_get_prop_string(m_Ctx, -1, "blur")) shadow.blur = (float)duk_get_number(m_Ctx, -1);
-                duk_pop(m_Ctx);
-                
-                if (duk_get_prop_string(m_Ctx, -1, "color")) {
-                    std::wstring colorStr = Utils::ToWString(duk_get_string(m_Ctx, -1));
-                    ColorUtil::ParseRGBA(colorStr, shadow.color, shadow.alpha);
-                }
-                duk_pop(m_Ctx);
-                return true;
-            }
-            return false;
-        }
-
-    private:
-        duk_context* m_Ctx;
-    };
 
     /*
     ** Parse WidgetOptions from a Duktape object at the top of the stack.
@@ -233,7 +26,7 @@ namespace PropertyParser {
 
     void ParseWidgetOptions(duk_context* ctx, WidgetOptions& options, const std::wstring& baseDir) {
         if (!duk_is_object(ctx, -1)) return;
-        PropertyReader reader(ctx);
+        Utils::PropertyReader reader(ctx);
 
         std::wstring finalBaseDir = baseDir.empty() ? PathUtils::GetWidgetsDir() : baseDir;
 
@@ -247,7 +40,7 @@ namespace PropertyParser {
         if (reader.GetInt("width", options.width)) options.m_WDefined = (options.width > 0);
         if (reader.GetInt("height", options.height)) options.m_HDefined = (options.height > 0);
         
-        reader.GetColor("backgroundColor", options.color, options.bgAlpha);
+        reader.GetGradientOrColor("backgroundColor", options.color, options.bgAlpha, options.bgGradient);
         if (duk_get_prop_string(ctx, -1, "backgroundColor")) {
              options.backgroundColor = Utils::ToWString(duk_get_string(ctx, -1));
         }
@@ -294,7 +87,7 @@ namespace PropertyParser {
     }
 
     void ParseElementOptionsInternal(duk_context* ctx, ElementOptions& options) {
-        PropertyReader reader(ctx);
+        Utils::PropertyReader reader(ctx);
 
         reader.GetString("id", options.id);
         
@@ -308,21 +101,11 @@ namespace PropertyParser {
         reader.GetFloat("rotate", options.rotate);
 
         // Background / Gradient
-        std::wstring solidColorStr;
-        if (reader.GetString("solidColor", solidColorStr)) {
-             if (ColorUtil::ParseRGBA(solidColorStr, options.solidColor, options.solidAlpha)) {
-                 options.hasSolidColor = true;
-             }
+        reader.GetGradientOrColor("backgroundColor", options.solidColor, options.solidAlpha, options.solidGradient);
+        if (options.solidGradient.type != GRADIENT_NONE || options.solidAlpha > 0) {
+            options.hasSolidColor = true;
         }
-        reader.GetInt("solidColorRadius", options.solidColorRadius);
-        
-        std::wstring solidColor2Str;
-        if (reader.GetString("solidColor2", solidColor2Str)) {
-             if (ColorUtil::ParseRGBA(solidColor2Str, options.solidColor2, options.solidAlpha2)) {
-                 options.hasGradient = true;
-             }
-        }
-        reader.GetFloat("gradientAngle", options.gradientAngle);
+        reader.GetInt("backgroundColorRadius", options.solidColorRadius);
 
         // Bevel
         std::wstring bevelStr;
@@ -401,6 +184,8 @@ namespace PropertyParser {
         reader.GetBool("tooltipBalloon", options.tooltipBalloon);
 
         reader.GetBool("antiAlias", options.antialias);
+        reader.GetBool("show", options.show);
+        reader.GetString("container", options.containerId);
 
         if (reader.GetFloatArray("transformMatrix", options.transformMatrix, 6)) {
             options.hasTransformMatrix = true;
@@ -418,7 +203,7 @@ namespace PropertyParser {
 
         // Parse base options first
         ParseElementOptionsInternal(ctx, options);
-        PropertyReader reader(ctx);
+        Utils::PropertyReader reader(ctx);
 
         // Path
         if (reader.GetString("path", options.path)) {
@@ -472,7 +257,7 @@ namespace PropertyParser {
 
         // Parse base options first
         ParseElementOptionsInternal(ctx, options);
-        PropertyReader reader(ctx);
+        Utils::PropertyReader reader(ctx);
 
         reader.GetString("text", options.text);
         if (!reader.GetString("fontFace", options.fontFace)) options.fontFace = L"Arial";
@@ -568,7 +353,7 @@ namespace PropertyParser {
 
         // Parse base options first
         ParseElementOptionsInternal(ctx, options);
-        PropertyReader reader(ctx);
+        Utils::PropertyReader reader(ctx);
 
         reader.GetFloat("value", options.value);
         
@@ -584,20 +369,192 @@ namespace PropertyParser {
 
         reader.GetInt("barCornerRadius", options.barCornerRadius);
 
-        std::wstring barColorStr;
-        if (reader.GetString("barColor", barColorStr)) {
-            if (ColorUtil::ParseRGBA(barColorStr, options.barColor, options.barAlpha)) {
-                options.hasBarColor = true;
+        reader.GetGradientOrColor("barColor", options.barColor, options.barAlpha, options.barGradient);
+        if (options.barGradient.type != GRADIENT_NONE || options.barAlpha > 0) {
+            options.hasBarColor = true;
+        }
+    }
+
+    void ParseRoundLineOptions(duk_context* ctx, RoundLineOptions& options, const std::wstring& baseDir) {
+        if (!duk_is_object(ctx, -1)) return;
+
+        ParseElementOptionsInternal(ctx, options);
+        Utils::PropertyReader reader(ctx);
+
+        reader.GetFloat("value", options.value);
+        reader.GetInt("radius", options.radius);
+        reader.GetInt("thickness", options.thickness);
+        reader.GetInt("endThickness", options.endThickness);
+        reader.GetFloat("startAngle", options.startAngle);
+        reader.GetFloat("totalAngle", options.totalAngle);
+        reader.GetBool("clockwise", options.clockwise);
+
+        auto parseCap = [](const std::wstring& s, RoundLineCap& cap) {
+            if (s == L"round") cap = ROUNDLINE_CAP_ROUND;
+            else if (s == L"flat") cap = ROUNDLINE_CAP_FLAT;
+        };
+
+        std::wstring capStr;
+        if (reader.GetString("capType", capStr)) {
+            parseCap(capStr, options.startCap);
+            options.endCap = options.startCap;
+        }
+        if (reader.GetString("startCap", capStr)) parseCap(capStr, options.startCap);
+        if (reader.GetString("endCap", capStr)) parseCap(capStr, options.endCap);
+
+        std::wstring dashStr;
+        if (reader.GetString("dashArray", dashStr)) {
+            auto parts = Utils::SplitByComma(dashStr);
+            for (const auto& p : parts) {
+                try { options.dashArray.push_back(std::stof(p)); } catch (...) {}
             }
         }
 
-        std::wstring barColor2Str;
-        if (reader.GetString("barColor2", barColor2Str)) {
-            if (ColorUtil::ParseRGBA(barColor2Str, options.barColor2, options.barAlpha2)) {
-                options.hasBarGradient = true;
+        reader.GetInt("ticks", options.ticks);
+
+        reader.GetGradientOrColor("lineColor", options.lineColor, options.lineAlpha, options.lineGradient);
+        if (options.lineGradient.type != GRADIENT_NONE || options.lineAlpha > 0) {
+            options.hasLineColor = true;
+        }
+
+        reader.GetGradientOrColor("lineColorBg", options.lineColorBg, options.lineAlphaBg, options.lineGradientBg);
+        if (options.lineGradientBg.type != GRADIENT_NONE || options.lineAlphaBg > 0) {
+            options.hasLineColorBg = true;
+        }
+    }
+
+    void ParseShapeOptions(duk_context* ctx, ShapeOptions& options, const std::wstring& baseDir) {
+        if (!duk_is_object(ctx, -1)) return;
+        const int objIndex = duk_get_top_index(ctx);
+
+        // Parse base options first
+        ParseElementOptionsInternal(ctx, options);
+        Utils::PropertyReader reader(ctx);
+
+        if (reader.GetString("type", options.shapeType)) {
+            std::wstring typeLower = options.shapeType;
+            std::transform(typeLower.begin(), typeLower.end(), typeLower.begin(), ::towlower);
+            options.isCombine = (typeLower == L"combine");
+        }
+
+        reader.GetFloat("strokeWidth", options.strokeWidth);
+
+        reader.GetGradientOrColor("strokeColor", options.strokeColor, options.strokeAlpha, options.strokeGradient);
+        reader.GetGradientOrColor("fillColor", options.fillColor, options.fillAlpha, options.fillGradient);
+
+        reader.GetFloat("radiusX", options.radiusX);
+        reader.GetFloat("radiusY", options.radiusY);
+        // Also support general "radius" setting both X and Y
+        float r = 0;
+        if (reader.GetFloat("radius", r)) {
+            if (options.radiusX == 0) options.radiusX = r;
+            if (options.radiusY == 0) options.radiusY = r;
+        }
+
+        reader.GetFloat("startX", options.startX);
+        reader.GetFloat("startY", options.startY);
+        reader.GetFloat("endX", options.endX);
+        reader.GetFloat("endY", options.endY);
+
+        reader.GetString("curveType", options.curveType);
+        reader.GetFloat("controlX", options.controlX);
+        reader.GetFloat("controlY", options.controlY);
+        reader.GetFloat("control2X", options.control2X);
+        reader.GetFloat("control2Y", options.control2Y);
+
+        reader.GetFloat("startAngle", options.startAngle);
+        reader.GetFloat("endAngle", options.endAngle);
+        reader.GetBool("clockwise", options.clockwise);
+
+        reader.GetString("pathData", options.pathData);
+
+        // Stroke Style Parsing
+        std::wstring capStr;
+        if (reader.GetString("strokeStartCap", capStr)) options.strokeStartCap = Utils::GetCapStyle(capStr);
+        if (reader.GetString("strokeEndCap", capStr)) options.strokeEndCap = Utils::GetCapStyle(capStr);
+        if (reader.GetString("strokeDashCap", capStr)) options.strokeDashCap = Utils::GetCapStyle(capStr);
+
+        std::wstring joinStr;
+        if (reader.GetString("strokeLineJoin", joinStr)) options.strokeLineJoin = Utils::GetLineJoin(joinStr);
+
+        reader.GetFloat("strokeDashOffset", options.strokeDashOffset);
+
+        if (duk_get_prop_string(ctx, -1, "strokeDashes")) {
+            if (duk_is_array(ctx, -1)) {
+                duk_enum(ctx, -1, DUK_ENUM_ARRAY_INDICES_ONLY);
+                while (duk_next(ctx, -1, 1)) {
+                    options.strokeDashes.push_back((float)duk_get_number(ctx, -1));
+                    duk_pop_2(ctx); // val, key
+                }
+                duk_pop(ctx); // enum
+            }
+            else if (duk_is_string(ctx, -1)) {
+                // Comma separated?
+                std::wstring dashesStr = Utils::ToWString(duk_get_string(ctx, -1));
+                auto parts = Utils::SplitByComma(dashesStr);
+                for (auto& p : parts) options.strokeDashes.push_back((float)_wtof(p.c_str()));
+            }
+            duk_pop(ctx);
+        }
+
+        if (options.isCombine) {
+            if (duk_get_prop_string(ctx, objIndex, "base")) {
+                if (duk_is_string(ctx, -1)) {
+                    options.combineBaseId = Utils::ToWString(duk_get_string(ctx, -1));
+                }
+            }
+            duk_pop(ctx);
+
+            if (duk_get_prop_string(ctx, objIndex, "consume")) {
+                if (duk_is_boolean(ctx, -1)) {
+                    options.combineConsumeAll = duk_get_boolean(ctx, -1) != 0;
+                    options.hasCombineConsumeAll = true;
+                }
+            }
+            duk_pop(ctx);
+
+            if (duk_get_prop_string(ctx, objIndex, "ops")) {
+                if (duk_is_array(ctx, -1)) {
+                    int len = (int)duk_get_length(ctx, -1);
+                    for (int i = 0; i < len; ++i) {
+                        duk_get_prop_index(ctx, -1, i);
+                        if (!duk_is_object(ctx, -1)) {
+                            duk_pop(ctx);
+                            continue;
+                        }
+
+                        ShapeOptions::CombineOp op;
+                        if (duk_get_prop_string(ctx, -1, "id")) {
+                            op.id = Utils::ToWString(duk_get_string(ctx, -1));
+                        }
+                        duk_pop(ctx);
+
+                        if (duk_get_prop_string(ctx, -1, "mode")) {
+                            std::wstring modeStr = Utils::ToWString(duk_get_string(ctx, -1));
+                            std::transform(modeStr.begin(), modeStr.end(), modeStr.begin(), ::towlower);
+                            if (modeStr == L"intersect") op.mode = D2D1_COMBINE_MODE_INTERSECT;
+                            else if (modeStr == L"xor") op.mode = D2D1_COMBINE_MODE_XOR;
+                            else if (modeStr == L"exclude") op.mode = D2D1_COMBINE_MODE_EXCLUDE;
+                            else op.mode = D2D1_COMBINE_MODE_UNION;
+                        }
+                        duk_pop(ctx);
+
+                        if (duk_get_prop_string(ctx, -1, "consume")) {
+                            op.consume = duk_get_boolean(ctx, -1) != 0;
+                            op.hasConsume = true;
+                        }
+                        duk_pop(ctx);
+
+                        if (!op.id.empty()) {
+                            options.combineOps.push_back(op);
+                        }
+
+                        duk_pop(ctx);
+                    }
+                }
+                duk_pop(ctx);
             }
         }
-        reader.GetFloat("barGradientAngle", options.barGradientAngle);
     }
 
     /*
@@ -605,7 +562,7 @@ namespace PropertyParser {
     */
     void ApplyWidgetProperties(duk_context* ctx, Widget* widget, const std::wstring& baseDir) {
         if (!widget || !duk_is_object(ctx, -1)) return;
-        PropertyReader reader(ctx);
+        Utils::PropertyReader reader(ctx);
 
         // X, Y, Width, Height
         int x = CW_USEDEFAULT, y = CW_USEDEFAULT, w = -1, h = -1;
@@ -654,9 +611,11 @@ namespace PropertyParser {
 
         // Background Color
         std::wstring bgColor;
-        if (reader.GetString("backgroundColor", bgColor)) {
+        if (duk_get_prop_string(ctx, -1, "backgroundColor")) {
+            bgColor = Utils::ToWString(duk_get_string(ctx, -1));
             widget->SetBackgroundColor(bgColor);
         }
+        duk_pop(ctx);
 
         // Visibility
         bool show;
@@ -720,10 +679,34 @@ namespace PropertyParser {
         duk_push_object(ctx);
         
         duk_push_string(ctx, Utils::ToString(element->GetId()).c_str()); duk_put_prop_string(ctx, -2, "id");
-        duk_push_int(ctx, element->GetX()); duk_put_prop_string(ctx, -2, "x");
-        duk_push_int(ctx, element->GetY()); duk_put_prop_string(ctx, -2, "y");
-        duk_push_int(ctx, element->GetWidth()); duk_put_prop_string(ctx, -2, "width");
-        duk_push_int(ctx, element->GetHeight()); duk_put_prop_string(ctx, -2, "height");
+
+        // Default bounds (content area)
+        GfxRect contentBounds = element->GetBounds();
+        GfxRect outerBounds = element->GetBackgroundBounds();
+
+        if (element->GetBevelType() != 0) {
+            const int bevelPad = 2; // Rainmeter-style bevel extends 2px outside
+            outerBounds = GfxRect(
+                outerBounds.X - bevelPad,
+                outerBounds.Y - bevelPad,
+                outerBounds.Width + bevelPad * 2,
+                outerBounds.Height + bevelPad * 2
+            );
+        }
+
+        // Preserve original content bounds for scripts that need them
+        duk_push_int(ctx, contentBounds.X); duk_put_prop_string(ctx, -2, "contentX");
+        duk_push_int(ctx, contentBounds.Y); duk_put_prop_string(ctx, -2, "contentY");
+        duk_push_int(ctx, contentBounds.Width); duk_put_prop_string(ctx, -2, "contentWidth");
+        duk_push_int(ctx, contentBounds.Height); duk_put_prop_string(ctx, -2, "contentHeight");
+
+        duk_push_int(ctx, outerBounds.X); duk_put_prop_string(ctx, -2, "x");
+        duk_push_int(ctx, outerBounds.Y); duk_put_prop_string(ctx, -2, "y");
+        duk_push_int(ctx, outerBounds.Width); duk_put_prop_string(ctx, -2, "width");
+        duk_push_int(ctx, outerBounds.Height); duk_put_prop_string(ctx, -2, "height");
+
+        duk_push_boolean(ctx, element->IsVisible()); duk_put_prop_string(ctx, -2, "show");
+        duk_push_string(ctx, Utils::ToString(element->GetContainerId()).c_str()); duk_put_prop_string(ctx, -2, "container");
         duk_push_number(ctx, element->GetRotate()); duk_put_prop_string(ctx, -2, "rotate");
         duk_push_boolean(ctx, element->GetAntiAlias()); duk_put_prop_string(ctx, -2, "antiAlias");
 
@@ -732,9 +715,9 @@ namespace PropertyParser {
             COLORREF c = element->GetSolidColor();
             BYTE a = element->GetSolidAlpha();
             std::wstring colorStr = ColorUtil::ToRGBAString(c, a);
-            duk_push_string(ctx, Utils::ToString(colorStr).c_str()); duk_put_prop_string(ctx, -2, "solidColor");
+            duk_push_string(ctx, Utils::ToString(colorStr).c_str()); duk_put_prop_string(ctx, -2, "backgroundColor");
         }
-        duk_push_int(ctx, element->GetCornerRadius()); duk_put_prop_string(ctx, -2, "solidColorRadius");
+        duk_push_int(ctx, element->GetCornerRadius()); duk_put_prop_string(ctx, -2, "backgroundColorRadius");
 
         // Transform Matrix
         if (element->HasTransformMatrix()) {
@@ -748,13 +731,7 @@ namespace PropertyParser {
         }
 
         // Gradient
-        if (element->HasGradient()) {
-            COLORREF c2 = element->GetSolidColor2();
-            BYTE a2 = element->GetSolidAlpha2();
-            std::wstring color2Str = ColorUtil::ToRGBAString(c2, a2);
-            duk_push_string(ctx, Utils::ToString(color2Str).c_str()); duk_put_prop_string(ctx, -2, "solidColor2");
-            duk_push_number(ctx, element->GetGradientAngle()); duk_put_prop_string(ctx, -2, "gradientAngle");
-        }
+        // (Handled via primary color properties now, or we can push a full object if needed)
 
         // Bevel
         int bt = element->GetBevelType();
@@ -865,7 +842,21 @@ namespace PropertyParser {
             duk_push_string(ctx, orientStr); duk_put_prop_string(ctx, -2, "orientation");
             
             duk_push_int(ctx, bar->GetBarCornerRadius()); duk_put_prop_string(ctx, -2, "barCornerRadius");
-            duk_push_number(ctx, bar->GetBarGradientAngle()); duk_put_prop_string(ctx, -2, "barGradientAngle");
+        } else if (element->GetType() == ELEMENT_ROUNDLINE) {
+            RoundLineElement* rl = static_cast<RoundLineElement*>(element);
+            duk_push_number(ctx, rl->GetValue()); duk_put_prop_string(ctx, -2, "value");
+            duk_push_int(ctx, rl->GetRadius()); duk_put_prop_string(ctx, -2, "radius");
+            duk_push_int(ctx, rl->GetThickness()); duk_put_prop_string(ctx, -2, "thickness");
+            duk_push_number(ctx, rl->GetStartAngle()); duk_put_prop_string(ctx, -2, "startAngle");
+            duk_push_number(ctx, rl->GetTotalAngle()); duk_put_prop_string(ctx, -2, "totalAngle");
+            
+            duk_push_string(ctx, rl->GetCapType() == ROUNDLINE_CAP_ROUND ? "round" : "flat"); duk_put_prop_string(ctx, -2, "capType");
+
+            if (rl->HasLineColor()) {
+                 duk_push_string(ctx, Utils::ToString(ColorUtil::ToRGBAString(rl->GetLineColor(), rl->GetLineAlpha())).c_str());
+                 duk_put_prop_string(ctx, -2, "lineColor");
+            }
+            // Add gradient persistence if needed
         }
     }
 
@@ -874,7 +865,7 @@ namespace PropertyParser {
         if (!element || !duk_is_object(ctx, -1)) return;
         
         ElementOptions options;
-        PropertyReader reader(ctx);
+        Utils::PropertyReader reader(ctx);
         ParseElementOptionsInternal(ctx, options);
         ApplyElementOptions(element, options);
     }
@@ -885,19 +876,19 @@ namespace PropertyParser {
 
     void ApplyElementOptions(Element* element, const ElementOptions& options) {
         if (!element) return;
-        
         element->SetPosition(options.x, options.y);
-        if (options.width > 0 || options.height > 0) {
-            element->SetSize(options.width, options.height);
-        }
-
-        if (options.hasSolidColor) {
-            element->SetSolidColor(options.solidColor, options.solidAlpha);
-        }
+        element->SetSize(options.width, options.height);
+        element->SetRotate(options.rotate);
+        element->SetAntiAlias(options.antialias);
+        element->SetShow(options.show);
+        element->SetContainerId(options.containerId);
         element->SetCornerRadius(options.solidColorRadius);
+        element->SetPadding(options.paddingLeft, options.paddingTop, options.paddingRight, options.paddingBottom);
         
-        if (options.hasGradient) {
-            element->SetGradient(options.solidColor2, options.solidAlpha2, options.gradientAngle);
+        if (options.solidGradient.type != GRADIENT_NONE) {
+            element->SetSolidGradient(options.solidGradient);
+        } else if (options.hasSolidColor) {
+            element->SetSolidColor(options.solidColor, options.solidAlpha);
         }
 
         if (options.bevelType > 0) {
@@ -906,9 +897,6 @@ namespace PropertyParser {
             element->SetBevel(0, 0, 0, 0, 0, 0);
         }
         
-        element->SetRotate(options.rotate);
-        element->SetPadding(options.paddingLeft, options.paddingTop, options.paddingRight, options.paddingBottom);
-
         // Mouse Actions (Directly overwrite if not empty in options)
         if (options.onLeftMouseUpCallbackId != -1) element->m_OnLeftMouseUpCallbackId = options.onLeftMouseUpCallbackId;
         if (options.onLeftMouseDownCallbackId != -1) element->m_OnLeftMouseDownCallbackId = options.onLeftMouseDownCallbackId;
@@ -940,8 +928,6 @@ namespace PropertyParser {
         if (options.hasTransformMatrix) {
             element->SetTransformMatrix(options.transformMatrix.data());
         }
-
-        element->SetAntiAlias(options.antialias);
     }
 
     /*
@@ -999,12 +985,87 @@ namespace PropertyParser {
         element->SetOrientation(options.orientation);
         element->SetBarCornerRadius(options.barCornerRadius);
 
-        if (options.hasBarColor) {
+        if (options.barGradient.type != GRADIENT_NONE) {
+            element->SetBarGradient(options.barGradient);
+        } else if (options.hasBarColor) {
             element->SetBarColor(options.barColor, options.barAlpha);
         }
-        if (options.hasBarGradient) {
-            element->SetBarColor2(options.barColor2, options.barAlpha2, options.barGradientAngle);
+    }
+
+    void ApplyRoundLineOptions(RoundLineElement* element, const RoundLineOptions& options) {
+        if (!element) return;
+        ApplyElementOptions(element, options);
+
+        element->SetValue(options.value);
+        element->SetRadius(options.radius);
+        element->SetThickness(options.thickness);
+        element->SetEndThickness(options.endThickness);
+        element->SetStartAngle(options.startAngle);
+        element->SetTotalAngle(options.totalAngle);
+        element->SetClockwise(options.clockwise);
+        element->SetStartCap(options.startCap);
+        element->SetEndCap(options.endCap);
+        element->SetDashArray(options.dashArray);
+        element->SetTicks(options.ticks);
+
+        if (options.lineGradient.type != GRADIENT_NONE) {
+            element->SetLineGradient(options.lineGradient);
+        } else if (options.hasLineColor) {
+            element->SetLineColor(options.lineColor, options.lineAlpha);
         }
+
+        if (options.lineGradientBg.type != GRADIENT_NONE) {
+            // Added helper if needed, but for now we expect solid or specific gradient field
+            // RoundLine currently only has SetLineColorBg(solid).
+            // We might need SetLineGradientBg(GradientInfo).
+        } else if (options.hasLineColorBg) {
+            element->SetLineColorBg(options.lineColorBg, options.lineAlphaBg);
+        }
+    }
+
+    void ApplyShapeOptions(ShapeElement* element, const ShapeOptions& options) {
+        ApplyElementOptions(element, options);
+
+        if (options.strokeGradient.type != GRADIENT_NONE) {
+            // Ensure width is applied even when using gradients
+            element->SetStroke(options.strokeWidth, options.strokeColor, options.strokeAlpha);
+            element->SetStrokeGradient(options.strokeGradient);
+        }
+        else {
+            element->SetStroke(options.strokeWidth, options.strokeColor, options.strokeAlpha);
+        }
+
+        if (options.fillGradient.type != GRADIENT_NONE) {
+            element->SetFillGradient(options.fillGradient);
+        }
+        else {
+            element->SetFill(options.fillColor, options.fillAlpha);
+        }
+
+        element->SetRadii(options.radiusX, options.radiusY);
+        element->SetLinePoints(options.startX, options.startY, options.endX, options.endY);
+        element->SetArcParams(options.startAngle, options.endAngle, options.clockwise);
+        element->SetPathData(options.pathData);
+        element->SetCurveParams(
+            options.startX,
+            options.startY,
+            options.controlX,
+            options.controlY,
+            options.control2X,
+            options.control2Y,
+            options.endX,
+            options.endY,
+            options.curveType
+        );
+
+        element->SetStrokeStyle(
+            options.strokeStartCap,
+            options.strokeEndCap,
+            options.strokeDashCap,
+            options.strokeLineJoin,
+            options.strokeDashOffset,
+            options.strokeDashes
+        );
     }
 
     void PreFillElementOptions(ElementOptions& options, Element* element) {
@@ -1019,16 +1080,15 @@ namespace PropertyParser {
         
         options.rotate = element->GetRotate();
         options.antialias = element->GetAntiAlias();
+        options.show = element->IsVisible();
+        options.containerId = element->GetContainerId();
 
         options.hasSolidColor = element->HasSolidColor();
         options.solidColor = element->GetSolidColor();
         options.solidAlpha = element->GetSolidAlpha();
         options.solidColorRadius = element->GetCornerRadius();
 
-        options.hasGradient = element->HasGradient();
-        options.solidColor2 = element->GetSolidColor2();
-        options.solidAlpha2 = element->GetSolidAlpha2();
-        options.gradientAngle = element->GetGradientAngle();
+        options.solidGradient = element->GetSolidGradient();
 
         options.bevelType = element->GetBevelType();
         options.bevelWidth = element->GetBevelWidth();
@@ -1110,9 +1170,70 @@ namespace PropertyParser {
         options.hasBarColor = element->HasBarColor();
         options.barColor = element->GetBarColor();
         options.barAlpha = element->GetBarAlpha();
-        options.hasBarGradient = element->HasBarGradient();
-        options.barColor2 = element->GetBarColor2();
-        options.barAlpha2 = element->GetBarAlpha2();
-        options.barGradientAngle = element->GetBarGradientAngle();
+        options.barGradient = element->GetBarGradient();
+    }
+
+    void PreFillRoundLineOptions(RoundLineOptions& options, RoundLineElement* element) {
+        if (!element) return;
+        PreFillElementOptions(options, element);
+        options.value = element->GetValue();
+        options.radius = element->GetRadius();
+        options.thickness = element->GetThickness();
+        options.endThickness = element->GetEndThickness();
+        options.startAngle = element->GetStartAngle();
+        options.totalAngle = element->GetTotalAngle();
+        options.clockwise = element->IsClockwise();
+        options.startCap = element->GetStartCap();
+        options.endCap = element->GetEndCap();
+        options.dashArray = element->GetDashArray();
+        options.ticks = element->GetTicks();
+        options.hasLineColor = element->HasLineColor();
+        options.lineColor = element->GetLineColor();
+        options.lineAlpha = element->GetLineAlpha();
+        options.hasLineColorBg = element->HasLineColorBg();
+        options.lineColorBg = element->GetLineColorBg();
+        options.lineAlphaBg = element->GetLineAlphaBg();
+        options.lineGradient = element->GetLineGradient();
+        options.lineGradientBg = element->GetLineGradientBg();
+    }
+
+    void PreFillShapeOptions(ShapeOptions& options, ShapeElement* element) {
+        PreFillElementOptions(options, element);
+
+        options.strokeWidth = element->GetStrokeWidth();
+        options.strokeColor = element->GetStrokeColor();
+        options.strokeAlpha = element->GetStrokeAlpha();
+        options.strokeGradient = element->GetStrokeGradient();
+
+        options.fillColor = element->GetFillColor();
+        options.fillAlpha = element->GetFillAlpha();
+        options.fillGradient = element->GetFillGradient();
+
+        options.radiusX = element->GetRadiusX();
+        options.radiusY = element->GetRadiusY();
+
+        options.startX = element->GetStartX();
+        options.startY = element->GetStartY();
+        options.endX = element->GetEndX();
+        options.endY = element->GetEndY();
+
+        options.curveType = element->GetCurveType();
+        options.controlX = element->GetControlX();
+        options.controlY = element->GetControlY();
+        options.control2X = element->GetControl2X();
+        options.control2Y = element->GetControl2Y();
+
+        options.startAngle = element->GetStartAngle();
+        options.endAngle = element->GetEndAngle();
+        options.clockwise = element->IsClockwise();
+
+        options.pathData = element->GetPathData();
+
+        options.strokeStartCap = element->GetStrokeStartCap();
+        options.strokeEndCap = element->GetStrokeEndCap();
+        options.strokeDashCap = element->GetStrokeDashCap();
+        options.strokeLineJoin = element->GetStrokeLineJoin();
+        options.strokeDashOffset = element->GetStrokeDashOffset();
+        options.strokeDashes = element->GetStrokeDashes();
     }
 }

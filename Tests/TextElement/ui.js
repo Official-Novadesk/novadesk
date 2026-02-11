@@ -234,7 +234,7 @@ win.addText({
     y: 380,
     fontSize: 18,
     fontColor: "rgb(255,255,255)",
-    solidColor: "rgb(255, 0, 0)"
+    backgroundColor: "rgb(255, 0, 0)"
 });
 
 // Test 17: Gradient background
@@ -245,7 +245,7 @@ win.addText({
     y: 420,
     fontSize: 18,
     fontColor: "rgb(255,255,255)",
-    solidColor: "rgb(255, 0, 0)",
+    backgroundColor: "rgb(255, 0, 0)",
     solidColor2: "rgb(0, 0, 255)",
     gradientAngle: 45
 });
@@ -258,8 +258,8 @@ win.addText({
     y: 460,
     fontSize: 18,
     fontColor: "rgb(255,255,255)",
-    solidColor: "rgb(0, 255, 0)",
-    solidColorRadius: 10
+    backgroundColor: "rgb(0, 255, 0)",
+    backgroundColorRadius: 10
 });
 
 // Test 19: Padding
@@ -270,7 +270,7 @@ win.addText({
     y: 450,
     fontSize: 18,
     fontColor: "rgb(255,255,255)",
-    solidColor: "rgb(255, 255, 0)",
+    backgroundColor: "rgb(255, 255, 0)",
     padding: 15
 });
 
@@ -282,7 +282,7 @@ win.addText({
     y: 500,
     fontSize: 18,
     fontColor: "rgb(255,255,255)",
-    solidColor: "rgb(255, 0, 255)",
+    backgroundColor: "rgb(255, 0, 255)",
     padding: [10, 20]
 });
 
@@ -294,7 +294,7 @@ win.addText({
     y: 560,
     fontSize: 18,
     fontColor: "rgb(255,255,255)",
-    solidColor: "rgb(0, 255, 255)",
+    backgroundColor: "rgb(0, 255, 255)",
     padding: [5, 10, 15, 20]
 });
 

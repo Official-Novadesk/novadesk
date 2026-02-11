@@ -19,6 +19,8 @@
 #include "../MouseMonitor.h"
 #include "../DiskMonitor.h"
 #include "JSUtils.h"
+#include "JSAudio.h"
+#include "JSAudioLevel.h"
 #include <map>
 #include <vector>
 
@@ -517,6 +519,7 @@ namespace JSApi {
         duk_put_prop_string(ctx, -2, "loadAddon");
         duk_push_c_function(ctx, js_system_unload_addon, 1);
         duk_put_prop_string(ctx, -2, "unloadAddon");
+        BindAudioMethods(ctx);
     }
 
     void BindSystemMonitors(duk_context* ctx) {
@@ -569,5 +572,9 @@ namespace JSApi {
         duk_push_c_function(ctx, js_disk_finalizer, 1);
         duk_set_finalizer(ctx, -2);
         duk_put_prop_string(ctx, -2, "disk");
+
+        // AudioLevel Class
+        duk_push_c_function(ctx, js_audio_constructor, 1);
+        duk_put_prop_string(ctx, -2, "audioLevel");
     }
 }

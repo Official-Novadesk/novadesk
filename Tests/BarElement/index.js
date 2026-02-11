@@ -7,5 +7,5 @@ var widget = new widgetWindow({
     width: 1000,
     height: 800,
     backgroundColor: "rgba(40, 40, 50, 0.95)",
-    script: "ui.js"
+    script: "hittest.js"
 });

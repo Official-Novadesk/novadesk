@@ -14,6 +14,11 @@ namespace JSApi {
     duk_ret_t js_widget_get_properties(duk_context* ctx);
     duk_ret_t js_widget_close(duk_context* ctx);
     duk_ret_t js_widget_refresh(duk_context* ctx);
+    duk_ret_t js_widget_set_focus(duk_context* ctx);
+    duk_ret_t js_widget_unfocus(duk_context* ctx);
+    duk_ret_t js_widget_get_handle(duk_context* ctx);
+    duk_ret_t js_widget_get_internal_pointer(duk_context* ctx);
+    duk_ret_t js_widget_get_title(duk_context* ctx);
 
     void BindWidgetControlMethods(duk_context* ctx);
  

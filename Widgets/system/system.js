@@ -11,8 +11,8 @@ var CONFIG = {
     colors: {
         font: "rgb(255,255,255)",
         accent: "rgba(74, 81, 183, 1)",
-        accent2: "rgba(35, 212, 201, 1)",
-        subaccent: "rgba(255,255,255,0.2)"
+        subaccent: "rgba(255,255,255,0.2)",
+        barGradient: "linearGradient(45,rgba(74, 81, 183, 1), rgba(35, 212, 201, 1))"
     },
     font: {
         title: 18,
@@ -68,12 +68,11 @@ function addBar(id, y) {
         value: 0,
         width: BAR_WIDTH,
         height: CONFIG.bar.height,
-        barColor: CONFIG.colors.accent,
-        barColor2: CONFIG.colors.accent2,
+        barColor: CONFIG.colors.barGradient,
         barGradientAngle: CONFIG.bar.gradientAngle,
         barCornerRadius: CONFIG.bar.radius,
-        solidColor: CONFIG.colors.subaccent,
-        solidColorRadius: CONFIG.bar.radius
+        backgroundColor: CONFIG.colors.subaccent,
+        backgroundColorRadius: CONFIG.bar.radius
     });
 }
 

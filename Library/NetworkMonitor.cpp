@@ -6,7 +6,7 @@
  * obtain one at <https://www.gnu.org/licenses/gpl-2.0.html>. */
 
 #include "NetworkMonitor.h"
-#include <cstdlib>
+#include <vector>
 
 NetworkMonitor::NetworkMonitor()
     : m_LastInBytes(0)
@@ -33,7 +33,9 @@ NetworkMonitor::Stats NetworkMonitor::GetStats()
     // Get required buffer size
     if (GetIfTable(NULL, &dwSize, FALSE) == ERROR_INSUFFICIENT_BUFFER)
     {
-        pIfTable = (PMIB_IFTABLE)malloc(dwSize);
+        std::vector<BYTE> buffer;
+        buffer.resize(dwSize);
+        pIfTable = reinterpret_cast<PMIB_IFTABLE>(buffer.data());
         if (pIfTable != NULL)
         {
             if (GetIfTable(pIfTable, &dwSize, FALSE) == NO_ERROR)
@@ -84,8 +86,6 @@ NetworkMonitor::Stats NetworkMonitor::GetStats()
                 m_LastUpdateTime = currentTime;
                 m_FirstUpdate = false;
             }
-
-            free(pIfTable);
         }
     }
 

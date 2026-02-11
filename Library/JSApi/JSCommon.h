@@ -31,4 +31,20 @@ namespace JSApi {
     void BindWidgetControlMethods(duk_context* ctx);
     void BindWidgetUIMethods(duk_context* ctx);
     void ReloadScripts(duk_context* ctx);
+
+    Widget* GetWidgetFromThis(duk_context* ctx);
+    bool TryGetWidgetIdFromObject(duk_context* ctx, duk_idx_t idx, std::string& outId);
+
+    inline void BindFunction(duk_context* ctx, const char* name, duk_c_function fn, duk_idx_t nargs) {
+        duk_push_c_function(ctx, fn, nargs);
+        duk_put_prop_string(ctx, -2, name);
+    }
+
+    struct JsBinding {
+        const char* name;
+        duk_c_function fn;
+        duk_idx_t nargs;
+    };
+
+    void BindMethods(duk_context* ctx, const JsBinding* bindings, size_t count);
 }

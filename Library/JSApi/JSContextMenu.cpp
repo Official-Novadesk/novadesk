@@ -74,12 +74,8 @@ namespace JSApi {
     }
 
     duk_ret_t js_widget_set_context_menu(duk_context* ctx) {
-        duk_push_this(ctx);
-        duk_get_prop_string(ctx, -1, "\xFF" "widgetPtr");
-        Widget* widget = (Widget*)duk_get_pointer(ctx, -1);
-        duk_pop_2(ctx);
-
-        if (!Widget::IsValid(widget) || !duk_is_array(ctx, 0)) return DUK_RET_ERROR;
+        Widget* widget = GetWidgetFromThis(ctx);
+        if (!widget || !duk_is_array(ctx, 0)) return DUK_RET_ERROR;
 
         // Clear old callbacks
         duk_push_this(ctx);
@@ -96,12 +92,8 @@ namespace JSApi {
     }
 
     duk_ret_t js_widget_clear_context_menu(duk_context* ctx) {
-        duk_push_this(ctx);
-        duk_get_prop_string(ctx, -1, "\xFF" "widgetPtr");
-        Widget* widget = (Widget*)duk_get_pointer(ctx, -1);
-        duk_pop_2(ctx);
-
-        if (!Widget::IsValid(widget)) return DUK_RET_ERROR;
+        Widget* widget = GetWidgetFromThis(ctx);
+        if (!widget) return DUK_RET_ERROR;
         widget->ClearContextMenu();
 
         // Clear callbacks
@@ -115,12 +107,8 @@ namespace JSApi {
     }
 
     duk_ret_t js_widget_disable_context_menu(duk_context* ctx) {
-        duk_push_this(ctx);
-        duk_get_prop_string(ctx, -1, "\xFF" "widgetPtr");
-        Widget* widget = (Widget*)duk_get_pointer(ctx, -1);
-        duk_pop_2(ctx);
-
-        if (!Widget::IsValid(widget)) return DUK_RET_ERROR;
+        Widget* widget = GetWidgetFromThis(ctx);
+        if (!widget) return DUK_RET_ERROR;
         bool disable = true;
         if (duk_get_top(ctx) > 0) disable = duk_get_boolean(ctx, 0);
         widget->SetContextMenuDisabled(disable);
@@ -130,12 +118,8 @@ namespace JSApi {
     }
 
     duk_ret_t js_widget_show_default_context_menu_items(duk_context* ctx) {
-        duk_push_this(ctx);
-        duk_get_prop_string(ctx, -1, "\xFF" "widgetPtr");
-        Widget* widget = (Widget*)duk_get_pointer(ctx, -1);
-        duk_pop_2(ctx);
-
-        if (!Widget::IsValid(widget)) return DUK_RET_ERROR;
+        Widget* widget = GetWidgetFromThis(ctx);
+        if (!widget) return DUK_RET_ERROR;
         if (duk_get_top(ctx) > 0) {
             bool show = duk_get_boolean(ctx, 0);
             widget->SetShowDefaultContextMenuItems(show);
@@ -145,14 +129,13 @@ namespace JSApi {
     }
 
     void BindWidgetContextMenuMethods(duk_context* ctx) {
-        duk_push_c_function(ctx, js_widget_set_context_menu, 1);
-        duk_put_prop_string(ctx, -2, "setContextMenu");
-        duk_push_c_function(ctx, js_widget_clear_context_menu, 0);
-        duk_put_prop_string(ctx, -2, "clearContextMenu");
-        duk_push_c_function(ctx, js_widget_disable_context_menu, 1);
-        duk_put_prop_string(ctx, -2, "disableContextMenu");
-        duk_push_c_function(ctx, js_widget_show_default_context_menu_items, 1);
-        duk_put_prop_string(ctx, -2, "showDefaultContextMenuItems");
+        const JsBinding bindings[] = {
+            { "setContextMenu", js_widget_set_context_menu, 1 },
+            { "clearContextMenu", js_widget_clear_context_menu, 0 },
+            { "disableContextMenu", js_widget_disable_context_menu, 1 },
+            { "showDefaultContextMenuItems", js_widget_show_default_context_menu_items, 1 }
+        };
+        BindMethods(ctx, bindings, sizeof(bindings) / sizeof(bindings[0]));
     }
 
     void OnWidgetContextCommand(const std::wstring& widgetId, int commandId) {

@@ -7,11 +7,15 @@
 
 #pragma once
 #include "JSApi/duktape/duktape.h"
+#include <d2d1.h>
+#include <vector>
 #include "Widget.h"
 #include "Element.h"
 #include "TextElement.h"
 #include "ImageElement.h"
 #include "BarElement.h"
+#include "RoundLineElement.h"
+#include "ShapeElement.h"
 
 namespace PropertyParser
 {
@@ -31,10 +35,7 @@ namespace PropertyParser
         BYTE solidAlpha = 0;
         int solidColorRadius = 0;
 
-        bool hasGradient = false;
-        COLORREF solidColor2 = 0;
-        BYTE solidAlpha2 = 0;
-        float gradientAngle = 0.0f;
+        GradientInfo solidGradient;
 
         // Bevel
         int bevelType = 0;
@@ -89,6 +90,8 @@ namespace PropertyParser
         bool tooltipBalloon = false;
 
         bool antialias = true;
+        bool show = true;
+        std::wstring containerId;
         
         float rotate = 0.0f;
         bool hasTransformMatrix = false;
@@ -150,31 +153,111 @@ namespace PropertyParser
         COLORREF barColor = RGB(0, 255, 0);
         BYTE barAlpha = 255;
 
-        bool hasBarGradient = false;
-        COLORREF barColor2 = 0;
-        BYTE barAlpha2 = 255;
-        float barGradientAngle = 0.0f;
+        GradientInfo barGradient;
+    };
+
+    struct RoundLineOptions : public ElementOptions {
+        float value = 0.0f;
+        int radius = 0;
+        int thickness = 2;
+        int endThickness = -1;
+        float startAngle = 0.0f;
+        float totalAngle = 360.0f;
+        bool clockwise = true;
+        RoundLineCap startCap = ROUNDLINE_CAP_FLAT;
+        RoundLineCap endCap = ROUNDLINE_CAP_FLAT;
+        std::vector<float> dashArray;
+        int ticks = 0;
+
+        bool hasLineColor = false;
+        COLORREF lineColor = RGB(0, 255, 0);
+        BYTE lineAlpha = 255;
+
+        bool hasLineColorBg = false;
+        COLORREF lineColorBg = RGB(50, 50, 50);
+        BYTE lineAlphaBg = 255;
+
+        GradientInfo lineGradient;
+        GradientInfo lineGradientBg;
+    };
+
+    struct ShapeOptions : public ElementOptions {
+        std::wstring shapeType; // "rectangle", "ellipse", "line"
+        
+        float strokeWidth = 1.0f;
+        COLORREF strokeColor = RGB(0,0,0);
+        BYTE strokeAlpha = 255;
+        GradientInfo strokeGradient;
+        
+        COLORREF fillColor = RGB(255,255,255);
+        BYTE fillAlpha = 255;
+        GradientInfo fillGradient;
+
+        float radiusX = 0.0f;
+        float radiusY = 0.0f;
+        
+        float startX = 0.0f;
+        float startY = 0.0f;
+        float endX = 0.0f;
+        float endY = 0.0f;
+
+        std::wstring curveType = L"quadratic"; // "quadratic" or "cubic"
+        float controlX = 0.0f;
+        float controlY = 0.0f;
+        float control2X = 0.0f;
+        float control2Y = 0.0f;
+
+        float startAngle = 0.0f;
+        float endAngle = 90.0f;
+        bool clockwise = true;
+
+        std::wstring pathData;
+        
+        D2D1_CAP_STYLE strokeStartCap = D2D1_CAP_STYLE_FLAT;
+        D2D1_CAP_STYLE strokeEndCap = D2D1_CAP_STYLE_FLAT;
+        D2D1_CAP_STYLE strokeDashCap = D2D1_CAP_STYLE_FLAT;
+        D2D1_LINE_JOIN strokeLineJoin = D2D1_LINE_JOIN_MITER;
+        float strokeDashOffset = 0.0f;
+        std::vector<float> strokeDashes;
+
+        struct CombineOp {
+            std::wstring id;
+            D2D1_COMBINE_MODE mode = D2D1_COMBINE_MODE_UNION;
+            bool consume = false;
+            bool hasConsume = false;
+        };
+
+        bool isCombine = false;
+        std::wstring combineBaseId;
+        std::vector<CombineOp> combineOps;
+        bool combineConsumeAll = false;
+        bool hasCombineConsumeAll = false;
     };
 
     void ParseWidgetOptions(duk_context* ctx, WidgetOptions& options, const std::wstring& baseDir = L"");
+    void ParseElementOptions(duk_context* ctx, Element* element);
     void ParseImageOptions(duk_context* ctx, ImageOptions& options, const std::wstring& baseDir = L"");
     void ParseTextOptions(duk_context* ctx, TextOptions& options, const std::wstring& baseDir = L"");
     void ParseBarOptions(duk_context* ctx, BarOptions& options, const std::wstring& baseDir = L"");
-    void ApplyWidgetProperties(duk_context* ctx, Widget* widget, const std::wstring& baseDir = L"");
-
+    void ParseRoundLineOptions(duk_context* ctx, RoundLineOptions& options, const std::wstring& baseDir = L"");
+    void ParseShapeOptions(duk_context* ctx, ShapeOptions& options, const std::wstring& baseDir = L"");
+ 
     void PushWidgetProperties(duk_context* ctx, Widget* widget);
-    void ParseElementOptions(duk_context* ctx, Element* element);
     void PushElementProperties(duk_context* ctx, Element* element);
+
     void PreFillElementOptions(ElementOptions& options, Element* element);
     void PreFillTextOptions(TextOptions& options, TextElement* element);
     void PreFillImageOptions(ImageOptions& options, ImageElement* element);
     void PreFillBarOptions(BarOptions& options, BarElement* element);
-    void ApplyElementOptions(Element* element, const ElementOptions& options);
+    void PreFillRoundLineOptions(RoundLineOptions& options, RoundLineElement* element);
+    void PreFillShapeOptions(ShapeOptions& options, ShapeElement* element);
 
+    void ApplyWidgetProperties(duk_context* ctx, Widget* widget, const std::wstring& baseDir = L"");
+    void ApplyElementOptions(Element* element, const ElementOptions& options);
     void ApplyImageOptions(ImageElement* element, const ImageOptions& options);
     void ApplyTextOptions(TextElement* element, const TextOptions& options);
     void ApplyBarOptions(BarElement* element, const BarOptions& options);
+    void ApplyRoundLineOptions(RoundLineElement* element, const RoundLineOptions& options);
+    void ApplyShapeOptions(ShapeElement* element, const ShapeOptions& options);
 
-    std::vector<std::wstring> SplitByComma(const std::wstring& s);
-    bool ParseGradientString(const std::wstring& str, GradientInfo& out);
 }

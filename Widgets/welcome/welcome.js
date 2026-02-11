@@ -80,18 +80,18 @@ win.addText({
     fontColor: CONFIG.colors.font,
     width: 100,
     height: 25,
-    solidColor: CONFIG.colors.accent,
-    solidColorRadius: 5,
+    backgroundColor: CONFIG.colors.accent,
+    backgroundColorRadius: 5,
     textAlign: "centercenter",
     onMouseOver: function () {
         win.setElementProperties("website-button", { 
-            solidColor: CONFIG.colors.hover, 
+            backgroundColor: CONFIG.colors.hover, 
             fontColor: CONFIG.colors.hoverFont 
         });
     },
     onMouseLeave: function () {
         win.setElementProperties("website-button", { 
-            solidColor: CONFIG.colors.accent, 
+            backgroundColor: CONFIG.colors.accent, 
             fontColor: CONFIG.colors.font 
         });
     },
@@ -109,18 +109,18 @@ win.addText({
     fontColor: CONFIG.colors.font,
     width: 100,
     height: 25,
-    solidColor: CONFIG.colors.accent,
-    solidColorRadius: 5,
+    backgroundColor: CONFIG.colors.accent,
+    backgroundColorRadius: 5,
     textAlign: "centercenter",
     onMouseOver: function () {
         win.setElementProperties("docs-button", { 
-            solidColor: CONFIG.colors.hover, 
+            backgroundColor: CONFIG.colors.hover, 
             fontColor: CONFIG.colors.hoverFont 
         });
     },
     onMouseLeave: function () {
         win.setElementProperties("docs-button", { 
-            solidColor: CONFIG.colors.accent, 
+            backgroundColor: CONFIG.colors.accent, 
             fontColor: CONFIG.colors.font 
         });
     },
