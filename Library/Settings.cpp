@@ -16,6 +16,7 @@
 
 json Settings::s_Data;
 bool Settings::s_Dirty = false;
+bool Settings::s_IsFirstRun = false;
 
 void Settings::Initialize()
 {
@@ -38,16 +39,19 @@ void Settings::Load()
             Logging::Log(LogLevel::Info, L"Settings file is empty, initializing defaults.");
             s_Data = json::object();
             s_Data["widgets"] = json::object();
+            s_IsFirstRun = true;
             return;
         }
 
         try {
             i >> s_Data;
             Logging::Log(LogLevel::Info, L"Settings loaded from %s", path.c_str());
+            s_IsFirstRun = false;
         } catch (json::parse_error& e) {
             Logging::Log(LogLevel::Error, L"Failed to parse settings.json: %S - Resetting to defaults", e.what());
             s_Data = json::object();
             s_Data["widgets"] = json::object();
+            s_IsFirstRun = false;
         }
  
         ApplyGlobalSettings();
@@ -56,7 +60,10 @@ void Settings::Load()
     {
         s_Data = json::object();
         s_Data["widgets"] = json::object();
+        s_IsFirstRun = true;
         ApplyGlobalSettings(); // Apply defaults
+        s_Dirty = true;
+        Save();
     }
 }
 
@@ -92,6 +99,11 @@ std::wstring Settings::GetLogPath()
         return PathUtils::GetAppDataPath() + L"logs.log";
     }
     return L"";
+}
+
+bool Settings::IsFirstRun()
+{
+    return s_IsFirstRun;
 }
 
 void Settings::Save()

@@ -1,4 +1,4 @@
-const padUtil = require('./assets/src/utils');
+const padUtil = require('./src/utils');
 
 var variables_Path = path.join(app.getAppDataPath(), 'config.json');
 
@@ -13,8 +13,11 @@ clock_Widget = new widgetWindow({
   script: 'clock/clock.js',
   width: 212,
   height: 72,
-  zPos: "ontop"
+  zPos: "ontop",
+  show: !app.isFirstRun()
 })
+
+// console.log('Is First Run: ' + app.isFirstRun());
 
 function formatTime(dateObj, use12h) {
   var h = dateObj.getHours();

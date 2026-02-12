@@ -283,6 +283,11 @@ namespace JSApi {
         return 1;
     }
 
+    duk_ret_t js_novadesk_isFirstRun(duk_context* ctx) {
+        duk_push_boolean(ctx, Settings::IsFirstRun());
+        return 1;
+    }
+
     void BindConsoleMethods(duk_context* ctx) {
         duk_push_c_function(ctx, js_log, DUK_VARARGS);
         duk_put_prop_string(ctx, -2, "log");
@@ -323,6 +328,8 @@ namespace JSApi {
         duk_put_prop_string(ctx, -2, "getLogPath");
         duk_push_c_function(ctx, js_novadesk_isPortable, 0);
         duk_put_prop_string(ctx, -2, "isPortable");
+        duk_push_c_function(ctx, js_novadesk_isFirstRun, 0);
+        duk_put_prop_string(ctx, -2, "isFirstRun");
     }
 
     std::wstring ResolveScriptPath(duk_context* ctx, const std::wstring& path) {
