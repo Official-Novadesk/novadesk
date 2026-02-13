@@ -1,3 +1,6 @@
 const clock_Widget = require('./src/clockWidget/main');
+const utils = require('./src/common/utils');
 
-clock_Widget.loadClockWidget();
+if (utils.getJsonValue('clock_Widget_Active')) {
+    clock_Widget.loadClockWidget();
+}

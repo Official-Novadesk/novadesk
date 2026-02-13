@@ -1,3 +1,8 @@
+var config_Path = path.join(app.getAppDataPath(), 'config.json');
+
+var config_Data = system.readJson(config_Path);
+
+
 function pad2(n) {
     return (n < 10 ? "0" : "") + n;
 }
@@ -30,9 +35,20 @@ function formatDate(dateObj) {
     return monthName + " " + date + ", " + year;
 }
 
+function getJsonValue(key) {
+    return config_Data[key];
+}
+
+function setJsonValue(key, value) {
+    config_Data[key] = value;
+    system.writeJson(config_Path, config_Data);
+}
+
 module.exports = {
     formatTime: formatTime,
     formatDay: formatDay,
     formatDate: formatDate,
+    getJsonValue: getJsonValue,
+    setJsonValue: setJsonValue,
     pad2: pad2
 };
