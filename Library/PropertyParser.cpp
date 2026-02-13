@@ -1139,6 +1139,11 @@ namespace PropertyParser {
         options.clip = element->GetClipString();
         options.fontPath = element->GetFontPath();
         options.shadows = element->GetShadows();
+        options.fontGradient = element->GetFontGradient();
+        options.letterSpacing = element->GetLetterSpacing();
+        options.underLine = element->GetUnderline();
+        options.strikeThrough = element->GetStrikethrough();
+        options.textCase = element->GetTextCase();
     }
 
     void PreFillImageOptions(ImageOptions& options, ImageElement* element) {
