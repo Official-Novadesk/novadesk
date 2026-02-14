@@ -284,7 +284,9 @@ namespace JSApi {
         }
         
         duk_push_int(ctx, id);
-        duk_dup(ctx, idx);
+        if (!WrapCallbackWithDirContext(ctx, idx)) {
+            duk_dup(ctx, idx);
+        }
         duk_put_prop(ctx, -3);
         
         duk_pop_2(ctx); // pop __events, stash

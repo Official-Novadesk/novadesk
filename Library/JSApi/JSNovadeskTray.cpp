@@ -77,7 +77,9 @@ namespace JSApi {
                                     duk_get_prop_string(ctx, -1, "__trayCallbacks");
                                 }
                                 
-                                duk_dup(ctx, -3); // duplicate function
+                                if (!WrapCallbackWithDirContext(ctx, -3)) {
+                                    duk_dup(ctx, -3); // duplicate function
+                                }
                                 duk_put_prop_index(ctx, -2, (duk_uarridx_t)item.id);
                                 duk_pop_2(ctx); // pop __trayCallbacks and global_stash
                             }

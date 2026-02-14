@@ -77,7 +77,9 @@ namespace JSApi {
             duk_get_prop_string(ctx, -1, "__timers");
         }
         
-        duk_dup(ctx, 0); // duplicate function
+        if (!WrapCallbackWithDirContext(ctx, 0)) {
+            duk_dup(ctx, 0); // duplicate function
+        }
         duk_put_prop_index(ctx, -2, (duk_uarridx_t)tempId);
         duk_pop_2(ctx); // pop __timers and global_stash
 
@@ -116,7 +118,9 @@ namespace JSApi {
             duk_get_prop_string(ctx, -1, "__timers");
         }
         
-        duk_dup(ctx, 0); // duplicate function
+        if (!WrapCallbackWithDirContext(ctx, 0)) {
+            duk_dup(ctx, 0); // duplicate function
+        }
         duk_put_prop_index(ctx, -2, (duk_uarridx_t)tempId);
         duk_pop_2(ctx); // pop __timers and global_stash
 

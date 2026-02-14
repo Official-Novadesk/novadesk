@@ -127,15 +127,25 @@ namespace JSApi {
 
         std::wstring request = Utils::ToWString(duk_get_string(ctx, 0));
         std::wstring basePath;
+        std::wstring fallbackBaseDir;
         if (!GetRequireBasePath(ctx, basePath)) {
+            // For deferred callbacks, prefer the current global __dirname context.
+            duk_get_global_string(ctx, "__dirname");
+            if (duk_is_string(ctx, -1)) {
+                fallbackBaseDir = Utils::ToWString(duk_get_string(ctx, -1));
+            }
+            duk_pop(ctx);
+
             basePath = s_CurrentScriptPath;
         }
 
-        if (basePath.empty()) {
+        if (basePath.empty() && fallbackBaseDir.empty()) {
             basePath = PathUtils::ResolvePath(L"index.js", PathUtils::GetWidgetsDir());
         }
 
-        std::wstring baseDir = PathUtils::GetParentDir(basePath);
+        std::wstring baseDir = fallbackBaseDir.empty()
+            ? PathUtils::GetParentDir(basePath)
+            : fallbackBaseDir;
         std::wstring resolved = request;
         if (!HasJsExtension(resolved)) {
             resolved += L".js";
@@ -443,6 +453,68 @@ namespace JSApi {
         return s_MessageWindow;
     }
 
+        static bool WrapExportedFunctionWithModuleDir(duk_context* ctx, duk_idx_t fnIndex, const std::string& dirname) {
+        fnIndex = duk_normalize_index(ctx, fnIndex);
+        if (!duk_is_function(ctx, fnIndex)) {
+            return false;
+        }
+
+        // Build: (function(fn, dirname){ return function(){ ... }})
+        if (duk_peval_string(ctx,
+            "(function(fn, dirname) {"
+            "  return function() {"
+            "    var oldDir = __dirname;"
+            "    __dirname = dirname;"
+            "    try {"
+            "      return fn.apply(this, arguments);"
+            "    } finally {"
+            "      __dirname = oldDir;"
+            "    }"
+            "  };"
+            "})") != 0) {
+            duk_pop(ctx);
+            return false;
+        }
+
+        duk_dup(ctx, fnIndex);
+        duk_push_string(ctx, dirname.c_str());
+        if (duk_pcall(ctx, 2) != 0) {
+            duk_pop(ctx);
+            return false;
+        }
+        return true;
+    }
+
+    static void WrapModuleExportsWithDirContext(duk_context* ctx, duk_idx_t exportsIndex, const std::string& dirname) {
+        exportsIndex = duk_normalize_index(ctx, exportsIndex);
+        if (duk_is_function(ctx, exportsIndex)) {
+            if (WrapExportedFunctionWithModuleDir(ctx, exportsIndex, dirname)) {
+                duk_replace(ctx, exportsIndex);
+            }
+            return;
+        }
+
+        if (!duk_is_object(ctx, exportsIndex)) {
+            return;
+        }
+
+        duk_enum(ctx, exportsIndex, DUK_ENUM_OWN_PROPERTIES_ONLY);
+        while (duk_next(ctx, -1, 1)) {
+            // [ ... enum key value ]
+            if (duk_is_string(ctx, -2) && duk_is_function(ctx, -1)) {
+                std::string key = duk_get_string(ctx, -2);
+                if (WrapExportedFunctionWithModuleDir(ctx, -1, dirname)) {
+                    // wrapped function on top
+                    duk_put_prop_string(ctx, exportsIndex, key.c_str());
+                } else {
+                    duk_pop(ctx); // pop error/partial wrapper result
+                }
+            }
+            duk_pop_2(ctx); // key, value
+        }
+        duk_pop(ctx); // enum
+    }
+    
     // ==============================================
     // Host API Implementation
     // ==============================================
@@ -588,67 +660,5 @@ namespace JSApi {
 
     const NovadeskHostAPI* GetHostAPI() {
         return &s_HostAPI;
-    }
-
-    static bool WrapExportedFunctionWithModuleDir(duk_context* ctx, duk_idx_t fnIndex, const std::string& dirname) {
-        fnIndex = duk_normalize_index(ctx, fnIndex);
-        if (!duk_is_function(ctx, fnIndex)) {
-            return false;
-        }
-
-        // Build: (function(fn, dirname){ return function(){ ... }})
-        if (duk_peval_string(ctx,
-            "(function(fn, dirname) {"
-            "  return function() {"
-            "    var oldDir = __dirname;"
-            "    __dirname = dirname;"
-            "    try {"
-            "      return fn.apply(this, arguments);"
-            "    } finally {"
-            "      __dirname = oldDir;"
-            "    }"
-            "  };"
-            "})") != 0) {
-            duk_pop(ctx);
-            return false;
-        }
-
-        duk_dup(ctx, fnIndex);
-        duk_push_string(ctx, dirname.c_str());
-        if (duk_pcall(ctx, 2) != 0) {
-            duk_pop(ctx);
-            return false;
-        }
-        return true;
-    }
-
-    static void WrapModuleExportsWithDirContext(duk_context* ctx, duk_idx_t exportsIndex, const std::string& dirname) {
-        exportsIndex = duk_normalize_index(ctx, exportsIndex);
-        if (duk_is_function(ctx, exportsIndex)) {
-            if (WrapExportedFunctionWithModuleDir(ctx, exportsIndex, dirname)) {
-                duk_replace(ctx, exportsIndex);
-            }
-            return;
-        }
-
-        if (!duk_is_object(ctx, exportsIndex)) {
-            return;
-        }
-
-        duk_enum(ctx, exportsIndex, DUK_ENUM_OWN_PROPERTIES_ONLY);
-        while (duk_next(ctx, -1, 1)) {
-            // [ ... enum key value ]
-            if (duk_is_string(ctx, -2) && duk_is_function(ctx, -1)) {
-                std::string key = duk_get_string(ctx, -2);
-                if (WrapExportedFunctionWithModuleDir(ctx, -1, dirname)) {
-                    // wrapped function on top
-                    duk_put_prop_string(ctx, exportsIndex, key.c_str());
-                } else {
-                    duk_pop(ctx); // pop error/partial wrapper result
-                }
-            }
-            duk_pop_2(ctx); // key, value
-        }
-        duk_pop(ctx); // enum
     }
 }

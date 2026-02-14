@@ -12,7 +12,6 @@ function loadWelcomeWidget() {
         script: 'ui/ui.js',
         width: 300,
         height: 300,
-        zPos: "ontop",
         show: !app.isFirstRun()
     })
 
@@ -23,14 +22,35 @@ function loadWelcomeWidget() {
             show: true
         });
     }
+
+    // Set up context menu
+    welcome_Widget.setContextMenu([
+        {
+            text: "Refresh",
+            action: function () {
+                welcome_Widget.refresh();
+            }
+        },
+        { type: "separator" },
+        {
+            text: "Close",
+            action: function () {
+                utils.setJsonValue('welcome_Widget_Active', false);
+                unloadWelcomeWidget();
+                if (typeof __refreshTrayMenu === "function") {
+                    __refreshTrayMenu();
+                }
+            }
+        }
+    ]);
 }
 
 // IPC listeners for button clicks
-ipc.on("openWebsite", function() {
+ipc.on("openWebsite", function () {
     system.execute("https://novadesk.pages.dev/");
 });
 
-ipc.on("openDocs", function() {
+ipc.on("openDocs", function () {
     system.execute("https://novadesk-docs.pages.dev/");
 });
 

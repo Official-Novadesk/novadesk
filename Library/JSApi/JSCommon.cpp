@@ -44,6 +44,47 @@ namespace JSApi {
         return found;
     }
 
+    bool WrapCallbackWithDirContext(duk_context* ctx, duk_idx_t fnIndex, const char* overrideDir) {
+        if (!ctx) return false;
+        fnIndex = duk_normalize_index(ctx, fnIndex);
+        if (!duk_is_function(ctx, fnIndex)) return false;
+
+        std::string dirname;
+        if (overrideDir && *overrideDir) {
+            dirname = overrideDir;
+        } else {
+            duk_get_global_string(ctx, "__dirname");
+            if (!duk_is_string(ctx, -1)) {
+                duk_pop(ctx);
+                return false;
+            }
+            dirname = duk_get_string(ctx, -1);
+            duk_pop(ctx);
+            if (dirname.empty()) return false;
+        }
+
+        if (duk_peval_string(ctx,
+            "(function(fn, dirname) {"
+            "  return function() {"
+            "    var oldDir = __dirname;"
+            "    __dirname = dirname;"
+            "    try { return fn.apply(this, arguments); }"
+            "    finally { __dirname = oldDir; }"
+            "  };"
+            "})") != 0) {
+            duk_pop(ctx);
+            return false;
+        }
+
+        duk_dup(ctx, fnIndex);
+        duk_push_string(ctx, dirname.c_str());
+        if (duk_pcall(ctx, 2) != 0) {
+            duk_pop(ctx);
+            return false;
+        }
+        return true;
+    }
+
     void BindMethods(duk_context* ctx, const JsBinding* bindings, size_t count) {
         if (!ctx || !bindings) return;
         for (size_t i = 0; i < count; ++i) {

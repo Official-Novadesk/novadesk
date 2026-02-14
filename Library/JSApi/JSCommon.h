@@ -34,6 +34,7 @@ namespace JSApi {
 
     Widget* GetWidgetFromThis(duk_context* ctx);
     bool TryGetWidgetIdFromObject(duk_context* ctx, duk_idx_t idx, std::string& outId);
+    bool WrapCallbackWithDirContext(duk_context* ctx, duk_idx_t fnIndex, const char* overrideDir = nullptr);
 
     inline void BindFunction(duk_context* ctx, const char* name, duk_c_function fn, duk_idx_t nargs) {
         duk_push_c_function(ctx, fn, nargs);

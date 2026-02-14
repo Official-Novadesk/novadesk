@@ -13,19 +13,38 @@ function loadClockWidget() {
         id: 'clock_Window',
         script: 'ui/ui.js',
         width: 212,
-        height: 72,
-        zPos: "ontop",
+        height: 72, 
         show: !app.isFirstRun()
     })
 
     if (app.isFirstRun()) {
-
         clock_Widget.setProperties({
             x: ((system.getDisplayMetrics().primary.screenArea.width - 212) - 10),
             y: 10,
             show: true
         });
     }
+
+    // Set up context menu
+    clock_Widget.setContextMenu([
+        {
+            text: "Refresh",
+            action: function () {
+                clock_Widget.refresh();
+            }
+        },
+        { type: "separator" },
+        {
+            text: "Close",
+            action: function () {
+                utils.setJsonValue('clock_Widget_Active', false);
+                unloadClockWidget();
+                if (typeof __refreshTrayMenu === "function") {
+                    __refreshTrayMenu();
+                }
+            }
+        }
+    ]);
 
     registerIPC();
 }
@@ -54,7 +73,7 @@ function unloadClockWidget() {
         clearInterval(clock_Timer);
         clock_Timer = null;
     }
-    
+
     if (clock_Widget) {
         clock_Widget.close();
         clock_Widget = null;

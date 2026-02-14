@@ -86,20 +86,26 @@ namespace JSApi {
         if (duk_is_function(ctx, 1)) {
             keyDownIdx = idForCallback * 10;
             duk_push_int(ctx, keyDownIdx);
-            duk_dup(ctx, 1);
+            if (!WrapCallbackWithDirContext(ctx, 1)) {
+                duk_dup(ctx, 1);
+            }
             duk_put_prop(ctx, -3);
         } else if (duk_is_object(ctx, 1)) {
             if (duk_get_prop_string(ctx, 1, "onKeyDown") && duk_is_function(ctx, -1)) {
                 keyDownIdx = idForCallback * 10;
                 duk_push_int(ctx, keyDownIdx);
-                duk_dup(ctx, -2);
+                if (!WrapCallbackWithDirContext(ctx, -1)) {
+                    duk_dup(ctx, -2);
+                }
                 duk_put_prop(ctx, -4);
             }
             duk_pop(ctx);
             if (duk_get_prop_string(ctx, 1, "onKeyUp") && duk_is_function(ctx, -1)) {
                 keyUpIdx = idForCallback * 10 + 1;
                 duk_push_int(ctx, keyUpIdx);
-                duk_dup(ctx, -2);
+                if (!WrapCallbackWithDirContext(ctx, -1)) {
+                    duk_dup(ctx, -2);
+                }
                 duk_put_prop(ctx, -4);
             }
             duk_pop(ctx);

@@ -1,3 +1,4 @@
+var utils = require('../common/utils');
 var system_Widget = null;
 var cpuMonitor = null;
 var memoryMonitor = null;
@@ -13,17 +14,37 @@ function loadSystemWidget() {
         script: path.join(__dirname, 'ui/ui.js'),
         width: 212,
         height: 122,
-        zPos: "ontop",
         show: !app.isFirstRun()
     })
 
     if (app.isFirstRun()) {
         system_Widget.setProperties({
             x: ((system.getDisplayMetrics().primary.screenArea.width - 212) - 10),
-            y: 10,
+            y: 92,
             show: true
         });
     }
+    
+    // Set up context menu
+    system_Widget.setContextMenu([
+        {
+            text: "Refresh",
+            action: function() {
+                system_Widget.refresh();
+            }
+        },
+        { type: "separator" },
+        {
+            text: "Close",
+            action: function() {
+                utils.setJsonValue('system_Widget_Active', false);
+                unloadSystemWidget();
+                if (typeof __refreshTrayMenu === "function") {
+                    __refreshTrayMenu();
+                }
+            }
+        }
+    ]);
     
     registerIPC();
 }
