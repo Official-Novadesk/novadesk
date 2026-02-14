@@ -370,7 +370,7 @@ namespace JSApi {
             return nullptr;
         }
         else if (duk_is_boolean(ctx, idx)) {
-            return duk_get_boolean(ctx, idx);
+            return duk_get_boolean(ctx, idx) != 0;
         }
         else if (duk_is_number(ctx, idx)) {
             return duk_get_number(ctx, idx);
@@ -413,6 +413,12 @@ namespace JSApi {
                 return 0;
             }
 
+            if (f.peek() == std::ifstream::traits_type::eof()) {
+                // Treat empty files as an empty JSON object for convenience.
+                duk_push_object(ctx);
+                return 1;
+            }
+
             json j = json::parse(f, nullptr, true, true);
             
             PushJsonToDuk(ctx, j);
@@ -439,6 +445,8 @@ namespace JSApi {
                 std::string text((std::istreambuf_iterator<char>(existing)), std::istreambuf_iterator<char>());
                 existing.close();
 
+                bool hasContent = (text.find_first_not_of(" \t\r\n") != std::string::npos);
+
                 if (MergeIntoJsonText(text, j)) {
                     std::ofstream out(wpath, std::ios::binary);
                     if (out.is_open()) {
@@ -448,7 +456,9 @@ namespace JSApi {
                         return 1;
                     }
                 }
-                Logging::Log(LogLevel::Warn, L"JSON merge failed; rewriting without preserving comments: %s", wpath.c_str());
+                if (hasContent) {
+                    Logging::Log(LogLevel::Warn, L"JSON merge failed; rewriting without preserving comments: %s", wpath.c_str());
+                }
             }
 
             std::ofstream out(wpath, std::ios::binary);

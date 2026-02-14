@@ -55,7 +55,10 @@ function unloadClockWidget() {
         clock_Timer = null;
     }
     
-    clock_Widget = null;
+    if (clock_Widget) {
+        clock_Widget.close();
+        clock_Widget = null;
+    }
 }
 
 module.exports = {

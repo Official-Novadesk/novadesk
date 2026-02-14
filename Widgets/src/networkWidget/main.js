@@ -92,7 +92,10 @@ function unloadNetworkWidget() {
         network_Monitor = null;
     }
     
-    network_Widget = null;
+    if (network_Widget) {
+        network_Widget.close();
+        network_Widget = null;
+    }
 }
 
 module.exports = {

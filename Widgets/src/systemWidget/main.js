@@ -66,7 +66,10 @@ function unloadSystemWidget() {
         memoryMonitor = null;
     }
     
-    system_Widget = null;
+    if (system_Widget) {
+        system_Widget.close();
+        system_Widget = null;
+    }
 }
 
 module.exports = {
