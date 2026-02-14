@@ -337,16 +337,41 @@ namespace JSApi {
         if (!PathUtils::IsPathRelative(path)) return PathUtils::NormalizePath(path);
 
         std::wstring baseDir = PathUtils::GetWidgetsDir();
-        
-        duk_get_global_string(ctx, "__dirname");
-        if (duk_is_string(ctx, -1)) {
-            std::wstring dirname = Utils::ToWString(duk_get_string(ctx, -1));
-            if (!dirname.empty()) {
-                baseDir = dirname;
-                if (baseDir.back() != L'\\') baseDir += L'\\';
+
+        bool resolvedFromRequireStack = false;
+
+        // Prefer the current module path when inside require() execution.
+        duk_push_global_stash(ctx);
+        if (duk_get_prop_string(ctx, -1, "__require_stack") && duk_is_array(ctx, -1)) {
+            duk_uarridx_t len = (duk_uarridx_t)duk_get_length(ctx, -1);
+            if (len > 0) {
+                duk_get_prop_index(ctx, -1, len - 1);
+                if (duk_is_string(ctx, -1)) {
+                    std::wstring currentFile = Utils::ToWString(duk_get_string(ctx, -1));
+                    std::wstring currentDir = PathUtils::GetParentDir(currentFile);
+                    if (!currentDir.empty()) {
+                        baseDir = currentDir;
+                        if (baseDir.back() != L'\\') baseDir += L'\\';
+                        resolvedFromRequireStack = true;
+                    }
+                }
+                duk_pop(ctx);
             }
         }
-        duk_pop(ctx);
+        duk_pop_2(ctx);
+
+        // Fallback to global __dirname (main script / widget script context).
+        if (!resolvedFromRequireStack) {
+            duk_get_global_string(ctx, "__dirname");
+            if (duk_is_string(ctx, -1)) {
+                std::wstring dirname = Utils::ToWString(duk_get_string(ctx, -1));
+                if (!dirname.empty()) {
+                    baseDir = dirname;
+                    if (baseDir.back() != L'\\') baseDir += L'\\';
+                }
+            }
+            duk_pop(ctx);
+        }
 
         return PathUtils::ResolvePath(path, baseDir);
     }

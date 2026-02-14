@@ -11,7 +11,7 @@ function loadClockWidget() {
 
     clock_Widget = new widgetWindow({
         id: 'clock_Window',
-        script: path.join(__dirname, 'ui/ui.js'),
+        script: 'ui/ui.js',
         width: 212,
         height: 72,
         zPos: "ontop",
