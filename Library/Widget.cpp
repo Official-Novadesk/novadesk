@@ -1421,9 +1421,8 @@ bool Widget::HitTestContainerChildren(Element* container, int x, int y, Element*
 /*
 ** Update properties of an existing element.
 */
-void Widget::SetElementProperties(const std::wstring& id, duk_context* ctx)
+void Widget::ApplyParsedPropertiesToElement(Element* element, duk_context* ctx)
 {
-    Element* element = FindElementById(id);
     if (!element) return;
 
     if (element->GetType() == ELEMENT_TEXT) {
@@ -1465,9 +1464,52 @@ void Widget::SetElementProperties(const std::wstring& id, duk_context* ctx)
             }
         }
     }
+}
+
+void Widget::SetElementProperties(const std::wstring& id, duk_context* ctx)
+{
+    Element* element = FindElementById(id);
+    if (!element) return;
+
+    ApplyParsedPropertiesToElement(element, ctx);
     
     if (!m_IsBatchUpdating) {
         Redraw();
+    }
+}
+
+void Widget::SetGroupProperties(const std::wstring& group, duk_context* ctx)
+{
+    if (group.empty() || !ctx) return;
+
+    bool changed = false;
+    for (Element* element : m_Elements) {
+        if (!element) continue;
+        if (element->GetGroupId() != group) continue;
+        ApplyParsedPropertiesToElement(element, ctx);
+        changed = true;
+    }
+
+    if (changed && !m_IsBatchUpdating) {
+        Redraw();
+    }
+}
+
+void Widget::RemoveElementsByGroup(const std::wstring& group)
+{
+    if (group.empty()) return;
+
+    std::vector<std::wstring> ids;
+    ids.reserve(m_Elements.size());
+    for (Element* element : m_Elements) {
+        if (!element) continue;
+        if (element->GetGroupId() == group) {
+            ids.push_back(element->GetId());
+        }
+    }
+
+    if (!ids.empty()) {
+        RemoveElements(ids);
     }
 }
 

@@ -178,6 +178,8 @@ public:
 
     void SetContainerId(const std::wstring& id) { m_ContainerId = id; }
     const std::wstring& GetContainerId() const { return m_ContainerId; }
+    void SetGroupId(const std::wstring& id) { m_GroupId = id; }
+    const std::wstring& GetGroupId() const { return m_GroupId; }
     void SetContainer(Element* container) { m_ContainerElement = container; }
     Element* GetContainer() const { return m_ContainerElement; }
     bool IsContained() const { return m_ContainerElement != nullptr; }
@@ -268,6 +270,7 @@ protected:
     bool m_Show = true;
 
     std::wstring m_ContainerId;
+    std::wstring m_GroupId;
     Element* m_ContainerElement = nullptr;
     std::vector<Element*> m_ContainerItems;
     

@@ -186,6 +186,7 @@ namespace PropertyParser {
         reader.GetBool("antiAlias", options.antialias);
         reader.GetBool("show", options.show);
         reader.GetString("container", options.containerId);
+        reader.GetString("group", options.groupId);
 
         if (reader.GetFloatArray("transformMatrix", options.transformMatrix, 6)) {
             options.hasTransformMatrix = true;
@@ -707,6 +708,7 @@ namespace PropertyParser {
 
         duk_push_boolean(ctx, element->IsVisible()); duk_put_prop_string(ctx, -2, "show");
         duk_push_string(ctx, Utils::ToString(element->GetContainerId()).c_str()); duk_put_prop_string(ctx, -2, "container");
+        duk_push_string(ctx, Utils::ToString(element->GetGroupId()).c_str()); duk_put_prop_string(ctx, -2, "group");
         duk_push_number(ctx, element->GetRotate()); duk_put_prop_string(ctx, -2, "rotate");
         duk_push_boolean(ctx, element->GetAntiAlias()); duk_put_prop_string(ctx, -2, "antiAlias");
 
@@ -882,6 +884,7 @@ namespace PropertyParser {
         element->SetAntiAlias(options.antialias);
         element->SetShow(options.show);
         element->SetContainerId(options.containerId);
+        element->SetGroupId(options.groupId);
         element->SetCornerRadius(options.solidColorRadius);
         element->SetPadding(options.paddingLeft, options.paddingTop, options.paddingRight, options.paddingBottom);
         
@@ -1082,6 +1085,7 @@ namespace PropertyParser {
         options.antialias = element->GetAntiAlias();
         options.show = element->IsVisible();
         options.containerId = element->GetContainerId();
+        options.groupId = element->GetGroupId();
 
         options.hasSolidColor = element->HasSolidColor();
         options.solidColor = element->GetSolidColor();

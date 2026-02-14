@@ -2,7 +2,7 @@ var utils = require('../common/utils');
 
 var weather_Widget = null;
 var weather_Timer = null;
-var current_Location = { lat: 40.7128, lon: -74.0060 }; // Default to New York
+var current_Location = { lat: 29.688981, lon: 72.552545 }; 
 var useFahrenheit = false; // Toggle for temperature units
 
 function loadWeatherWidget() {

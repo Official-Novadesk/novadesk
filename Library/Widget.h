@@ -96,6 +96,8 @@ public:
     void AddShape(const PropertyParser::ShapeOptions& options);
 
     void SetElementProperties(const std::wstring& id, duk_context* ctx);
+    void SetGroupProperties(const std::wstring& group, duk_context* ctx);
+    void RemoveElementsByGroup(const std::wstring& group);
     bool RemoveElements(const std::wstring& id = L"");
     void RemoveElements(const std::vector<std::wstring>& ids);
 	// Context Menu
@@ -126,6 +128,7 @@ private:
     void OnContextMenu();
     bool BuildCombinedShapeGeometry(class PathShape* target, const PropertyParser::ShapeOptions& options);
     void ReleaseCombinedConsumes(class PathShape* target);
+    void ApplyParsedPropertiesToElement(Element* element, duk_context* ctx);
     void UpdateContainerForElement(Element* element, const std::wstring& newContainerId);
     bool WouldCreateContainerCycle(Element* element, Element* container) const;
     void RenderContainerChildren(Element* container);
