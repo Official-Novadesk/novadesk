@@ -18,6 +18,7 @@
 #include "../NetworkMonitor.h"
 #include "../MouseMonitor.h"
 #include "../DiskMonitor.h"
+#include "../NowPlayingMonitor.h"
 #include "JSUtils.h"
 #include "JSAudio.h"
 #include "JSAudioLevel.h"
@@ -510,6 +511,153 @@ namespace JSApi {
         return 0;
     }
 
+    duk_ret_t js_now_playing_constructor(duk_context* ctx) {
+        if (!duk_is_constructor_call(ctx)) return DUK_RET_TYPE_ERROR;
+        NowPlayingMonitor* monitor = new NowPlayingMonitor();
+        duk_push_this(ctx);
+        duk_push_pointer(ctx, monitor);
+        duk_put_prop_string(ctx, -2, "\xFF" "monitorPtr");
+        return 0;
+    }
+    duk_ret_t js_now_playing_finalizer(duk_context* ctx) {
+        duk_get_prop_string(ctx, 0, "\xFF" "monitorPtr");
+        NowPlayingMonitor* monitor = (NowPlayingMonitor*)duk_get_pointer(ctx, -1);
+        if (monitor) delete monitor;
+        return 0;
+    }
+    duk_ret_t js_now_playing_stats(duk_context* ctx) {
+        duk_push_this(ctx);
+        duk_get_prop_string(ctx, -1, "\xFF" "monitorPtr");
+        NowPlayingMonitor* monitor = (NowPlayingMonitor*)duk_get_pointer(ctx, -1);
+        if (!monitor) return DUK_RET_ERROR;
+        auto stats = monitor->GetStats();
+        duk_push_object(ctx);
+        duk_push_boolean(ctx, stats.available); duk_put_prop_string(ctx, -2, "available");
+        duk_push_string(ctx, Utils::ToString(stats.player).c_str()); duk_put_prop_string(ctx, -2, "player");
+        duk_push_string(ctx, Utils::ToString(stats.artist).c_str()); duk_put_prop_string(ctx, -2, "artist");
+        duk_push_string(ctx, Utils::ToString(stats.album).c_str()); duk_put_prop_string(ctx, -2, "album");
+        duk_push_string(ctx, Utils::ToString(stats.title).c_str()); duk_put_prop_string(ctx, -2, "title");
+        duk_push_string(ctx, Utils::ToString(stats.thumbnail).c_str()); duk_put_prop_string(ctx, -2, "thumbnail");
+        duk_push_int(ctx, stats.duration); duk_put_prop_string(ctx, -2, "duration");
+        duk_push_int(ctx, stats.position); duk_put_prop_string(ctx, -2, "position");
+        duk_push_int(ctx, stats.progress); duk_put_prop_string(ctx, -2, "progress");
+        duk_push_int(ctx, stats.state); duk_put_prop_string(ctx, -2, "state");
+        duk_push_int(ctx, stats.status); duk_put_prop_string(ctx, -2, "status");
+        duk_push_boolean(ctx, stats.shuffle); duk_put_prop_string(ctx, -2, "shuffle");
+        duk_push_boolean(ctx, stats.repeat); duk_put_prop_string(ctx, -2, "repeat");
+        return 1;
+    }
+    duk_ret_t js_now_playing_play(duk_context* ctx) {
+        duk_push_this(ctx);
+        duk_get_prop_string(ctx, -1, "\xFF" "monitorPtr");
+        NowPlayingMonitor* monitor = (NowPlayingMonitor*)duk_get_pointer(ctx, -1);
+        if (!monitor) return DUK_RET_ERROR;
+        duk_push_boolean(ctx, monitor->Play());
+        return 1;
+    }
+    duk_ret_t js_now_playing_pause(duk_context* ctx) {
+        duk_push_this(ctx);
+        duk_get_prop_string(ctx, -1, "\xFF" "monitorPtr");
+        NowPlayingMonitor* monitor = (NowPlayingMonitor*)duk_get_pointer(ctx, -1);
+        if (!monitor) return DUK_RET_ERROR;
+        duk_push_boolean(ctx, monitor->Pause());
+        return 1;
+    }
+    duk_ret_t js_now_playing_play_pause(duk_context* ctx) {
+        duk_push_this(ctx);
+        duk_get_prop_string(ctx, -1, "\xFF" "monitorPtr");
+        NowPlayingMonitor* monitor = (NowPlayingMonitor*)duk_get_pointer(ctx, -1);
+        if (!monitor) return DUK_RET_ERROR;
+        duk_push_boolean(ctx, monitor->PlayPause());
+        return 1;
+    }
+    duk_ret_t js_now_playing_stop(duk_context* ctx) {
+        duk_push_this(ctx);
+        duk_get_prop_string(ctx, -1, "\xFF" "monitorPtr");
+        NowPlayingMonitor* monitor = (NowPlayingMonitor*)duk_get_pointer(ctx, -1);
+        if (!monitor) return DUK_RET_ERROR;
+        duk_push_boolean(ctx, monitor->Stop());
+        return 1;
+    }
+    duk_ret_t js_now_playing_next(duk_context* ctx) {
+        duk_push_this(ctx);
+        duk_get_prop_string(ctx, -1, "\xFF" "monitorPtr");
+        NowPlayingMonitor* monitor = (NowPlayingMonitor*)duk_get_pointer(ctx, -1);
+        if (!monitor) return DUK_RET_ERROR;
+        duk_push_boolean(ctx, monitor->Next());
+        return 1;
+    }
+    duk_ret_t js_now_playing_previous(duk_context* ctx) {
+        duk_push_this(ctx);
+        duk_get_prop_string(ctx, -1, "\xFF" "monitorPtr");
+        NowPlayingMonitor* monitor = (NowPlayingMonitor*)duk_get_pointer(ctx, -1);
+        if (!monitor) return DUK_RET_ERROR;
+        duk_push_boolean(ctx, monitor->Previous());
+        return 1;
+    }
+    duk_ret_t js_now_playing_set_position(duk_context* ctx) {
+        if (duk_get_top(ctx) < 1 || !duk_is_number(ctx, 0)) return DUK_RET_TYPE_ERROR;
+        int value = duk_get_int(ctx, 0);
+        bool isPercent = true;
+        if (duk_get_top(ctx) > 1 && duk_is_string(ctx, 1)) {
+            std::string mode = duk_get_string(ctx, 1);
+            if (mode == "seconds") isPercent = false;
+            else if (mode == "percent") isPercent = true;
+        } else if (value > 100) {
+            isPercent = false;
+        }
+        duk_push_this(ctx);
+        duk_get_prop_string(ctx, -1, "\xFF" "monitorPtr");
+        NowPlayingMonitor* monitor = (NowPlayingMonitor*)duk_get_pointer(ctx, -1);
+        if (!monitor) return DUK_RET_ERROR;
+        duk_push_boolean(ctx, monitor->SetPosition(value, isPercent));
+        return 1;
+    }
+    duk_ret_t js_now_playing_set_shuffle(duk_context* ctx) {
+        if (duk_get_top(ctx) < 1 || !duk_is_boolean(ctx, 0)) return DUK_RET_TYPE_ERROR;
+        bool enabled = duk_get_boolean(ctx, 0) != 0;
+        duk_push_this(ctx);
+        duk_get_prop_string(ctx, -1, "\xFF" "monitorPtr");
+        NowPlayingMonitor* monitor = (NowPlayingMonitor*)duk_get_pointer(ctx, -1);
+        if (!monitor) return DUK_RET_ERROR;
+        duk_push_boolean(ctx, monitor->SetShuffle(enabled));
+        return 1;
+    }
+    duk_ret_t js_now_playing_toggle_shuffle(duk_context* ctx) {
+        duk_push_this(ctx);
+        duk_get_prop_string(ctx, -1, "\xFF" "monitorPtr");
+        NowPlayingMonitor* monitor = (NowPlayingMonitor*)duk_get_pointer(ctx, -1);
+        if (!monitor) return DUK_RET_ERROR;
+        duk_push_boolean(ctx, monitor->ToggleShuffle());
+        return 1;
+    }
+    duk_ret_t js_now_playing_set_repeat(duk_context* ctx) {
+        if (duk_get_top(ctx) < 1 || !duk_is_string(ctx, 0)) return DUK_RET_TYPE_ERROR;
+        std::string mode = duk_get_string(ctx, 0);
+        int repeatMode = 0;
+        if (mode == "none") repeatMode = 0;
+        else if (mode == "one") repeatMode = 1;
+        else if (mode == "all") repeatMode = 2;
+        else return DUK_RET_TYPE_ERROR;
+        duk_push_this(ctx);
+        duk_get_prop_string(ctx, -1, "\xFF" "monitorPtr");
+        NowPlayingMonitor* monitor = (NowPlayingMonitor*)duk_get_pointer(ctx, -1);
+        if (!monitor) return DUK_RET_ERROR;
+        duk_push_boolean(ctx, monitor->SetRepeat(repeatMode));
+        return 1;
+    }
+    duk_ret_t js_now_playing_destroy(duk_context* ctx) {
+        duk_push_this(ctx);
+        duk_get_prop_string(ctx, -1, "\xFF" "monitorPtr");
+        NowPlayingMonitor* monitor = (NowPlayingMonitor*)duk_get_pointer(ctx, -1);
+        if (monitor) {
+            delete monitor;
+            duk_push_pointer(ctx, nullptr);
+            duk_put_prop_string(ctx, -3, "\xFF" "monitorPtr");
+        }
+        return 0;
+    }
+
     void BindSystemBaseMethods(duk_context* ctx) {
         duk_push_c_function(ctx, js_get_env, DUK_VARARGS);
         duk_put_prop_string(ctx, -2, "getEnv");
@@ -578,6 +726,26 @@ namespace JSApi {
         duk_push_c_function(ctx, js_disk_finalizer, 1);
         duk_set_finalizer(ctx, -2);
         duk_put_prop_string(ctx, -2, "disk");
+
+        // NowPlaying Class
+        duk_push_c_function(ctx, js_now_playing_constructor, 0);
+        duk_push_object(ctx);
+        duk_push_c_function(ctx, js_now_playing_stats, 0); duk_put_prop_string(ctx, -2, "stats");
+        duk_push_c_function(ctx, js_now_playing_play, 0); duk_put_prop_string(ctx, -2, "play");
+        duk_push_c_function(ctx, js_now_playing_pause, 0); duk_put_prop_string(ctx, -2, "pause");
+        duk_push_c_function(ctx, js_now_playing_play_pause, 0); duk_put_prop_string(ctx, -2, "playPause");
+        duk_push_c_function(ctx, js_now_playing_stop, 0); duk_put_prop_string(ctx, -2, "stop");
+        duk_push_c_function(ctx, js_now_playing_next, 0); duk_put_prop_string(ctx, -2, "next");
+        duk_push_c_function(ctx, js_now_playing_previous, 0); duk_put_prop_string(ctx, -2, "previous");
+        duk_push_c_function(ctx, js_now_playing_set_position, DUK_VARARGS); duk_put_prop_string(ctx, -2, "setPosition");
+        duk_push_c_function(ctx, js_now_playing_set_shuffle, 1); duk_put_prop_string(ctx, -2, "setShuffle");
+        duk_push_c_function(ctx, js_now_playing_toggle_shuffle, 0); duk_put_prop_string(ctx, -2, "toggleShuffle");
+        duk_push_c_function(ctx, js_now_playing_set_repeat, 1); duk_put_prop_string(ctx, -2, "setRepeat");
+        duk_push_c_function(ctx, js_now_playing_destroy, 0); duk_put_prop_string(ctx, -2, "destroy");
+        duk_put_prop_string(ctx, -2, "prototype");
+        duk_push_c_function(ctx, js_now_playing_finalizer, 1);
+        duk_set_finalizer(ctx, -2);
+        duk_put_prop_string(ctx, -2, "nowPlaying");
 
         // AudioLevel Class
         duk_push_c_function(ctx, js_audio_constructor, 1);

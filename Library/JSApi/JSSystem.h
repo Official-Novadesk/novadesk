@@ -47,6 +47,21 @@ namespace JSApi {
     duk_ret_t js_disk_destroy(duk_context* ctx);
     duk_ret_t js_disk_finalizer(duk_context* ctx);
 
+    duk_ret_t js_now_playing_constructor(duk_context* ctx);
+    duk_ret_t js_now_playing_stats(duk_context* ctx);
+    duk_ret_t js_now_playing_play(duk_context* ctx);
+    duk_ret_t js_now_playing_pause(duk_context* ctx);
+    duk_ret_t js_now_playing_play_pause(duk_context* ctx);
+    duk_ret_t js_now_playing_stop(duk_context* ctx);
+    duk_ret_t js_now_playing_next(duk_context* ctx);
+    duk_ret_t js_now_playing_previous(duk_context* ctx);
+    duk_ret_t js_now_playing_set_position(duk_context* ctx);
+    duk_ret_t js_now_playing_set_shuffle(duk_context* ctx);
+    duk_ret_t js_now_playing_toggle_shuffle(duk_context* ctx);
+    duk_ret_t js_now_playing_set_repeat(duk_context* ctx);
+    duk_ret_t js_now_playing_destroy(duk_context* ctx);
+    duk_ret_t js_now_playing_finalizer(duk_context* ctx);
+
     // Binding functions
     void BindSystemBaseMethods(duk_context* ctx);
     void BindSystemMonitors(duk_context* ctx);

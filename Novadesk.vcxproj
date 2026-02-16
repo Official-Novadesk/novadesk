@@ -107,6 +107,7 @@
     <ClInclude Include="Library\JSApi\JSPower.h" />
     <ClInclude Include="Library\JSApi\JSNovadeskTray.h" />
     <ClInclude Include="Library\MouseMonitor.h" />
+    <ClInclude Include="Library\NowPlayingMonitor.h" />
     <ClInclude Include="Library\NetworkMonitor.h" />
     <ClInclude Include="Library\System.h" />
     <ClInclude Include="Library\TextElement.h" />
@@ -171,6 +172,7 @@
     <ClCompile Include="Library\JSApi\JSPower.cpp" />
     <ClCompile Include="Library\JSApi\JSNovadeskTray.cpp" />
     <ClCompile Include="Library\MouseMonitor.cpp" />
+    <ClCompile Include="Library\NowPlayingMonitor.cpp" />
     <ClCompile Include="Library\NetworkMonitor.cpp" />
     <ClCompile Include="Library\System.cpp" />
     <ClCompile Include="Library\TextElement.cpp" />
