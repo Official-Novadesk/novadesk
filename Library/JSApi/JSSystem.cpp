@@ -202,6 +202,27 @@ namespace JSApi {
         return 1;
     }
 
+    duk_ret_t js_system_set_wallpaper(duk_context* ctx) {
+        if (duk_get_top(ctx) < 1 || !duk_is_string(ctx, 0)) return DUK_RET_TYPE_ERROR;
+
+        std::wstring imagePath = Utils::ToWString(duk_get_string(ctx, 0));
+        std::wstring style = L"fill";
+        if (duk_get_top(ctx) > 1 && !duk_is_null_or_undefined(ctx, 1)) {
+            if (!duk_is_string(ctx, 1)) return DUK_RET_TYPE_ERROR;
+            style = Utils::ToWString(duk_get_string(ctx, 1));
+        }
+
+        if (PathUtils::IsPathRelative(imagePath)) {
+            imagePath = PathUtils::ResolvePath(imagePath, PathUtils::GetParentDir(s_CurrentScriptPath));
+        } else {
+            imagePath = PathUtils::NormalizePath(imagePath);
+        }
+
+        bool success = System::SetWallpaper(imagePath, style);
+        duk_push_boolean(ctx, success);
+        return 1;
+    }
+
     duk_ret_t js_system_load_addon(duk_context* ctx) {
         if (duk_get_top(ctx) < 1) return DUK_RET_TYPE_ERROR;
         std::wstring addonPath = Utils::ToWString(duk_get_string(ctx, 0));
@@ -669,6 +690,8 @@ namespace JSApi {
         duk_put_prop_string(ctx, -2, "execute");
         duk_push_c_function(ctx, js_system_get_display_metrics, 0);
         duk_put_prop_string(ctx, -2, "getDisplayMetrics");
+        duk_push_c_function(ctx, js_system_set_wallpaper, 1);
+        duk_put_prop_string(ctx, -2, "setWallpaper");
         duk_push_c_function(ctx, js_system_load_addon, 1);
         duk_put_prop_string(ctx, -2, "loadAddon");
         duk_push_c_function(ctx, js_system_unload_addon, 1);

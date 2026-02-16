@@ -20,6 +20,7 @@ namespace JSApi {
     duk_ret_t js_system_execute(duk_context* ctx);
     duk_ret_t js_system_get_display_metrics(duk_context* ctx);
     duk_ret_t js_system_load_addon(duk_context* ctx);
+    duk_ret_t js_system_set_wallpaper(duk_context* ctx);
 
     // Monitor Constructors/Methods
     duk_ret_t js_cpu_constructor(duk_context* ctx);
