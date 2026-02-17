@@ -26,6 +26,7 @@ namespace JSApi {
     duk_ret_t js_system_list_app_volumes(duk_context* ctx);
     duk_ret_t js_system_get_app_volume(duk_context* ctx);
     duk_ret_t js_system_set_app_volume(duk_context* ctx);
+    duk_ret_t js_system_get_app_peak(duk_context* ctx);
     duk_ret_t js_system_get_app_mute(duk_context* ctx);
     duk_ret_t js_system_set_app_mute(duk_context* ctx);
 

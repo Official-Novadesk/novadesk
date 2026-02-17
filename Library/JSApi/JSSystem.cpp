@@ -621,8 +621,12 @@ namespace JSApi {
             duk_push_object(ctx);
             duk_push_uint(ctx, s.pid); duk_put_prop_string(ctx, -2, "pid");
             duk_push_string(ctx, Utils::ToString(s.processName).c_str()); duk_put_prop_string(ctx, -2, "process");
+            duk_push_string(ctx, Utils::ToString(s.fileName).c_str()); duk_put_prop_string(ctx, -2, "fileName");
+            duk_push_string(ctx, Utils::ToString(s.filePath).c_str()); duk_put_prop_string(ctx, -2, "filePath");
+            duk_push_string(ctx, Utils::ToString(s.iconPath).c_str()); duk_put_prop_string(ctx, -2, "iconPath");
             duk_push_string(ctx, Utils::ToString(s.displayName).c_str()); duk_put_prop_string(ctx, -2, "displayName");
             duk_push_int(ctx, (int)(s.volume * 100.0f + 0.5f)); duk_put_prop_string(ctx, -2, "volume");
+            duk_push_int(ctx, (int)(s.peak * 100.0f + 0.5f)); duk_put_prop_string(ctx, -2, "peak");
             duk_push_boolean(ctx, s.muted); duk_put_prop_string(ctx, -2, "muted");
             duk_put_prop_index(ctx, -2, (duk_uarridx_t)i);
         }
@@ -637,13 +641,32 @@ namespace JSApi {
 
         float vol = 0.0f;
         bool muted = false;
-        bool ok = hasPid ? AppVolumeControl::GetByPid(pid, vol, muted) : AppVolumeControl::GetByProcessName(process, vol, muted);
+        float peak = 0.0f;
+        bool ok = hasPid ? AppVolumeControl::GetByPid(pid, vol, muted, peak) : AppVolumeControl::GetByProcessName(process, vol, muted, peak);
         if (!ok) {
             duk_push_null(ctx);
             return 1;
         }
 
         duk_push_int(ctx, (int)(vol * 100.0f + 0.5f));
+        return 1;
+    }
+
+    duk_ret_t js_system_get_app_peak(duk_context* ctx) {
+        DWORD pid = 0;
+        std::wstring process;
+        bool hasPid = false, hasProcess = false;
+        if (!ParseAppSelector(ctx, 0, pid, process, hasPid, hasProcess)) return DUK_RET_TYPE_ERROR;
+
+        float vol = 0.0f;
+        bool muted = false;
+        float peak = 0.0f;
+        bool ok = hasPid ? AppVolumeControl::GetByPid(pid, vol, muted, peak) : AppVolumeControl::GetByProcessName(process, vol, muted, peak);
+        if (!ok) {
+            duk_push_null(ctx);
+            return 1;
+        }
+        duk_push_int(ctx, (int)(peak * 100.0f + 0.5f));
         return 1;
     }
 
@@ -673,7 +696,8 @@ namespace JSApi {
 
         float vol = 0.0f;
         bool muted = false;
-        bool ok = hasPid ? AppVolumeControl::GetByPid(pid, vol, muted) : AppVolumeControl::GetByProcessName(process, vol, muted);
+        float peak = 0.0f;
+        bool ok = hasPid ? AppVolumeControl::GetByPid(pid, vol, muted, peak) : AppVolumeControl::GetByProcessName(process, vol, muted, peak);
         if (!ok) {
             duk_push_null(ctx);
             return 1;
@@ -696,6 +720,7 @@ namespace JSApi {
         duk_push_boolean(ctx, ok);
         return 1;
     }
+
 
     duk_ret_t js_now_playing_constructor(duk_context* ctx) {
         if (!duk_is_constructor_call(ctx)) return DUK_RET_TYPE_ERROR;
@@ -867,6 +892,8 @@ namespace JSApi {
         duk_put_prop_string(ctx, -2, "getAppVolume");
         duk_push_c_function(ctx, js_system_set_app_volume, 2);
         duk_put_prop_string(ctx, -2, "setAppVolume");
+        duk_push_c_function(ctx, js_system_get_app_peak, 1);
+        duk_put_prop_string(ctx, -2, "getAppPeak");
         duk_push_c_function(ctx, js_system_get_app_mute, 1);
         duk_put_prop_string(ctx, -2, "getAppMute");
         duk_push_c_function(ctx, js_system_set_app_mute, 2);
