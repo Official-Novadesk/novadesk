@@ -18,6 +18,7 @@
 #include "../NetworkMonitor.h"
 #include "../MouseMonitor.h"
 #include "../DiskMonitor.h"
+#include "../BrightnessControl.h"
 #include "../NowPlayingMonitor.h"
 #include "JSUtils.h"
 #include "JSAudio.h"
@@ -532,6 +533,53 @@ namespace JSApi {
         return 0;
     }
 
+    duk_ret_t js_system_get_brightness(duk_context* ctx) {
+        int displayIndex = 0;
+        if (duk_get_top(ctx) > 0 && duk_is_object(ctx, 0)) {
+            if (duk_get_prop_string(ctx, 0, "display")) {
+                if (!duk_is_null_or_undefined(ctx, -1)) displayIndex = duk_get_int(ctx, -1);
+            }
+            duk_pop(ctx);
+        }
+
+        BrightnessControl control(displayIndex);
+        BrightnessControl::BrightnessInfo info;
+        bool ok = control.GetBrightness(info);
+
+        duk_push_object(ctx);
+        duk_push_boolean(ctx, ok && info.supported); duk_put_prop_string(ctx, -2, "supported");
+        duk_push_int(ctx, (int)info.current); duk_put_prop_string(ctx, -2, "current");
+        duk_push_int(ctx, (int)info.min); duk_put_prop_string(ctx, -2, "min");
+        duk_push_int(ctx, (int)info.max); duk_put_prop_string(ctx, -2, "max");
+        duk_push_int(ctx, info.percent); duk_put_prop_string(ctx, -2, "percent");
+        return 1;
+    }
+
+    duk_ret_t js_system_set_brightness(duk_context* ctx) {
+        if (duk_get_top(ctx) < 1 || !duk_is_object(ctx, 0)) return DUK_RET_TYPE_ERROR;
+
+        int displayIndex = 0;
+        int percent = -1;
+
+        if (duk_get_prop_string(ctx, 0, "display")) {
+            if (!duk_is_null_or_undefined(ctx, -1)) displayIndex = duk_get_int(ctx, -1);
+        }
+        duk_pop(ctx);
+
+        if (duk_get_prop_string(ctx, 0, "percent")) {
+            if (!duk_is_null_or_undefined(ctx, -1)) percent = duk_get_int(ctx, -1);
+        }
+        duk_pop(ctx);
+
+        if (percent < 0) percent = 0;
+        if (percent > 100) percent = 100;
+
+        BrightnessControl control(displayIndex);
+        bool ok = control.SetBrightnessPercent(percent);
+        duk_push_boolean(ctx, ok);
+        return 1;
+    }
+
     duk_ret_t js_now_playing_constructor(duk_context* ctx) {
         if (!duk_is_constructor_call(ctx)) return DUK_RET_TYPE_ERROR;
         NowPlayingMonitor* monitor = new NowPlayingMonitor();
@@ -692,6 +740,10 @@ namespace JSApi {
         duk_put_prop_string(ctx, -2, "getDisplayMetrics");
         duk_push_c_function(ctx, js_system_set_wallpaper, 1);
         duk_put_prop_string(ctx, -2, "setWallpaper");
+        duk_push_c_function(ctx, js_system_get_brightness, DUK_VARARGS);
+        duk_put_prop_string(ctx, -2, "getBrightness");
+        duk_push_c_function(ctx, js_system_set_brightness, 1);
+        duk_put_prop_string(ctx, -2, "setBrightness");
         duk_push_c_function(ctx, js_system_load_addon, 1);
         duk_put_prop_string(ctx, -2, "loadAddon");
         duk_push_c_function(ctx, js_system_unload_addon, 1);

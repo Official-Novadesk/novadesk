@@ -55,6 +55,9 @@
     <ClInclude Include="Library\Hotkey.h">
       <Filter>Library</Filter>
     </ClInclude>
+    <ClInclude Include="Library\BrightnessControl.h">
+      <Filter>Library</Filter>
+    </ClInclude>
     <ClInclude Include="Library\ImageElement.h">
       <Filter>Library</Filter>
     </ClInclude>
@@ -248,6 +251,9 @@
       <Filter>Library</Filter>
     </ClCompile>
     <ClCompile Include="Library\Hotkey.cpp">
+      <Filter>Library</Filter>
+    </ClCompile>
+    <ClCompile Include="Library\BrightnessControl.cpp">
       <Filter>Library</Filter>
     </ClCompile>
     <ClCompile Include="Library\ImageElement.cpp">

@@ -80,6 +80,7 @@
   <ItemGroup>
     <ClInclude Include="Library\EllipseShape.h" />
     <ClInclude Include="Library\Hotkey.h" />
+    <ClInclude Include="Library\BrightnessControl.h" />
     <ClInclude Include="Library\DiskMonitor.h" />
     <ClInclude Include="Library\Element.h" />
     <ClInclude Include="Library\LineShape.h" />
@@ -148,6 +149,7 @@
     <ClCompile Include="Library\Element.cpp" />
     <ClCompile Include="Library\EllipseShape.cpp" />
     <ClCompile Include="Library\Hotkey.cpp" />
+    <ClCompile Include="Library\BrightnessControl.cpp" />
     <ClCompile Include="Library\DiskMonitor.cpp" />
     <ClCompile Include="Library\ImageElement.cpp" />
     <ClCompile Include="Library\BarElement.cpp" />
