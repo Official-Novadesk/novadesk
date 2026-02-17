@@ -26,6 +26,7 @@
 #include "JSAudioLevel.h"
 #include <map>
 #include <vector>
+#include <functional>
 
 namespace JSApi {
 
@@ -222,6 +223,55 @@ namespace JSApi {
 
         bool success = System::SetWallpaper(imagePath, style);
         duk_push_boolean(ctx, success);
+        return 1;
+    }
+
+    duk_ret_t js_system_extract_file_icon(duk_context* ctx) {
+        if (duk_get_top(ctx) < 1 || !duk_is_string(ctx, 0)) return DUK_RET_TYPE_ERROR;
+
+        std::wstring sourcePath = Utils::ToWString(duk_get_string(ctx, 0));
+        if (PathUtils::IsPathRelative(sourcePath)) {
+            sourcePath = PathUtils::ResolvePath(sourcePath, PathUtils::GetParentDir(s_CurrentScriptPath));
+        } else {
+            sourcePath = PathUtils::NormalizePath(sourcePath);
+        }
+
+        std::wstring outPath;
+        int size = 48;
+        if (duk_get_top(ctx) > 1 && !duk_is_null_or_undefined(ctx, 1)) {
+            if (!duk_is_string(ctx, 1)) return DUK_RET_TYPE_ERROR;
+            outPath = Utils::ToWString(duk_get_string(ctx, 1));
+        }
+        if (duk_get_top(ctx) > 2 && !duk_is_null_or_undefined(ctx, 2)) {
+            if (!duk_is_number(ctx, 2)) return DUK_RET_TYPE_ERROR;
+            size = duk_get_int(ctx, 2);
+        }
+
+        if (outPath.empty()) {
+            wchar_t tempPath[MAX_PATH] = {};
+            DWORD len = GetTempPathW(MAX_PATH, tempPath);
+            if (len == 0 || len >= MAX_PATH) {
+                duk_push_null(ctx);
+                return 1;
+            }
+            std::wstring dir = std::wstring(tempPath) + L"Novadesk\\FileIcons\\";
+            CreateDirectoryW((std::wstring(tempPath) + L"Novadesk").c_str(), nullptr);
+            CreateDirectoryW(dir.c_str(), nullptr);
+            size_t h = std::hash<std::wstring>{}(sourcePath + L"|" + std::to_wstring(size));
+            outPath = dir + std::to_wstring((unsigned long long)h) + L".ico";
+        } else if (PathUtils::IsPathRelative(outPath)) {
+            outPath = PathUtils::ResolvePath(outPath, PathUtils::GetParentDir(s_CurrentScriptPath));
+        } else {
+            outPath = PathUtils::NormalizePath(outPath);
+        }
+
+        bool ok = Utils::ExtractFileIconToIco(sourcePath, outPath, size);
+        if (!ok) {
+            duk_push_null(ctx);
+            return 1;
+        }
+
+        duk_push_string(ctx, Utils::ToString(outPath).c_str());
         return 1;
     }
 
@@ -882,6 +932,8 @@ namespace JSApi {
         duk_put_prop_string(ctx, -2, "getDisplayMetrics");
         duk_push_c_function(ctx, js_system_set_wallpaper, 1);
         duk_put_prop_string(ctx, -2, "setWallpaper");
+        duk_push_c_function(ctx, js_system_extract_file_icon, DUK_VARARGS);
+        duk_put_prop_string(ctx, -2, "extractFileIcon");
         duk_push_c_function(ctx, js_system_get_brightness, DUK_VARARGS);
         duk_put_prop_string(ctx, -2, "getBrightness");
         duk_push_c_function(ctx, js_system_set_brightness, 1);

@@ -23,6 +23,7 @@ namespace JSApi {
     duk_ret_t js_system_set_wallpaper(duk_context* ctx);
     duk_ret_t js_system_get_brightness(duk_context* ctx);
     duk_ret_t js_system_set_brightness(duk_context* ctx);
+    duk_ret_t js_system_extract_file_icon(duk_context* ctx);
     duk_ret_t js_system_list_app_volumes(duk_context* ctx);
     duk_ret_t js_system_get_app_volume(duk_context* ctx);
     duk_ret_t js_system_set_app_volume(duk_context* ctx);

@@ -38,4 +38,5 @@ namespace Utils {
     bool ParseGradientString(const std::wstring& str, GradientInfo& out);
     D2D1_CAP_STYLE GetCapStyle(const std::wstring& str);
     D2D1_LINE_JOIN GetLineJoin(const std::wstring& str);
+    bool ExtractFileIconToIco(const std::wstring& filePath, const std::wstring& outIcoPath, int size = 48);
 }

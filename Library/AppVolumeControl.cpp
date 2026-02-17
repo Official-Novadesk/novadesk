@@ -6,12 +6,11 @@
  * obtain one at <https://www.gnu.org/licenses/gpl-2.0.html>. */
 
 #include "AppVolumeControl.h"
+#include "Utils.h"
 #include <mmdeviceapi.h>
 #include <audiopolicy.h>
 #include <endpointvolume.h>
 #include <algorithm>
-#include <shellapi.h>
-#include <cstdio>
 
 namespace {
     struct ComInit {
@@ -62,178 +61,6 @@ namespace {
         }
         CloseHandle(hProcess);
         return result;
-    }
-
-    bool SaveIconToIcoFile(HICON hIcon, FILE* fp)
-    {
-        ICONINFO iconInfo = {};
-        BITMAP bmColor = {};
-        BITMAP bmMask = {};
-        if (!fp || !hIcon || !GetIconInfo(hIcon, &iconInfo) ||
-            !GetObject(iconInfo.hbmColor, sizeof(bmColor), &bmColor) ||
-            !GetObject(iconInfo.hbmMask, sizeof(bmMask), &bmMask)) {
-            if (iconInfo.hbmColor) DeleteObject(iconInfo.hbmColor);
-            if (iconInfo.hbmMask) DeleteObject(iconInfo.hbmMask);
-            return false;
-        }
-
-        // Match plugin constraints: only 16/32-bit icons.
-        if (bmColor.bmBitsPixel != 16 && bmColor.bmBitsPixel != 32) {
-            DeleteObject(iconInfo.hbmColor);
-            DeleteObject(iconInfo.hbmMask);
-            return false;
-        }
-
-        HDC dc = GetDC(nullptr);
-        if (!dc) {
-            DeleteObject(iconInfo.hbmColor);
-            DeleteObject(iconInfo.hbmMask);
-            return false;
-        }
-
-        BYTE bmiBytes[sizeof(BITMAPINFOHEADER) + 256 * sizeof(RGBQUAD)] = {};
-        BITMAPINFO* bmi = (BITMAPINFO*)bmiBytes;
-
-        // Color bits
-        memset(bmi, 0, sizeof(BITMAPINFO));
-        bmi->bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-        GetDIBits(dc, iconInfo.hbmColor, 0, bmColor.bmHeight, nullptr, bmi, DIB_RGB_COLORS);
-        int colorBytesCount = (int)bmi->bmiHeader.biSizeImage;
-        if (colorBytesCount <= 0 || colorBytesCount > (64 * 1024 * 1024)) {
-            ReleaseDC(nullptr, dc);
-            DeleteObject(iconInfo.hbmColor);
-            DeleteObject(iconInfo.hbmMask);
-            return false;
-        }
-        BYTE* colorBits = new BYTE[colorBytesCount];
-        if (!GetDIBits(dc, iconInfo.hbmColor, 0, bmColor.bmHeight, colorBits, bmi, DIB_RGB_COLORS)) {
-            delete[] colorBits;
-            ReleaseDC(nullptr, dc);
-            DeleteObject(iconInfo.hbmColor);
-            DeleteObject(iconInfo.hbmMask);
-            return false;
-        }
-
-        // Mask bits
-        memset(bmi, 0, sizeof(BITMAPINFO));
-        bmi->bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-        GetDIBits(dc, iconInfo.hbmMask, 0, bmMask.bmHeight, nullptr, bmi, DIB_RGB_COLORS);
-        int maskBytesCount = (int)bmi->bmiHeader.biSizeImage;
-        if (maskBytesCount <= 0 || maskBytesCount > (64 * 1024 * 1024)) {
-            delete[] colorBits;
-            ReleaseDC(nullptr, dc);
-            DeleteObject(iconInfo.hbmColor);
-            DeleteObject(iconInfo.hbmMask);
-            return false;
-        }
-        BYTE* maskBits = new BYTE[maskBytesCount];
-        if (!GetDIBits(dc, iconInfo.hbmMask, 0, bmMask.bmHeight, maskBits, bmi, DIB_RGB_COLORS)) {
-            delete[] colorBits;
-            delete[] maskBits;
-            ReleaseDC(nullptr, dc);
-            DeleteObject(iconInfo.hbmColor);
-            DeleteObject(iconInfo.hbmMask);
-            return false;
-        }
-        ReleaseDC(nullptr, dc);
-
-        #pragma pack(push, 1)
-        struct ICONDIRENTRY_LOCAL {
-            BYTE bWidth;
-            BYTE bHeight;
-            BYTE bColorCount;
-            BYTE bReserved;
-            WORD wPlanes;
-            WORD wBitCount;
-            DWORD dwBytesInRes;
-            DWORD dwImageOffset;
-        };
-        struct ICONDIR_LOCAL {
-            WORD idReserved;
-            WORD idType;
-            WORD idCount;
-            ICONDIRENTRY_LOCAL idEntries[1];
-        };
-        #pragma pack(pop)
-
-        static_assert(sizeof(ICONDIRENTRY_LOCAL) == 16, "Invalid ICONDIRENTRY size");
-        static_assert(sizeof(ICONDIR_LOCAL) == 22, "Invalid ICONDIR size");
-
-        BITMAPINFOHEADER bmihIcon = {};
-        bmihIcon.biSize = sizeof(BITMAPINFOHEADER);
-        bmihIcon.biWidth = bmColor.bmWidth;
-        bmihIcon.biHeight = bmColor.bmHeight * 2;
-        bmihIcon.biPlanes = bmColor.bmPlanes;
-        bmihIcon.biBitCount = bmColor.bmBitsPixel;
-        bmihIcon.biSizeImage = colorBytesCount + maskBytesCount;
-
-        ICONDIR_LOCAL dir = {};
-        dir.idReserved = 0;
-        dir.idType = 1;
-        dir.idCount = 1;
-        dir.idEntries[0].bWidth = (BYTE)bmColor.bmWidth;
-        dir.idEntries[0].bHeight = (BYTE)bmColor.bmHeight;
-        dir.idEntries[0].bColorCount = 0;
-        dir.idEntries[0].bReserved = 0;
-        dir.idEntries[0].wPlanes = bmColor.bmPlanes;
-        dir.idEntries[0].wBitCount = bmColor.bmBitsPixel;
-        dir.idEntries[0].dwBytesInRes = sizeof(bmihIcon) + bmihIcon.biSizeImage;
-        dir.idEntries[0].dwImageOffset = sizeof(ICONDIR_LOCAL);
-
-        fwrite(&dir, 1, sizeof(dir), fp);
-        fwrite(&bmihIcon, 1, sizeof(bmihIcon), fp);
-        fwrite(colorBits, 1, colorBytesCount, fp);
-        fwrite(maskBits, 1, maskBytesCount, fp);
-
-        DeleteObject(iconInfo.hbmColor);
-        DeleteObject(iconInfo.hbmMask);
-        delete[] colorBits;
-        delete[] maskBits;
-        return true;
-    }
-
-    bool ExtractIconToIco(const std::wstring& filePath, int size, const std::wstring& outIcoPath)
-    {
-        HICON icon = nullptr;
-        UINT extracted = PrivateExtractIconsW(
-            filePath.c_str(),
-            0,
-            size,
-            size,
-            &icon,
-            nullptr,
-            1,
-            LR_LOADTRANSPARENT);
-
-        if (extracted == 0 || !icon) {
-            SHFILEINFO shFileInfo = {};
-            UINT flags = SHGFI_ICON;
-            flags |= (size <= 16) ? SHGFI_SMALLICON : SHGFI_LARGEICON;
-            if (!SHGetFileInfoW(filePath.c_str(), 0, &shFileInfo, sizeof(shFileInfo), flags)) {
-                return false;
-            }
-            icon = shFileInfo.hIcon;
-            if (!icon) return false;
-        }
-
-        FILE* fp = nullptr;
-        errno_t error = _wfopen_s(&fp, outIcoPath.c_str(), L"wb");
-        bool ok = false;
-        if (error == 0 && fp) {
-            ok = SaveIconToIcoFile(icon, fp);
-            fclose(fp);
-        }
-
-        if (!ok) {
-            FILE* clearFp = nullptr;
-            if (_wfopen_s(&clearFp, outIcoPath.c_str(), L"wb") == 0 && clearFp) {
-                // Clear previous icon file content to avoid stale icon.
-                fwrite(outIcoPath.c_str(), 1, 1, clearFp);
-                fclose(clearFp);
-            }
-        }
-        DestroyIcon(icon);
-        return ok;
     }
 
     bool EnsureIconDir(std::wstring& outDir)
@@ -329,7 +156,7 @@ bool AppVolumeControl::ListSessions(std::vector<SessionInfo>& sessions)
                 std::wstring iconDir;
                 if (EnsureIconDir(iconDir)) {
                     info.iconPath = iconDir + L"pid_" + std::to_wstring(pid) + L"_48.ico";
-                    if (!ExtractIconToIco(info.filePath, 48, info.iconPath)) {
+                    if (!Utils::ExtractFileIconToIco(info.filePath, info.iconPath, 48)) {
                         info.iconPath.clear();
                     }
                 }
