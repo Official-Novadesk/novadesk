@@ -21,6 +21,7 @@ namespace JSApi {
     duk_ret_t js_system_get_display_metrics(duk_context* ctx);
     duk_ret_t js_system_load_addon(duk_context* ctx);
     duk_ret_t js_system_set_wallpaper(duk_context* ctx);
+    duk_ret_t js_system_get_current_wallpaper_path(duk_context* ctx);
     duk_ret_t js_system_get_brightness(duk_context* ctx);
     duk_ret_t js_system_set_brightness(duk_context* ctx);
     duk_ret_t js_system_extract_file_icon(duk_context* ctx);

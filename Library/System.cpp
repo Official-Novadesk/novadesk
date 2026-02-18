@@ -401,3 +401,20 @@ bool System::SetWallpaper(const std::wstring& imagePath, const std::wstring& sty
 
     return ok == TRUE;
 }
+
+bool System::GetCurrentWallpaperPath(std::wstring& outPath)
+{
+    outPath.clear();
+
+    wchar_t buffer[MAX_PATH] = {};
+    if (!SystemParametersInfoW(SPI_GETDESKWALLPAPER, MAX_PATH, buffer, 0)) {
+        return false;
+    }
+
+    if (buffer[0] == L'\0') {
+        return false;
+    }
+
+    outPath = buffer;
+    return true;
+}

@@ -87,6 +87,7 @@ public:
 	
 	static bool Execute(const std::wstring& target, const std::wstring& parameters = L"", const std::wstring& workingDir = L"", int show = SW_SHOWNORMAL);
 	static bool SetWallpaper(const std::wstring& imagePath, const std::wstring& style = L"fill");
+	static bool GetCurrentWallpaperPath(std::wstring& outPath);
 
 
 	static LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);

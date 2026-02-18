@@ -226,6 +226,17 @@ namespace JSApi {
         return 1;
     }
 
+    duk_ret_t js_system_get_current_wallpaper_path(duk_context* ctx) {
+        std::wstring currentPath;
+        if (!System::GetCurrentWallpaperPath(currentPath) || currentPath.empty()) {
+            duk_push_null(ctx);
+            return 1;
+        }
+
+        duk_push_string(ctx, Utils::ToString(currentPath).c_str());
+        return 1;
+    }
+
     duk_ret_t js_system_extract_file_icon(duk_context* ctx) {
         if (duk_get_top(ctx) < 1 || !duk_is_string(ctx, 0)) return DUK_RET_TYPE_ERROR;
 
@@ -927,6 +938,8 @@ namespace JSApi {
         duk_put_prop_string(ctx, -2, "getDisplayMetrics");
         duk_push_c_function(ctx, js_system_set_wallpaper, 1);
         duk_put_prop_string(ctx, -2, "setWallpaper");
+        duk_push_c_function(ctx, js_system_get_current_wallpaper_path, 0);
+        duk_put_prop_string(ctx, -2, "getCurrentWallpaperPath");
         duk_push_c_function(ctx, js_system_extract_file_icon, DUK_VARARGS);
         duk_put_prop_string(ctx, -2, "extractFileIcon");
         duk_push_c_function(ctx, js_system_get_brightness, DUK_VARARGS);
