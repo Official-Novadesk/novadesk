@@ -359,7 +359,7 @@ namespace JSApi {
         duk_push_string(ctx, dirname.c_str());
         duk_put_global_string(ctx, "__dirname");
         duk_push_string(ctx, dirname.c_str());
-        duk_put_global_string(ctx, "__widgetsdir");
+        duk_put_global_string(ctx, "__widgetsDir");
         duk_push_string(ctx, filename.c_str());
         duk_put_global_string(ctx, "__filename");
 
