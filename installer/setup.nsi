@@ -10,6 +10,7 @@ Name "Novadesk"
 
 ; The file to write
 OutFile "dist_output\Novadesk_Setup_v${VERSION}_Beta.exe"
+SetCompressor /SOLID lzma
 
 ; The default installation directory
 InstallDir "$PROGRAMFILES64\Novadesk"
@@ -25,6 +26,7 @@ RequestExecutionLevel admin
 !include "x64.nsh"
 !include "LogicLib.nsh"
 !include "nsDialogs.nsh"
+!include "Sections.nsh"
 !include "StrFunc.nsh"
 ${StrStr}
 
@@ -61,6 +63,7 @@ ${StrStr}
 Page custom InstallModePageCreate InstallModePageLeave
 !define MUI_PAGE_CUSTOMFUNCTION_LEAVE DirectoryPageLeave
 !insertmacro MUI_PAGE_DIRECTORY
+!define MUI_PAGE_CUSTOMFUNCTION_PRE ComponentsPageShowPre
 !insertmacro MUI_PAGE_COMPONENTS
 !insertmacro MUI_PAGE_INSTFILES
 
@@ -85,7 +88,8 @@ Var RadioPortable
 ; Sections
 ;--------------------------------
 
-Section "Novadesk Core" SecMain
+Section -CoreFiles SecCoreFiles
+  SectionIn RO
 
   SetRegView 64
   ; Enforce 64-bit redirection
@@ -186,6 +190,7 @@ FunctionEnd
 
 Function .onInit
   StrCpy $InstallMode "standard"
+  !insertmacro SelectSection ${SecCoreFiles}
 FunctionEnd
 
 Function InstallModePageLeave
@@ -193,8 +198,23 @@ Function InstallModePageLeave
   ${If} $0 == ${BST_CHECKED}
     StrCpy $InstallMode "portable"
     StrCpy $INSTDIR "$EXEDIR"
+    !insertmacro SelectSection ${SecCoreFiles}
+    !insertmacro SelectSection ${SecPATH}
+    !insertmacro SelectSection ${SecDesktop}
+    !insertmacro SelectSection ${SecStartup}
   ${Else}
     StrCpy $InstallMode "standard"
+    !insertmacro SelectSection ${SecCoreFiles}
+    !insertmacro SelectSection ${SecPATH}
+    !insertmacro SelectSection ${SecDesktop}
+    !insertmacro SelectSection ${SecStartup}
+  ${EndIf}
+FunctionEnd
+
+Function ComponentsPageShowPre
+  ${If} $InstallMode == "portable"
+    ; Hide Components page in portable mode so optional standard-only items aren't shown.
+    Abort
   ${EndIf}
 FunctionEnd
 
@@ -226,6 +246,11 @@ FunctionEnd
 
 Section "Desktop Shortcut" SecDesktop
 
+  ${If} $InstallMode == "portable"
+    DetailPrint "Portable mode selected: skipping desktop shortcut."
+    Return
+  ${EndIf}
+
   ; Create desktop shortcut
   CreateShortCut "$DESKTOP\Novadesk.lnk" "$INSTDIR\Novadesk.exe" "" "$INSTDIR\Novadesk.exe" 0
   
@@ -233,21 +258,31 @@ SectionEnd
 
 Section "Run on Startup" SecStartup
 
+  ${If} $InstallMode == "portable"
+    DetailPrint "Portable mode selected: skipping startup shortcut."
+    Return
+  ${EndIf}
+
   ; Create startup shortcut
   CreateShortCut "$SMSTARTUP\Novadesk.lnk" "$INSTDIR\Novadesk.exe" "" "$INSTDIR\Novadesk.exe" 0
+  
+  ; Ensure Windows StartupApps state is reset to enabled for this shortcut.
+  ; If user previously disabled it in Task Manager, the disabled flag persists.
+  DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\StartupFolder" "Novadesk.lnk"
+  DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run" "Novadesk"
+  DeleteRegValue HKLM "Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\StartupFolder" "Novadesk.lnk"
+  DeleteRegValue HKLM "Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run" "Novadesk"
   
 SectionEnd
 
 ;--------------------------------
 ; Descriptions
 ;--------------------------------
-LangString DESC_SecMain ${LANG_ENGLISH} "Main Novadesk application files."
 LangString DESC_SecPATH ${LANG_ENGLISH} "Add nwm to your system PATH."
 LangString DESC_SecDesktop ${LANG_ENGLISH} "Create a desktop shortcut."
 LangString DESC_SecStartup ${LANG_ENGLISH} "Run Novadesk automatically when Windows starts."
 
 !insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN
-!insertmacro MUI_DESCRIPTION_TEXT ${SecMain} $(DESC_SecMain)
 !insertmacro MUI_DESCRIPTION_TEXT ${SecPATH} $(DESC_SecPATH)
 !insertmacro MUI_DESCRIPTION_TEXT ${SecDesktop} $(DESC_SecDesktop)
 !insertmacro MUI_DESCRIPTION_TEXT ${SecStartup} $(DESC_SecStartup)
