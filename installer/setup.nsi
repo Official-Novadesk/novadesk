@@ -3,13 +3,14 @@
 ;--------------------------------
 
 ; Define global version variable (Update this as needed)
-!define VERSION "0.4.0.0"
+!define VERSION "0.5.0.0"
 
 ; The name of the installer
 Name "Novadesk"
 
 ; The file to write
 OutFile "dist_output\Novadesk_Setup_v${VERSION}_Beta.exe"
+SetCompressor /SOLID lzma
 
 ; The default installation directory
 InstallDir "$PROGRAMFILES64\Novadesk"
@@ -23,6 +24,11 @@ RequestExecutionLevel admin
 
 ; Use 64-bit registry view
 !include "x64.nsh"
+!include "LogicLib.nsh"
+!include "nsDialogs.nsh"
+!include "Sections.nsh"
+!include "StrFunc.nsh"
+${StrStr}
 
 ;--------------------------------
 ; Interface Settings
@@ -54,7 +60,10 @@ RequestExecutionLevel admin
 ;--------------------------------
 !insertmacro MUI_PAGE_WELCOME
 !insertmacro MUI_PAGE_LICENSE "LICENSE.txt"
+Page custom InstallModePageCreate InstallModePageLeave
+!define MUI_PAGE_CUSTOMFUNCTION_LEAVE DirectoryPageLeave
 !insertmacro MUI_PAGE_DIRECTORY
+!define MUI_PAGE_CUSTOMFUNCTION_PRE ComponentsPageShowPre
 !insertmacro MUI_PAGE_COMPONENTS
 !insertmacro MUI_PAGE_INSTFILES
 
@@ -71,12 +80,16 @@ RequestExecutionLevel admin
 ;--------------------------------
 ; Data
 ;--------------------------------
+Var InstallMode
+Var RadioStandard
+Var RadioPortable
 
 ;--------------------------------
 ; Sections
 ;--------------------------------
 
-Section "Novadesk Core" SecMain
+Section -CoreFiles SecCoreFiles
+  SectionIn RO
 
   SetRegView 64
   ; Enforce 64-bit redirection
@@ -107,35 +120,44 @@ Section "Novadesk Core" SecMain
   File /r "..\x64\Release\nwm\widget"
   SetOutPath "$INSTDIR"
 
-  ; Store installation folder
-  WriteRegStr HKLM "Software\Novadesk" "Install_Dir" "$INSTDIR"
-  
-  ; Create uninstaller
-  WriteUninstaller "$INSTDIR\Uninstall.exe"
-  
-  ; Add to Add/Remove Programs
-  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Novadesk" \
-                   "DisplayName" "Novadesk v${VERSION}"
-  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Novadesk" \
-                   "UninstallString" "$INSTDIR\Uninstall.exe"
-  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Novadesk" \
-                   "DisplayIcon" "$INSTDIR\Novadesk.exe"
-  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Novadesk" \
-                   "Publisher" "OfficialNovadesk"
-  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Novadesk" \
-                   "URLInfoAbout" "https://novadesk.pages.dev"
-  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Novadesk" \
-                   "HelpLink" "https://novadesk.pages.dev"
-  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Novadesk" \
-                   "DisplayVersion" "${VERSION}"
-  WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Novadesk" \
-                   "NoModify" 1
-  WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Novadesk" \
-                   "NoRepair" 1
+  ${If} $InstallMode == "standard"
+    ; Store installation folder
+    WriteRegStr HKLM "Software\Novadesk" "Install_Dir" "$INSTDIR"
+
+    ; Create uninstaller
+    WriteUninstaller "$INSTDIR\Uninstall.exe"
+
+    ; Add to Add/Remove Programs
+    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Novadesk" \
+                     "DisplayName" "Novadesk v${VERSION}"
+    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Novadesk" \
+                     "UninstallString" "$INSTDIR\Uninstall.exe"
+    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Novadesk" \
+                     "DisplayIcon" "$INSTDIR\Novadesk.exe"
+    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Novadesk" \
+                     "Publisher" "OfficialNovadesk"
+    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Novadesk" \
+                     "URLInfoAbout" "https://novadesk.pages.dev"
+    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Novadesk" \
+                     "HelpLink" "https://novadesk.pages.dev"
+    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Novadesk" \
+                     "DisplayVersion" "${VERSION}"
+    WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Novadesk" \
+                     "NoModify" 1
+    WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Novadesk" \
+                     "NoRepair" 1
+  ${Else}
+    DetailPrint "Portable mode selected: skipping uninstaller and registry writes."
+  ${EndIf}
 
 SectionEnd
 
 Section "Add to PATH" SecPATH
+
+  ${If} $InstallMode == "portable"
+    DetailPrint "Portable mode selected: skipping PATH registry update."
+    Return
+  ${EndIf}
 
   ; Add the installation directory to the PATH using EnVar plugin
   ; Adding both root (for Novadesk?) and nwm folder (for nwm)
@@ -147,7 +169,87 @@ Section "Add to PATH" SecPATH
   
 SectionEnd
 
+Function InstallModePageCreate
+  nsDialogs::Create 1018
+  Pop $0
+  ${If} $0 == error
+    Abort
+  ${EndIf}
+
+  ${NSD_CreateLabel} 0 0 100% 24u "Choose installation type:"
+  Pop $0
+  ${NSD_CreateRadioButton} 0 28u 100% 12u "Standard (recommended): install with uninstaller and registry entries"
+  Pop $RadioStandard
+  ${NSD_CreateRadioButton} 0 44u 100% 12u "Portable: no uninstaller, no registry entries"
+  Pop $RadioPortable
+
+  ${NSD_Check} $RadioStandard
+  StrCpy $InstallMode "standard"
+  nsDialogs::Show
+FunctionEnd
+
+Function .onInit
+  StrCpy $InstallMode "standard"
+  !insertmacro SelectSection ${SecCoreFiles}
+FunctionEnd
+
+Function InstallModePageLeave
+  ${NSD_GetState} $RadioPortable $0
+  ${If} $0 == ${BST_CHECKED}
+    StrCpy $InstallMode "portable"
+    StrCpy $INSTDIR "$EXEDIR"
+    !insertmacro SelectSection ${SecCoreFiles}
+    !insertmacro SelectSection ${SecPATH}
+    !insertmacro SelectSection ${SecDesktop}
+    !insertmacro SelectSection ${SecStartup}
+  ${Else}
+    StrCpy $InstallMode "standard"
+    !insertmacro SelectSection ${SecCoreFiles}
+    !insertmacro SelectSection ${SecPATH}
+    !insertmacro SelectSection ${SecDesktop}
+    !insertmacro SelectSection ${SecStartup}
+  ${EndIf}
+FunctionEnd
+
+Function ComponentsPageShowPre
+  ${If} $InstallMode == "portable"
+    ; Hide Components page in portable mode so optional standard-only items aren't shown.
+    Abort
+  ${EndIf}
+FunctionEnd
+
+Function DirectoryPageLeave
+  ${If} $InstallMode == "portable"
+    StrCpy $0 "0"
+
+    ${StrStr} $1 "$INSTDIR" "$PROGRAMFILES64"
+    ${If} $1 != ""
+      StrCpy $0 "1"
+    ${EndIf}
+
+    ${StrStr} $1 "$INSTDIR" "$PROGRAMFILES"
+    ${If} $1 != ""
+      StrCpy $0 "1"
+    ${EndIf}
+
+    ${StrStr} $1 "$INSTDIR" "$WINDIR"
+    ${If} $1 != ""
+      StrCpy $0 "1"
+    ${EndIf}
+
+    ${If} $0 == "1"
+      MessageBox MB_ICONEXCLAMATION|MB_OK "Portable mode cannot install into system-protected folders (Program Files / Windows). Go back and choose Standard mode for this location."
+      Abort
+    ${EndIf}
+  ${EndIf}
+FunctionEnd
+
 Section "Desktop Shortcut" SecDesktop
+
+  ${If} $InstallMode == "portable"
+    DetailPrint "Portable mode selected: skipping desktop shortcut."
+    Return
+  ${EndIf}
 
   ; Create desktop shortcut
   CreateShortCut "$DESKTOP\Novadesk.lnk" "$INSTDIR\Novadesk.exe" "" "$INSTDIR\Novadesk.exe" 0
@@ -156,21 +258,31 @@ SectionEnd
 
 Section "Run on Startup" SecStartup
 
+  ${If} $InstallMode == "portable"
+    DetailPrint "Portable mode selected: skipping startup shortcut."
+    Return
+  ${EndIf}
+
   ; Create startup shortcut
   CreateShortCut "$SMSTARTUP\Novadesk.lnk" "$INSTDIR\Novadesk.exe" "" "$INSTDIR\Novadesk.exe" 0
+  
+  ; Ensure Windows StartupApps state is reset to enabled for this shortcut.
+  ; If user previously disabled it in Task Manager, the disabled flag persists.
+  DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\StartupFolder" "Novadesk.lnk"
+  DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run" "Novadesk"
+  DeleteRegValue HKLM "Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\StartupFolder" "Novadesk.lnk"
+  DeleteRegValue HKLM "Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run" "Novadesk"
   
 SectionEnd
 
 ;--------------------------------
 ; Descriptions
 ;--------------------------------
-LangString DESC_SecMain ${LANG_ENGLISH} "Main Novadesk application files."
 LangString DESC_SecPATH ${LANG_ENGLISH} "Add nwm to your system PATH."
 LangString DESC_SecDesktop ${LANG_ENGLISH} "Create a desktop shortcut."
 LangString DESC_SecStartup ${LANG_ENGLISH} "Run Novadesk automatically when Windows starts."
 
 !insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN
-!insertmacro MUI_DESCRIPTION_TEXT ${SecMain} $(DESC_SecMain)
 !insertmacro MUI_DESCRIPTION_TEXT ${SecPATH} $(DESC_SecPATH)
 !insertmacro MUI_DESCRIPTION_TEXT ${SecDesktop} $(DESC_SecDesktop)
 !insertmacro MUI_DESCRIPTION_TEXT ${SecStartup} $(DESC_SecStartup)

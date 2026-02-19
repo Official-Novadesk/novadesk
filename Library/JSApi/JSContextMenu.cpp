@@ -12,7 +12,6 @@
 #include "../Logging.h"
 
 namespace JSApi {
-
     static void ParseMenu(duk_context* ctx, int arrIdx, std::vector<MenuItem>& outItems, duk_uarridx_t widgetId) {
         duk_size_t count = duk_get_length(ctx, arrIdx);
         for (duk_size_t i = 0; i < count; i++) {
@@ -52,7 +51,19 @@ namespace JSApi {
                                     duk_put_prop_string(ctx, -2, "__contextCallbacks");
                                     duk_get_prop_string(ctx, -1, "__contextCallbacks");
                                 }
-                                duk_dup(ctx, -3); // function
+                                // Preserve caller module dir for later callback invocation.
+                                duk_get_global_string(ctx, "__dirname");
+                                std::string currentDir;
+                                if (duk_is_string(ctx, -1)) {
+                                    currentDir = duk_get_string(ctx, -1);
+                                }
+                                duk_pop(ctx);
+
+                                if (!currentDir.empty() && WrapCallbackWithDirContext(ctx, -3, currentDir.c_str())) {
+                                    // wrapped callback is on top
+                                } else {
+                                    duk_dup(ctx, -3); // original function
+                                }
                                 duk_put_prop_index(ctx, -2, (duk_uarridx_t)item.id);
                                 duk_pop_2(ctx); // __contextCallbacks and this
                             }

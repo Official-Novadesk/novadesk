@@ -16,7 +16,7 @@
  
  extern std::vector<Widget*> widgets;
  
- namespace JSApi {
+namespace JSApi {
      static const UINT WM_DISPATCH_IPC = WM_USER + 102;
  
     static std::string GetCurrentContextListenersKey(duk_context* ctx) {
@@ -85,8 +85,10 @@
              duk_put_prop_string(ctx, -3, channel);
          }
          
-         duk_dup(ctx, 1);
-         duk_put_prop_index(ctx, -2, (duk_uarridx_t)duk_get_length(ctx, -2));
+        if (!WrapCallbackWithDirContext(ctx, 1)) {
+            duk_dup(ctx, 1);
+        }
+        duk_put_prop_index(ctx, -2, (duk_uarridx_t)duk_get_length(ctx, -2));
          
          duk_pop_3(ctx); 
          return 0;

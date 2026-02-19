@@ -11,9 +11,20 @@
 class Widget;
 
 namespace JSApi {
+    struct MouseEventData {
+        int offsetX = 0;
+        int offsetY = 0;
+        int offsetXPercent = 0;
+        int offsetYPercent = 0;
+        int clientX = 0;
+        int clientY = 0;
+        int screenX = 0;
+        int screenY = 0;
+    };
+
     void ExecuteScript(const std::wstring& script);
     
     // Function callback support
     int RegisterEventCallback(duk_context* ctx, duk_idx_t idx);
-    void CallEventCallback(int id, Widget* contextWidget = nullptr);
+    void CallEventCallback(int id, Widget* contextWidget = nullptr, const MouseEventData* mouseEvent = nullptr);
 }

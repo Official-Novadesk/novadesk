@@ -43,4 +43,31 @@ if (readBack) {
     console.log("Verification data matches: " + JSON.stringify(readBack));
 }
 
+// Test 5: Deep merge with comment preservation
+console.log("Test 5: Deep merge with comment preservation");
+
+var patchData = {
+    obj: { b: 20, d: 4 },
+    arr: [9, 8],
+    newKey: true
+};
+
+var mergeResult = system.writeJson("merge_base.json", patchData);
+console.log("Merge write result: " + mergeResult);
+
+system.fetch("merge_base.json", function(data) {
+    console.log("Merged text:\n" + data);
+    console.log("Preserved top comment: " + (data.indexOf("// top comment") !== -1));
+    console.log("Preserved inner comment: " + (data.indexOf("// inner comment") !== -1));
+});
+
+var mergedJson = system.readJson("merge_base.json");
+if (mergedJson) {
+    console.log("Merged obj.b == 20: " + (mergedJson.obj && mergedJson.obj.b === 20));
+    console.log("Merged obj.c == 3: " + (mergedJson.obj && mergedJson.obj.c === 3));
+    console.log("Merged obj.d == 4: " + (mergedJson.obj && mergedJson.obj.d === 4));
+    console.log("Merged arr length == 2: " + (mergedJson.arr && mergedJson.arr.length === 2));
+    console.log("Merged newKey == true: " + (mergedJson.newKey === true));
+}
+
 console.log("=== JSON API Test Completed ===");

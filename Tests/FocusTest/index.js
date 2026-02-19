@@ -16,6 +16,30 @@ widget.on("unFocus", function() {
     console.log("Widget Unfocused");
 });
 
+widget.on("mouseDown", function(e) {
+    console.log("mouseDown __clientX=" + e.__clientX + ", __clientY=" + e.__clientY);
+});
+
+widget.on("mouseUp", function(e) {
+    console.log("mouseUp __clientX=" + e.__clientX + ", __clientY=" + e.__clientY);
+});
+
+widget.on("mouseMove", function(e) {
+    console.log("mouseMove __clientX=" + e.__clientX + ", __clientY=" + e.__clientY);
+});
+
+widget.on("mouseOver", function(e) {
+    console.log("mouseOver __clientX=" + e.__clientX + ", __clientY=" + e.__clientY);
+});
+
+widget.on("mouseLeave", function(e) {
+    if (e) {
+        console.log("mouseLeave __clientX=" + e.__clientX + ", __clientY=" + e.__clientY);
+    } else {
+        console.log("mouseLeave");
+    }
+});
+
 setTimeout(function() {
     widget.setFocus();
     console.log("Widget Focused");

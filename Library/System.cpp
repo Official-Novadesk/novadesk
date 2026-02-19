@@ -14,6 +14,7 @@
 #include "Widget.h"
 #include <algorithm>
 #include <shellapi.h>
+#include <winreg.h>
 
 extern std::vector<Widget*> widgets; // Defined in Novadesk.cpp
 
@@ -325,4 +326,95 @@ bool System::Execute(const std::wstring& target, const std::wstring& parameters,
 {
     HINSTANCE result = ShellExecuteW(NULL, L"open", target.c_str(), parameters.empty() ? NULL : parameters.c_str(), workingDir.empty() ? NULL : workingDir.c_str(), show);
     return (intptr_t)result > 32;
+}
+
+static bool SetWallpaperStyleValue(const std::wstring& style)
+{
+    std::wstring lower = style;
+    std::transform(lower.begin(), lower.end(), lower.begin(), ::towlower);
+
+    const wchar_t* wallpaperStyle = L"10"; // fill
+    const wchar_t* tileWallpaper = L"0";
+
+    if (lower == L"fill") {
+        wallpaperStyle = L"10"; tileWallpaper = L"0";
+    } else if (lower == L"fit") {
+        wallpaperStyle = L"6"; tileWallpaper = L"0";
+    } else if (lower == L"stretch") {
+        wallpaperStyle = L"2"; tileWallpaper = L"0";
+    } else if (lower == L"tile") {
+        wallpaperStyle = L"0"; tileWallpaper = L"1";
+    } else if (lower == L"center") {
+        wallpaperStyle = L"0"; tileWallpaper = L"0";
+    } else if (lower == L"span") {
+        wallpaperStyle = L"22"; tileWallpaper = L"0";
+    } else {
+        return false;
+    }
+
+    HKEY hKey = nullptr;
+    LONG status = RegOpenKeyExW(HKEY_CURRENT_USER, L"Control Panel\\Desktop", 0, KEY_SET_VALUE, &hKey);
+    if (status != ERROR_SUCCESS) {
+        return false;
+    }
+
+    status = RegSetValueExW(
+        hKey,
+        L"WallpaperStyle",
+        0,
+        REG_SZ,
+        reinterpret_cast<const BYTE*>(wallpaperStyle),
+        static_cast<DWORD>((wcslen(wallpaperStyle) + 1) * sizeof(wchar_t)));
+
+    if (status == ERROR_SUCCESS) {
+        status = RegSetValueExW(
+            hKey,
+            L"TileWallpaper",
+            0,
+            REG_SZ,
+            reinterpret_cast<const BYTE*>(tileWallpaper),
+            static_cast<DWORD>((wcslen(tileWallpaper) + 1) * sizeof(wchar_t)));
+    }
+
+    RegCloseKey(hKey);
+    return status == ERROR_SUCCESS;
+}
+
+bool System::SetWallpaper(const std::wstring& imagePath, const std::wstring& style)
+{
+    if (imagePath.empty()) return false;
+
+    DWORD attrs = GetFileAttributesW(imagePath.c_str());
+    if (attrs == INVALID_FILE_ATTRIBUTES || (attrs & FILE_ATTRIBUTE_DIRECTORY)) {
+        return false;
+    }
+
+    if (!SetWallpaperStyleValue(style)) {
+        return false;
+    }
+
+    BOOL ok = SystemParametersInfoW(
+        SPI_SETDESKWALLPAPER,
+        0,
+        (PVOID)imagePath.c_str(),
+        SPIF_UPDATEINIFILE | SPIF_SENDCHANGE);
+
+    return ok == TRUE;
+}
+
+bool System::GetCurrentWallpaperPath(std::wstring& outPath)
+{
+    outPath.clear();
+
+    wchar_t buffer[MAX_PATH] = {};
+    if (!SystemParametersInfoW(SPI_GETDESKWALLPAPER, MAX_PATH, buffer, 0)) {
+        return false;
+    }
+
+    if (buffer[0] == L'\0') {
+        return false;
+    }
+
+    outPath = buffer;
+    return true;
 }

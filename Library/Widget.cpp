@@ -614,6 +614,7 @@ LRESULT CALLBACK Widget::WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
             ScreenToClient(hWnd, &pt);
 
             Element* hitElement = nullptr;
+            Element* mouseActionElement = nullptr;
             for (auto it = widget->m_Elements.rbegin(); it != widget->m_Elements.rend(); ++it)
             {
                 Element* candidate = *it;
@@ -621,21 +622,33 @@ LRESULT CALLBACK Widget::WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
                 if (candidate->IsContained()) continue;
 
                 if (candidate->IsContainer()) {
-                    if (widget->HitTestContainerChildren(candidate, pt.x, pt.y, hitElement)) {
-                        break;
+                    Element* childHit = nullptr;
+                    Element* childAction = nullptr;
+                    Element* childMouseAction = nullptr;
+                    Element* childToolTip = nullptr;
+                    if (widget->HitTestContainerChildrenDetailed(
+                        candidate, pt.x, pt.y, WM_MOUSEMOVE, 0, childHit, childAction, childMouseAction, childToolTip)) {
+                        if (!hitElement) hitElement = childHit;
+                        if (!mouseActionElement) mouseActionElement = childMouseAction;
                     }
                 }
 
                 if (candidate->HitTest(pt.x, pt.y)) {
-                    hitElement = candidate;
-                    break;
+                    if (!hitElement) hitElement = candidate;
+                    if (!mouseActionElement && candidate->HasMouseAction()) mouseActionElement = candidate;
                 }
+
+                if (hitElement && mouseActionElement) break;
             }
 
-            if (hitElement && hitElement->HasMouseAction())
+            Element* cursorElement = mouseActionElement ? mouseActionElement : hitElement;
+            if (cursorElement && cursorElement->HasMouseAction())
             {
-                SetCursor(LoadCursor(NULL, IDC_HAND));
-                return TRUE;
+                HCURSOR cursor = widget->m_CursorManager.GetCursorForElement(cursorElement);
+                if (cursor) {
+                    SetCursor(cursor);
+                    return TRUE;
+                }
             }
         }
         return DefWindowProc(hWnd, message, wParam, lParam);
@@ -721,6 +734,7 @@ LRESULT CALLBACK Widget::WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
                              
                         widget->m_MouseOverElement = nullptr;
                     }
+                    widget->m_TooltipElement = nullptr;
                 }
             }
         }
@@ -1381,6 +1395,32 @@ void Widget::RenderContainerChildren(Element* container)
 
 bool Widget::HitTestContainerChildren(Element* container, int x, int y, Element*& outElement)
 {
+    Element* outActionElement = nullptr;
+    Element* outMouseActionElement = nullptr;
+    Element* outToolTipElement = nullptr;
+    return HitTestContainerChildrenDetailed(
+        container,
+        x,
+        y,
+        WM_MOUSEMOVE,
+        0,
+        outElement,
+        outActionElement,
+        outMouseActionElement,
+        outToolTipElement);
+}
+
+bool Widget::HitTestContainerChildrenDetailed(
+    Element* container,
+    int x,
+    int y,
+    UINT message,
+    WPARAM wParam,
+    Element*& outHitElement,
+    Element*& outActionElement,
+    Element*& outMouseActionElement,
+    Element*& outToolTipElement)
+{
     if (!container || !container->IsContainer() || !container->IsVisible()) return false;
 
     GfxRect bounds = container->GetBounds();
@@ -1397,6 +1437,7 @@ bool Widget::HitTestContainerChildren(Element* container, int x, int y, Element*
 
     int localX = x - bounds.X;
     int localY = y - bounds.Y;
+    bool foundAny = false;
 
     const auto& items = container->GetContainerItems();
     for (auto it = items.rbegin(); it != items.rend(); ++it) {
@@ -1404,26 +1445,39 @@ bool Widget::HitTestContainerChildren(Element* container, int x, int y, Element*
         if (!child || !child->IsVisible()) continue;
 
         if (child->IsContainer()) {
-            if (HitTestContainerChildren(child, localX, localY, outElement)) {
-                return true;
+            if (HitTestContainerChildrenDetailed(
+                child,
+                localX,
+                localY,
+                message,
+                wParam,
+                outHitElement,
+                outActionElement,
+                outMouseActionElement,
+                outToolTipElement)) {
+                foundAny = true;
             }
         }
 
-        if (child->HitTest(localX, localY)) {
-            outElement = child;
-            return true;
+        if (!child->HitTest(localX, localY)) {
+            continue;
         }
+
+        foundAny = true;
+        if (!outHitElement) outHitElement = child;
+        if (!outActionElement && child->HasAction(message, wParam)) outActionElement = child;
+        if (!outMouseActionElement && child->HasMouseAction()) outMouseActionElement = child;
+        if (!outToolTipElement && child->HasToolTip()) outToolTipElement = child;
     }
 
-    return false;
+    return foundAny;
 }
 
 /*
 ** Update properties of an existing element.
 */
-void Widget::SetElementProperties(const std::wstring& id, duk_context* ctx)
+void Widget::ApplyParsedPropertiesToElement(Element* element, duk_context* ctx)
 {
-    Element* element = FindElementById(id);
     if (!element) return;
 
     if (element->GetType() == ELEMENT_TEXT) {
@@ -1465,9 +1519,52 @@ void Widget::SetElementProperties(const std::wstring& id, duk_context* ctx)
             }
         }
     }
+}
+
+void Widget::SetElementProperties(const std::wstring& id, duk_context* ctx)
+{
+    Element* element = FindElementById(id);
+    if (!element) return;
+
+    ApplyParsedPropertiesToElement(element, ctx);
     
     if (!m_IsBatchUpdating) {
         Redraw();
+    }
+}
+
+void Widget::SetGroupProperties(const std::wstring& group, duk_context* ctx)
+{
+    if (group.empty() || !ctx) return;
+
+    bool changed = false;
+    for (Element* element : m_Elements) {
+        if (!element) continue;
+        if (element->GetGroupId() != group) continue;
+        ApplyParsedPropertiesToElement(element, ctx);
+        changed = true;
+    }
+
+    if (changed && !m_IsBatchUpdating) {
+        Redraw();
+    }
+}
+
+void Widget::RemoveElementsByGroup(const std::wstring& group)
+{
+    if (group.empty()) return;
+
+    std::vector<std::wstring> ids;
+    ids.reserve(m_Elements.size());
+    for (Element* element : m_Elements) {
+        if (!element) continue;
+        if (element->GetGroupId() == group) {
+            ids.push_back(element->GetId());
+        }
+    }
+
+    if (!ids.empty()) {
+        RemoveElements(ids);
     }
 }
 
@@ -1496,6 +1593,7 @@ bool Widget::RemoveElements(const std::wstring& id)
         }
         m_Elements.clear();
         m_MouseOverElement = nullptr;
+        m_TooltipElement = nullptr;
         Redraw();
         return true;
     }
@@ -1505,6 +1603,7 @@ bool Widget::RemoveElements(const std::wstring& id)
         if ((*it)->GetId() == id)
         {
             if (*it == m_MouseOverElement) m_MouseOverElement = nullptr;
+            if (*it == m_TooltipElement) m_TooltipElement = nullptr;
             if (PathShape* path = dynamic_cast<PathShape*>(*it)) {
                 ReleaseCombinedConsumes(path);
             }
@@ -1539,6 +1638,7 @@ void Widget::RemoveElements(const std::vector<std::wstring>& ids)
             if ((*it)->GetId() == id)
             {
                 if (*it == m_MouseOverElement) m_MouseOverElement = nullptr;
+                if (*it == m_TooltipElement) m_TooltipElement = nullptr;
                 if (PathShape* path = dynamic_cast<PathShape*>(*it)) {
                     ReleaseCombinedConsumes(path);
                 }
@@ -1796,12 +1896,13 @@ bool Widget::HandleMouseMessage(UINT message, WPARAM wParam, LPARAM lParam)
     bool handled = false;
     int x = GET_X_LPARAM(lParam);
     int y = GET_Y_LPARAM(lParam);
+    bool justEnteredWidget = false;
 
     if (message == WM_MOUSEMOVE)
     {
         if (!m_IsMouseOverWidget) {
             m_IsMouseOverWidget = true;
-            JSApi::TriggerWidgetEvent(this, "over");
+            justEnteredWidget = true;
         }
         m_Tooltip.Move();
     }
@@ -1815,9 +1916,51 @@ bool Widget::HandleMouseMessage(UINT message, WPARAM wParam, LPARAM lParam)
         y = pt.y;
     }
 
+    {
+        JSApi::MouseEventData widgetEventData;
+        widgetEventData.clientX = x;
+        widgetEventData.clientY = y;
+        widgetEventData.offsetX = x;
+        widgetEventData.offsetY = y;
+
+        POINT screenPt = { x, y };
+        ClientToScreen(m_hWnd, &screenPt);
+        widgetEventData.screenX = screenPt.x;
+        widgetEventData.screenY = screenPt.y;
+
+        RECT clientRect = {};
+        if (GetClientRect(m_hWnd, &clientRect)) {
+            const int clientW = clientRect.right - clientRect.left;
+            const int clientH = clientRect.bottom - clientRect.top;
+            if (clientW > 0) {
+                widgetEventData.offsetXPercent = (int)(((widgetEventData.offsetX + 1) / (double)clientW) * 100.0);
+            }
+            if (clientH > 0) {
+                widgetEventData.offsetYPercent = (int)(((widgetEventData.offsetY + 1) / (double)clientH) * 100.0);
+            }
+        }
+
+        if (message == WM_MOUSEMOVE) {
+            if (justEnteredWidget) {
+                JSApi::TriggerWidgetEvent(this, "mouseOver", &widgetEventData);
+            }
+            JSApi::TriggerWidgetEvent(this, "mouseMove", &widgetEventData);
+        } else if (
+            message == WM_LBUTTONDOWN || message == WM_RBUTTONDOWN || message == WM_MBUTTONDOWN || message == WM_XBUTTONDOWN
+        ) {
+            JSApi::TriggerWidgetEvent(this, "mouseDown", &widgetEventData);
+        } else if (
+            message == WM_LBUTTONUP || message == WM_RBUTTONUP || message == WM_MBUTTONUP || message == WM_XBUTTONUP
+        ) {
+            JSApi::TriggerWidgetEvent(this, "mouseUp", &widgetEventData);
+        }
+    }
+
     // Find element at cursor (Front to Back)
     Element* hitElement = nullptr;
     Element* actionElement = nullptr;
+    Element* mouseActionElement = nullptr;
+    Element* toolTipElement = nullptr;
 
     for (auto it = m_Elements.rbegin(); it != m_Elements.rend(); ++it)
     {
@@ -1828,28 +1971,37 @@ bool Widget::HandleMouseMessage(UINT message, WPARAM wParam, LPARAM lParam)
 
         if (el->IsContainer()) {
             Element* childHit = nullptr;
-            if (HitTestContainerChildren(el, x, y, childHit)) {
+            Element* childAction = nullptr;
+            Element* childMouseAction = nullptr;
+            Element* childToolTip = nullptr;
+            if (HitTestContainerChildrenDetailed(el, x, y, message, wParam, childHit, childAction, childMouseAction, childToolTip)) {
                 if (!hitElement) hitElement = childHit;
-                if (childHit && childHit->HasAction(message, wParam)) {
-                    actionElement = childHit;
-                    break;
-                }
+                if (!actionElement) actionElement = childAction;
+                if (!mouseActionElement) mouseActionElement = childMouseAction;
+                if (!toolTipElement) toolTipElement = childToolTip;
             }
         }
 
         if (el->HitTest(x, y)) {
             if (!hitElement) hitElement = el;
-            if (el->HasAction(message, wParam)) {
-                actionElement = el;
-                break;
-            }
+            if (!actionElement && el->HasAction(message, wParam)) actionElement = el;
+            if (!mouseActionElement && el->HasMouseAction()) mouseActionElement = el;
+            if (!toolTipElement && el->HasToolTip()) toolTipElement = el;
         }
+
+        if (hitElement && actionElement && mouseActionElement && toolTipElement) break;
     }
 
-    // Handle Hover/Leave logic (this always uses the top-most hit element, regardless of actions)
+    // Handle Hover/Leave logic.
+    // Prefer the element that can handle hover callbacks; this avoids
+    // non-interactive overlays (for example text labels) stealing hover
+    // from the interactive element underneath.
     if (message == WM_MOUSEMOVE)
     {
-        if (hitElement != m_MouseOverElement)
+        Element* hoverElement = actionElement ? actionElement : (mouseActionElement ? mouseActionElement : hitElement);
+        Element* nextToolTipElement = toolTipElement ? toolTipElement : hoverElement;
+
+        if (hoverElement != m_MouseOverElement)
         {
 
             if (m_MouseOverElement)
@@ -1863,37 +2015,42 @@ bool Widget::HandleMouseMessage(UINT message, WPARAM wParam, LPARAM lParam)
                 // If callback cleared the elements, m_MouseOverElement is now invalid
                 if (m_Elements.empty()) {
                     m_MouseOverElement = nullptr;
+                    m_TooltipElement = nullptr;
                     return true;
                 }
             }
 
-            if (hitElement)
+            if (hoverElement)
             {
 
-                hitElement->m_IsMouseOver = true;
-                int overId = hitElement->m_OnMouseOverCallbackId;
+                hoverElement->m_IsMouseOver = true;
+                int overId = hoverElement->m_OnMouseOverCallbackId;
                 if (overId != -1)
                     JSApi::CallEventCallback(overId);
 
                 // If callback cleared the elements, hitElement is now invalid
                 if (m_Elements.empty()) {
                     m_MouseOverElement = nullptr;
+                    m_TooltipElement = nullptr;
                     return true;
                 }
             }
-            m_MouseOverElement = hitElement;
+            m_MouseOverElement = hoverElement;
             
-            // Tooltip Update
-            m_Tooltip.Update(m_MouseOverElement);
-            
-            // Start timer to periodically check if tooltip should be hidden (e.g., another window covers)
-            if (m_Tooltip.IsActive())
-            {
-                SetTimer(m_hWnd, TIMER_TOOLTIP, 100, nullptr);  // Check every 100ms
-            }
-
             // Refresh cursor when element under mouse changes as it might have different action state
             PostMessage(m_hWnd, WM_SETCURSOR, (WPARAM)m_hWnd, MAKELPARAM(HTCLIENT, WM_MOUSEMOVE));
+        }
+
+        if (nextToolTipElement != m_TooltipElement) {
+            m_Tooltip.Update(nextToolTipElement);
+            m_TooltipElement = nextToolTipElement;
+
+            // Start timer to periodically check if tooltip should be hidden (e.g., another window covers)
+            if (m_Tooltip.IsActive()) {
+                SetTimer(m_hWnd, TIMER_TOOLTIP, 100, nullptr);  // Check every 100ms
+            } else {
+                KillTimer(m_hWnd, TIMER_TOOLTIP);
+            }
         }
         
         // Ensure we track mouse leave window events
@@ -1909,7 +2066,31 @@ bool Widget::HandleMouseMessage(UINT message, WPARAM wParam, LPARAM lParam)
     {
         if (m_IsMouseOverWidget) {
             m_IsMouseOverWidget = false;
-            JSApi::TriggerWidgetEvent(this, "leave");
+            JSApi::MouseEventData leaveEventData;
+            POINT screenPt = {};
+            if (GetCursorPos(&screenPt)) {
+                POINT clientPt = screenPt;
+                ScreenToClient(m_hWnd, &clientPt);
+                leaveEventData.clientX = clientPt.x;
+                leaveEventData.clientY = clientPt.y;
+                leaveEventData.offsetX = clientPt.x;
+                leaveEventData.offsetY = clientPt.y;
+                leaveEventData.screenX = screenPt.x;
+                leaveEventData.screenY = screenPt.y;
+
+                RECT clientRect = {};
+                if (GetClientRect(m_hWnd, &clientRect)) {
+                    const int clientW = clientRect.right - clientRect.left;
+                    const int clientH = clientRect.bottom - clientRect.top;
+                    if (clientW > 0) {
+                        leaveEventData.offsetXPercent = (int)(((leaveEventData.offsetX + 1) / (double)clientW) * 100.0);
+                    }
+                    if (clientH > 0) {
+                        leaveEventData.offsetYPercent = (int)(((leaveEventData.offsetY + 1) / (double)clientH) * 100.0);
+                    }
+                }
+            }
+            JSApi::TriggerWidgetEvent(this, "mouseLeave", &leaveEventData);
         }
         if (m_MouseOverElement)
         {
@@ -1919,11 +2100,11 @@ bool Widget::HandleMouseMessage(UINT message, WPARAM wParam, LPARAM lParam)
              if (leaveId != -1)
                  JSApi::CallEventCallback(leaveId);
              m_MouseOverElement = nullptr;
-
-             // Tooltip Update and kill timer
-             m_Tooltip.Update(nullptr);
-             KillTimer(m_hWnd, TIMER_TOOLTIP);
+             m_TooltipElement = nullptr;
         }
+        // Tooltip Update and kill timer
+        m_Tooltip.Update(nullptr);
+        KillTimer(m_hWnd, TIMER_TOOLTIP);
         handled = true;
     }
 
@@ -1967,8 +2148,31 @@ bool Widget::HandleMouseMessage(UINT message, WPARAM wParam, LPARAM lParam)
 
         if (actionId != -1)
         {
-             // Execute function callback
-             JSApi::CallEventCallback(actionId, this);
+             JSApi::MouseEventData eventData;
+             eventData.clientX = x;
+             eventData.clientY = y;
+
+             POINT screenPt = { x, y };
+             ClientToScreen(m_hWnd, &screenPt);
+             eventData.screenX = screenPt.x;
+             eventData.screenY = screenPt.y;
+
+             const int elementX = actionElement->GetX();
+             const int elementY = actionElement->GetY();
+             eventData.offsetX = x - elementX;
+             eventData.offsetY = y - elementY;
+
+             const int elementW = actionElement->GetWidth();
+             const int elementH = actionElement->GetHeight();
+             if (elementW > 0) {
+                 eventData.offsetXPercent = (int)(((eventData.offsetX + 1) / (double)elementW) * 100.0);
+             }
+             if (elementH > 0) {
+                 eventData.offsetYPercent = (int)(((eventData.offsetY + 1) / (double)elementH) * 100.0);
+             }
+
+             // Execute function callback with mouse position aliases.
+             JSApi::CallEventCallback(actionId, this, &eventData);
              handled = true;
         }
     }

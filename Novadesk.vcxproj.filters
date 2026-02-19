@@ -55,6 +55,9 @@
     <ClInclude Include="Library\Hotkey.h">
       <Filter>Library</Filter>
     </ClInclude>
+    <ClInclude Include="Library\BrightnessControl.h">
+      <Filter>Library</Filter>
+    </ClInclude>
     <ClInclude Include="Library\ImageElement.h">
       <Filter>Library</Filter>
     </ClInclude>
@@ -71,6 +74,9 @@
       <Filter>Library</Filter>
     </ClInclude>
     <ClInclude Include="Library\MouseMonitor.h">
+      <Filter>Library</Filter>
+    </ClInclude>
+    <ClInclude Include="Library\NowPlayingMonitor.h">
       <Filter>Library</Filter>
     </ClInclude>
     <ClInclude Include="Library\NetworkMonitor.h">
@@ -101,6 +107,9 @@
       <Filter>Library</Filter>
     </ClInclude>
     <ClInclude Include="Library\Tooltip.h">
+      <Filter>Library</Filter>
+    </ClInclude>
+    <ClInclude Include="Library\CursorManager.h">
       <Filter>Library</Filter>
     </ClInclude>
     <ClInclude Include="Library\Utils.h">
@@ -177,6 +186,9 @@
     <ClInclude Include="Library\AudioLevel.h">
       <Filter>Library</Filter>
     </ClInclude>
+    <ClInclude Include="Library\AppVolumeControl.h">
+      <Filter>Library</Filter>
+    </ClInclude>
     <ClInclude Include="Library\kiss_fft130\kiss_fft.h">
       <Filter>Library\kiss_fft130</Filter>
     </ClInclude>
@@ -206,9 +218,6 @@
       <Filter>Library</Filter>
     </ClInclude>
     <ClInclude Include="Library\CurveShape.h">
-      <Filter>Library</Filter>
-    </ClInclude>
-    <ClInclude Include="Library\nanosvg\nanosvg.h">
       <Filter>Library</Filter>
     </ClInclude>
     <ClInclude Include="Library\ArcShape.h">
@@ -247,6 +256,9 @@
     <ClCompile Include="Library\Hotkey.cpp">
       <Filter>Library</Filter>
     </ClCompile>
+    <ClCompile Include="Library\BrightnessControl.cpp">
+      <Filter>Library</Filter>
+    </ClCompile>
     <ClCompile Include="Library\ImageElement.cpp">
       <Filter>Library</Filter>
     </ClCompile>
@@ -260,6 +272,9 @@
       <Filter>Library</Filter>
     </ClCompile>
     <ClCompile Include="Library\MouseMonitor.cpp">
+      <Filter>Library</Filter>
+    </ClCompile>
+    <ClCompile Include="Library\NowPlayingMonitor.cpp">
       <Filter>Library</Filter>
     </ClCompile>
     <ClCompile Include="Library\NetworkMonitor.cpp">
@@ -289,6 +304,9 @@
     <ClCompile Include="Library\Tooltip.cpp">
       <Filter>Library</Filter>
     </ClCompile>
+    <ClCompile Include="Library\CursorManager.cpp">
+      <Filter>Library</Filter>
+    </ClCompile>
     <ClCompile Include="Library\Utils.cpp">
       <Filter>Library</Filter>
     </ClCompile>
@@ -296,6 +314,9 @@
       <Filter>Library</Filter>
     </ClCompile>
     <ClCompile Include="Library\AudioLevel.cpp">
+      <Filter>Library</Filter>
+    </ClCompile>
+    <ClCompile Include="Library\AppVolumeControl.cpp">
       <Filter>Library</Filter>
     </ClCompile>
     <ClCompile Include="Library\kiss_fft130\kiss_fft.c">
@@ -384,6 +405,9 @@
     <ClCompile Include="Library\ShapeElement.cpp">
       <Filter>Library</Filter>
     </ClCompile>
+        <ClInclude Include="Library\nanosvg\nanosvg.h">
+      <Filter>Library\nanosvg</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="Novadesk.rc" />

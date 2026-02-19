@@ -80,6 +80,7 @@
   <ItemGroup>
     <ClInclude Include="Library\EllipseShape.h" />
     <ClInclude Include="Library\Hotkey.h" />
+    <ClInclude Include="Library\BrightnessControl.h" />
     <ClInclude Include="Library\DiskMonitor.h" />
     <ClInclude Include="Library\Element.h" />
     <ClInclude Include="Library\LineShape.h" />
@@ -92,6 +93,7 @@
     <ClInclude Include="Library\ArcShape.h" />
     <ClInclude Include="Library\ImageElement.h" />
     <ClInclude Include="Library\AudioLevel.h" />
+    <ClInclude Include="Library\AppVolumeControl.h" />
     <ClInclude Include="Library\kiss_fft130\kiss_fft.h" />
     <ClInclude Include="Library\kiss_fft130\kiss_fftr.h" />
     <ClInclude Include="Library\kiss_fft130\_kiss_fft_guts.h" />
@@ -107,10 +109,12 @@
     <ClInclude Include="Library\JSApi\JSPower.h" />
     <ClInclude Include="Library\JSApi\JSNovadeskTray.h" />
     <ClInclude Include="Library\MouseMonitor.h" />
+    <ClInclude Include="Library\NowPlayingMonitor.h" />
     <ClInclude Include="Library\NetworkMonitor.h" />
     <ClInclude Include="Library\System.h" />
     <ClInclude Include="Library\TextElement.h" />
     <ClInclude Include="Library\Tooltip.h" />
+    <ClInclude Include="Library\CursorManager.h" />
     <ClInclude Include="Library\Widget.h" />
     <ClInclude Include="Library\ColorUtil.h" />
     <ClInclude Include="Library\Logging.h" />
@@ -146,10 +150,12 @@
     <ClCompile Include="Library\Element.cpp" />
     <ClCompile Include="Library\EllipseShape.cpp" />
     <ClCompile Include="Library\Hotkey.cpp" />
+    <ClCompile Include="Library\BrightnessControl.cpp" />
     <ClCompile Include="Library\DiskMonitor.cpp" />
     <ClCompile Include="Library\ImageElement.cpp" />
     <ClCompile Include="Library\BarElement.cpp" />
     <ClCompile Include="Library\AudioLevel.cpp" />
+    <ClCompile Include="Library\AppVolumeControl.cpp" />
     <ClCompile Include="Library\kiss_fft130\kiss_fft.c" />
     <ClCompile Include="Library\kiss_fft130\kiss_fftr.c" />
     <ClCompile Include="Library\LineShape.cpp" />
@@ -170,10 +176,12 @@
     <ClCompile Include="Library\JSApi\JSPower.cpp" />
     <ClCompile Include="Library\JSApi\JSNovadeskTray.cpp" />
     <ClCompile Include="Library\MouseMonitor.cpp" />
+    <ClCompile Include="Library\NowPlayingMonitor.cpp" />
     <ClCompile Include="Library\NetworkMonitor.cpp" />
     <ClCompile Include="Library\System.cpp" />
     <ClCompile Include="Library\TextElement.cpp" />
     <ClCompile Include="Library\Tooltip.cpp" />
+    <ClCompile Include="Library\CursorManager.cpp" />
     <ClCompile Include="Library\Widget.cpp" />
     <ClCompile Include="Library\JSApi\JSApi.cpp" />
     <ClCompile Include="Library\JSApi\JSCommon.cpp" />

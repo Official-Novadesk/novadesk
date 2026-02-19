@@ -85,6 +85,18 @@ namespace JSApi {
         return 1;
     }
 
+    duk_ret_t js_widget_set_group_properties(duk_context* ctx) {
+        Widget* widget = GetWidgetFromThis(ctx);
+        if (!widget) return DUK_RET_TYPE_ERROR;
+        std::wstring group = Utils::ToWString(duk_get_string(ctx, 0));
+        if (!duk_is_object(ctx, 1)) return DUK_RET_TYPE_ERROR;
+        duk_dup(ctx, 1);
+        widget->SetGroupProperties(group, ctx);
+        duk_pop(ctx);
+        duk_push_this(ctx);
+        return 1;
+    }
+
     duk_ret_t js_widget_remove_elements(duk_context* ctx) {
         Widget* widget = GetWidgetFromThis(ctx);
         if (!widget) return DUK_RET_TYPE_ERROR;
@@ -103,6 +115,16 @@ namespace JSApi {
             std::wstring id = Utils::ToWString(duk_get_string(ctx, 0));
             widget->RemoveElements(id);
         }
+        duk_push_this(ctx);
+        return 1;
+    }
+
+    duk_ret_t js_widget_remove_elements_by_group(duk_context* ctx) {
+        Widget* widget = GetWidgetFromThis(ctx);
+        if (!widget) return DUK_RET_TYPE_ERROR;
+        if (!duk_is_string(ctx, 0)) return DUK_RET_TYPE_ERROR;
+        std::wstring group = Utils::ToWString(duk_get_string(ctx, 0));
+        widget->RemoveElementsByGroup(group);
         duk_push_this(ctx);
         return 1;
     }
@@ -151,7 +173,9 @@ namespace JSApi {
             { "addRoundLine", js_widget_add_round_line, 1 },
             { "addShape", js_widget_add_shape, 1 },
             { "removeElements", js_widget_remove_elements, 1 },
+            { "removeElementsByGroup", js_widget_remove_elements_by_group, 1 },
             { "setElementProperties", js_widget_set_element_properties, 2 },
+            { "setElementPropertiesByGroup", js_widget_set_group_properties, 2 },
             { "getElementProperty", js_widget_get_element_property, 2 },
             { "beginUpdate", js_widget_begin_update, 0 },
             { "endUpdate", js_widget_end_update, 0 }

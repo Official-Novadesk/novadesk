@@ -1,0 +1,17 @@
+{
+    // top comment
+    "a": 1,
+    "obj": {
+        // inner comment
+        "b": 20.0,
+        "c": 3
+    ,
+    "d": 4.0
+},
+    "arr": [
+    9.0,
+    8.0
+]
+,
+    "newKey": 1
+}

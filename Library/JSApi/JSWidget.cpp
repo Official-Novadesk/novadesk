@@ -19,7 +19,7 @@
 
  extern std::vector<Widget*> widgets;
 
- namespace JSApi {
+namespace JSApi {
 
      Widget* GetWidgetFromContext(duk_context* ctx) {
          duk_push_this(ctx);
@@ -87,8 +87,9 @@
                  }
                  duk_pop_2(ctx); 
 
-                 delete *it;
+                 Widget* oldWidget = *it;
                  widgets.erase(it);
+                 delete oldWidget;
                  break;
              }
          }
@@ -150,8 +151,10 @@
              duk_put_prop_string(ctx, -3, eventName);
          }
 
-         duk_dup(ctx, 1);
-         duk_put_prop_index(ctx, -2, (duk_uarridx_t)duk_get_length(ctx, -2));
+        if (!WrapCallbackWithDirContext(ctx, 1)) {
+            duk_dup(ctx, 1);
+        }
+        duk_put_prop_index(ctx, -2, (duk_uarridx_t)duk_get_length(ctx, -2));
 
          duk_pop_3(ctx); 
 

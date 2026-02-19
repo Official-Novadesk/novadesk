@@ -178,6 +178,14 @@ public:
 
     void SetContainerId(const std::wstring& id) { m_ContainerId = id; }
     const std::wstring& GetContainerId() const { return m_ContainerId; }
+    void SetGroupId(const std::wstring& id) { m_GroupId = id; }
+    const std::wstring& GetGroupId() const { return m_GroupId; }
+    void SetMouseEventCursor(bool enabled) { m_MouseEventCursor = enabled; }
+    bool GetMouseEventCursor() const { return m_MouseEventCursor; }
+    void SetMouseEventCursorName(const std::wstring& name) { m_MouseEventCursorName = name; }
+    const std::wstring& GetMouseEventCursorName() const { return m_MouseEventCursorName; }
+    void SetCursorsDir(const std::wstring& dir) { m_CursorsDir = dir; }
+    const std::wstring& GetCursorsDir() const { return m_CursorsDir; }
     void SetContainer(Element* container) { m_ContainerElement = container; }
     Element* GetContainer() const { return m_ContainerElement; }
     bool IsContained() const { return m_ContainerElement != nullptr; }
@@ -268,6 +276,10 @@ protected:
     bool m_Show = true;
 
     std::wstring m_ContainerId;
+    std::wstring m_GroupId;
+    bool m_MouseEventCursor = true;
+    std::wstring m_MouseEventCursorName;
+    std::wstring m_CursorsDir;
     Element* m_ContainerElement = nullptr;
     std::vector<Element*> m_ContainerItems;
     

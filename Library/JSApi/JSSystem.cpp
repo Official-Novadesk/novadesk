@@ -18,11 +18,15 @@
 #include "../NetworkMonitor.h"
 #include "../MouseMonitor.h"
 #include "../DiskMonitor.h"
+#include "../BrightnessControl.h"
+#include "../AppVolumeControl.h"
+#include "../NowPlayingMonitor.h"
 #include "JSUtils.h"
 #include "JSAudio.h"
 #include "JSAudioLevel.h"
 #include <map>
 #include <vector>
+#include <functional>
 
 namespace JSApi {
 
@@ -86,20 +90,26 @@ namespace JSApi {
         if (duk_is_function(ctx, 1)) {
             keyDownIdx = idForCallback * 10;
             duk_push_int(ctx, keyDownIdx);
-            duk_dup(ctx, 1);
+            if (!WrapCallbackWithDirContext(ctx, 1)) {
+                duk_dup(ctx, 1);
+            }
             duk_put_prop(ctx, -3);
         } else if (duk_is_object(ctx, 1)) {
             if (duk_get_prop_string(ctx, 1, "onKeyDown") && duk_is_function(ctx, -1)) {
                 keyDownIdx = idForCallback * 10;
                 duk_push_int(ctx, keyDownIdx);
-                duk_dup(ctx, -2);
+                if (!WrapCallbackWithDirContext(ctx, -1)) {
+                    duk_dup(ctx, -2);
+                }
                 duk_put_prop(ctx, -4);
             }
             duk_pop(ctx);
             if (duk_get_prop_string(ctx, 1, "onKeyUp") && duk_is_function(ctx, -1)) {
                 keyUpIdx = idForCallback * 10 + 1;
                 duk_push_int(ctx, keyUpIdx);
-                duk_dup(ctx, -2);
+                if (!WrapCallbackWithDirContext(ctx, -1)) {
+                    duk_dup(ctx, -2);
+                }
                 duk_put_prop(ctx, -4);
             }
             duk_pop(ctx);
@@ -192,6 +202,82 @@ namespace JSApi {
         bool success = System::Execute(target, parameters, workingDir, show);
         
         duk_push_boolean(ctx, success);
+        return 1;
+    }
+
+    duk_ret_t js_system_set_wallpaper(duk_context* ctx) {
+        if (duk_get_top(ctx) < 1 || !duk_is_string(ctx, 0)) return DUK_RET_TYPE_ERROR;
+
+        std::wstring imagePath = Utils::ToWString(duk_get_string(ctx, 0));
+        std::wstring style = L"fill";
+        if (duk_get_top(ctx) > 1 && !duk_is_null_or_undefined(ctx, 1)) {
+            if (!duk_is_string(ctx, 1)) return DUK_RET_TYPE_ERROR;
+            style = Utils::ToWString(duk_get_string(ctx, 1));
+        }
+
+        if (PathUtils::IsPathRelative(imagePath)) {
+            imagePath = PathUtils::ResolvePath(imagePath, PathUtils::GetParentDir(s_CurrentScriptPath));
+        } else {
+            imagePath = PathUtils::NormalizePath(imagePath);
+        }
+
+        bool success = System::SetWallpaper(imagePath, style);
+        duk_push_boolean(ctx, success);
+        return 1;
+    }
+
+    duk_ret_t js_system_get_current_wallpaper_path(duk_context* ctx) {
+        std::wstring currentPath;
+        if (!System::GetCurrentWallpaperPath(currentPath) || currentPath.empty()) {
+            duk_push_null(ctx);
+            return 1;
+        }
+
+        duk_push_string(ctx, Utils::ToString(currentPath).c_str());
+        return 1;
+    }
+
+    duk_ret_t js_system_extract_file_icon(duk_context* ctx) {
+        if (duk_get_top(ctx) < 1 || !duk_is_string(ctx, 0)) return DUK_RET_TYPE_ERROR;
+
+        std::wstring sourcePath = Utils::ToWString(duk_get_string(ctx, 0));
+        if (PathUtils::IsPathRelative(sourcePath)) {
+            sourcePath = PathUtils::ResolvePath(sourcePath, PathUtils::GetParentDir(s_CurrentScriptPath));
+        } else {
+            sourcePath = PathUtils::NormalizePath(sourcePath);
+        }
+
+        std::wstring outPath;
+        int size = 48;
+        if (duk_get_top(ctx) > 1 && !duk_is_null_or_undefined(ctx, 1)) {
+            if (!duk_is_string(ctx, 1)) return DUK_RET_TYPE_ERROR;
+            outPath = Utils::ToWString(duk_get_string(ctx, 1));
+        }
+        if (duk_get_top(ctx) > 2 && !duk_is_null_or_undefined(ctx, 2)) {
+            if (!duk_is_number(ctx, 2)) return DUK_RET_TYPE_ERROR;
+            size = duk_get_int(ctx, 2);
+        }
+
+        if (outPath.empty()) {
+            std::wstring baseDir = PathUtils::GetAppDataPath();
+            std::wstring dir = baseDir + L"FileIcons\\";
+            CreateDirectoryW(baseDir.c_str(), nullptr);
+            CreateDirectoryW(dir.c_str(), nullptr);
+            size_t h = std::hash<std::wstring>{}(sourcePath + L"|" + std::to_wstring(size));
+            outPath = dir + std::to_wstring((unsigned long long)h) + L".ico";
+        } else if (PathUtils::IsPathRelative(outPath)) {
+            outPath = PathUtils::ResolvePath(outPath, PathUtils::GetParentDir(s_CurrentScriptPath));
+        } else {
+            outPath = PathUtils::NormalizePath(outPath);
+        }
+
+        bool ok = Utils::ExtractFileIconToIco(sourcePath, outPath, size);
+        if (!ok) {
+            duk_push_null(ctx);
+            return 1;
+        }
+
+        duk_push_string(ctx, Utils::ToString(outPath).c_str());
         return 1;
     }
 
@@ -504,6 +590,341 @@ namespace JSApi {
         return 0;
     }
 
+    duk_ret_t js_system_get_brightness(duk_context* ctx) {
+        int displayIndex = 0;
+        if (duk_get_top(ctx) > 0 && duk_is_object(ctx, 0)) {
+            if (duk_get_prop_string(ctx, 0, "display")) {
+                if (!duk_is_null_or_undefined(ctx, -1)) displayIndex = duk_get_int(ctx, -1);
+            }
+            duk_pop(ctx);
+        }
+
+        BrightnessControl control(displayIndex);
+        BrightnessControl::BrightnessInfo info;
+        bool ok = control.GetBrightness(info);
+
+        duk_push_object(ctx);
+        duk_push_boolean(ctx, ok && info.supported); duk_put_prop_string(ctx, -2, "supported");
+        duk_push_int(ctx, (int)info.current); duk_put_prop_string(ctx, -2, "current");
+        duk_push_int(ctx, (int)info.min); duk_put_prop_string(ctx, -2, "min");
+        duk_push_int(ctx, (int)info.max); duk_put_prop_string(ctx, -2, "max");
+        duk_push_int(ctx, info.percent); duk_put_prop_string(ctx, -2, "percent");
+        return 1;
+    }
+
+    duk_ret_t js_system_set_brightness(duk_context* ctx) {
+        if (duk_get_top(ctx) < 1 || !duk_is_object(ctx, 0)) return DUK_RET_TYPE_ERROR;
+
+        int displayIndex = 0;
+        int percent = -1;
+
+        if (duk_get_prop_string(ctx, 0, "display")) {
+            if (!duk_is_null_or_undefined(ctx, -1)) displayIndex = duk_get_int(ctx, -1);
+        }
+        duk_pop(ctx);
+
+        if (duk_get_prop_string(ctx, 0, "percent")) {
+            if (!duk_is_null_or_undefined(ctx, -1)) percent = duk_get_int(ctx, -1);
+        }
+        duk_pop(ctx);
+
+        if (percent < 0) percent = 0;
+        if (percent > 100) percent = 100;
+
+        BrightnessControl control(displayIndex);
+        bool ok = control.SetBrightnessPercent(percent);
+        duk_push_boolean(ctx, ok);
+        return 1;
+    }
+
+    static bool ParseAppSelector(duk_context* ctx, int idx, DWORD& outPid, std::wstring& outProcess, bool& hasPid, bool& hasProcess)
+    {
+        hasPid = false;
+        hasProcess = false;
+        outPid = 0;
+        outProcess.clear();
+
+        if (duk_get_top(ctx) <= idx || !duk_is_object(ctx, idx)) return false;
+
+        if (duk_get_prop_string(ctx, idx, "pid")) {
+            if (!duk_is_null_or_undefined(ctx, -1)) {
+                outPid = (DWORD)duk_get_uint(ctx, -1);
+                hasPid = true;
+            }
+        }
+        duk_pop(ctx);
+
+        if (duk_get_prop_string(ctx, idx, "process")) {
+            if (!duk_is_null_or_undefined(ctx, -1) && duk_is_string(ctx, -1)) {
+                outProcess = Utils::ToWString(duk_get_string(ctx, -1));
+                hasProcess = !outProcess.empty();
+            }
+        }
+        duk_pop(ctx);
+
+        return hasPid || hasProcess;
+    }
+
+    duk_ret_t js_system_list_app_volumes(duk_context* ctx) {
+        std::vector<AppVolumeControl::SessionInfo> sessions;
+        bool ok = AppVolumeControl::ListSessions(sessions);
+
+        duk_push_array(ctx);
+        if (!ok) return 1;
+
+        for (size_t i = 0; i < sessions.size(); ++i) {
+            const auto& s = sessions[i];
+            duk_push_object(ctx);
+            duk_push_uint(ctx, s.pid); duk_put_prop_string(ctx, -2, "pid");
+            duk_push_string(ctx, Utils::ToString(s.processName).c_str()); duk_put_prop_string(ctx, -2, "process");
+            duk_push_string(ctx, Utils::ToString(s.fileName).c_str()); duk_put_prop_string(ctx, -2, "fileName");
+            duk_push_string(ctx, Utils::ToString(s.filePath).c_str()); duk_put_prop_string(ctx, -2, "filePath");
+            duk_push_string(ctx, Utils::ToString(s.iconPath).c_str()); duk_put_prop_string(ctx, -2, "iconPath");
+            duk_push_string(ctx, Utils::ToString(s.displayName).c_str()); duk_put_prop_string(ctx, -2, "displayName");
+            duk_push_int(ctx, (int)(s.volume * 100.0f + 0.5f)); duk_put_prop_string(ctx, -2, "volume");
+            duk_push_int(ctx, (int)(s.peak * 100.0f + 0.5f)); duk_put_prop_string(ctx, -2, "peak");
+            duk_push_boolean(ctx, s.muted); duk_put_prop_string(ctx, -2, "muted");
+            duk_put_prop_index(ctx, -2, (duk_uarridx_t)i);
+        }
+        return 1;
+    }
+
+    duk_ret_t js_system_get_app_volume(duk_context* ctx) {
+        DWORD pid = 0;
+        std::wstring process;
+        bool hasPid = false, hasProcess = false;
+        if (!ParseAppSelector(ctx, 0, pid, process, hasPid, hasProcess)) return DUK_RET_TYPE_ERROR;
+
+        float vol = 0.0f;
+        bool muted = false;
+        float peak = 0.0f;
+        bool ok = hasPid ? AppVolumeControl::GetByPid(pid, vol, muted, peak) : AppVolumeControl::GetByProcessName(process, vol, muted, peak);
+        if (!ok) {
+            duk_push_null(ctx);
+            return 1;
+        }
+
+        duk_push_int(ctx, (int)(vol * 100.0f + 0.5f));
+        return 1;
+    }
+
+    duk_ret_t js_system_get_app_peak(duk_context* ctx) {
+        DWORD pid = 0;
+        std::wstring process;
+        bool hasPid = false, hasProcess = false;
+        if (!ParseAppSelector(ctx, 0, pid, process, hasPid, hasProcess)) return DUK_RET_TYPE_ERROR;
+
+        float vol = 0.0f;
+        bool muted = false;
+        float peak = 0.0f;
+        bool ok = hasPid ? AppVolumeControl::GetByPid(pid, vol, muted, peak) : AppVolumeControl::GetByProcessName(process, vol, muted, peak);
+        if (!ok) {
+            duk_push_null(ctx);
+            return 1;
+        }
+        duk_push_int(ctx, (int)(peak * 100.0f + 0.5f));
+        return 1;
+    }
+
+    duk_ret_t js_system_set_app_volume(duk_context* ctx) {
+        if (duk_get_top(ctx) < 2 || !duk_is_object(ctx, 0) || !duk_is_number(ctx, 1)) return DUK_RET_TYPE_ERROR;
+
+        DWORD pid = 0;
+        std::wstring process;
+        bool hasPid = false, hasProcess = false;
+        if (!ParseAppSelector(ctx, 0, pid, process, hasPid, hasProcess)) return DUK_RET_TYPE_ERROR;
+
+        int volPct = duk_get_int(ctx, 1);
+        if (volPct < 0) volPct = 0;
+        if (volPct > 100) volPct = 100;
+        float vol = (float)volPct / 100.0f;
+
+        bool ok = hasPid ? AppVolumeControl::SetVolumeByPid(pid, vol) : AppVolumeControl::SetVolumeByProcessName(process, vol);
+        duk_push_boolean(ctx, ok);
+        return 1;
+    }
+
+    duk_ret_t js_system_get_app_mute(duk_context* ctx) {
+        DWORD pid = 0;
+        std::wstring process;
+        bool hasPid = false, hasProcess = false;
+        if (!ParseAppSelector(ctx, 0, pid, process, hasPid, hasProcess)) return DUK_RET_TYPE_ERROR;
+
+        float vol = 0.0f;
+        bool muted = false;
+        float peak = 0.0f;
+        bool ok = hasPid ? AppVolumeControl::GetByPid(pid, vol, muted, peak) : AppVolumeControl::GetByProcessName(process, vol, muted, peak);
+        if (!ok) {
+            duk_push_null(ctx);
+            return 1;
+        }
+
+        duk_push_boolean(ctx, muted);
+        return 1;
+    }
+
+    duk_ret_t js_system_set_app_mute(duk_context* ctx) {
+        if (duk_get_top(ctx) < 2 || !duk_is_object(ctx, 0) || !duk_is_boolean(ctx, 1)) return DUK_RET_TYPE_ERROR;
+
+        DWORD pid = 0;
+        std::wstring process;
+        bool hasPid = false, hasProcess = false;
+        if (!ParseAppSelector(ctx, 0, pid, process, hasPid, hasProcess)) return DUK_RET_TYPE_ERROR;
+
+        bool mute = duk_get_boolean(ctx, 1) != 0;
+        bool ok = hasPid ? AppVolumeControl::SetMuteByPid(pid, mute) : AppVolumeControl::SetMuteByProcessName(process, mute);
+        duk_push_boolean(ctx, ok);
+        return 1;
+    }
+
+
+    duk_ret_t js_now_playing_constructor(duk_context* ctx) {
+        if (!duk_is_constructor_call(ctx)) return DUK_RET_TYPE_ERROR;
+        NowPlayingMonitor* monitor = new NowPlayingMonitor();
+        duk_push_this(ctx);
+        duk_push_pointer(ctx, monitor);
+        duk_put_prop_string(ctx, -2, "\xFF" "monitorPtr");
+        return 0;
+    }
+    duk_ret_t js_now_playing_finalizer(duk_context* ctx) {
+        duk_get_prop_string(ctx, 0, "\xFF" "monitorPtr");
+        NowPlayingMonitor* monitor = (NowPlayingMonitor*)duk_get_pointer(ctx, -1);
+        if (monitor) delete monitor;
+        return 0;
+    }
+    duk_ret_t js_now_playing_stats(duk_context* ctx) {
+        duk_push_this(ctx);
+        duk_get_prop_string(ctx, -1, "\xFF" "monitorPtr");
+        NowPlayingMonitor* monitor = (NowPlayingMonitor*)duk_get_pointer(ctx, -1);
+        if (!monitor) return DUK_RET_ERROR;
+        auto stats = monitor->GetStats();
+        duk_push_object(ctx);
+        duk_push_boolean(ctx, stats.available); duk_put_prop_string(ctx, -2, "available");
+        duk_push_string(ctx, Utils::ToString(stats.player).c_str()); duk_put_prop_string(ctx, -2, "player");
+        duk_push_string(ctx, Utils::ToString(stats.artist).c_str()); duk_put_prop_string(ctx, -2, "artist");
+        duk_push_string(ctx, Utils::ToString(stats.album).c_str()); duk_put_prop_string(ctx, -2, "album");
+        duk_push_string(ctx, Utils::ToString(stats.title).c_str()); duk_put_prop_string(ctx, -2, "title");
+        duk_push_string(ctx, Utils::ToString(stats.thumbnail).c_str()); duk_put_prop_string(ctx, -2, "thumbnail");
+        duk_push_int(ctx, stats.duration); duk_put_prop_string(ctx, -2, "duration");
+        duk_push_int(ctx, stats.position); duk_put_prop_string(ctx, -2, "position");
+        duk_push_int(ctx, stats.progress); duk_put_prop_string(ctx, -2, "progress");
+        duk_push_int(ctx, stats.state); duk_put_prop_string(ctx, -2, "state");
+        duk_push_int(ctx, stats.status); duk_put_prop_string(ctx, -2, "status");
+        duk_push_boolean(ctx, stats.shuffle); duk_put_prop_string(ctx, -2, "shuffle");
+        duk_push_boolean(ctx, stats.repeat); duk_put_prop_string(ctx, -2, "repeat");
+        return 1;
+    }
+    duk_ret_t js_now_playing_play(duk_context* ctx) {
+        duk_push_this(ctx);
+        duk_get_prop_string(ctx, -1, "\xFF" "monitorPtr");
+        NowPlayingMonitor* monitor = (NowPlayingMonitor*)duk_get_pointer(ctx, -1);
+        if (!monitor) return DUK_RET_ERROR;
+        duk_push_boolean(ctx, monitor->Play());
+        return 1;
+    }
+    duk_ret_t js_now_playing_pause(duk_context* ctx) {
+        duk_push_this(ctx);
+        duk_get_prop_string(ctx, -1, "\xFF" "monitorPtr");
+        NowPlayingMonitor* monitor = (NowPlayingMonitor*)duk_get_pointer(ctx, -1);
+        if (!monitor) return DUK_RET_ERROR;
+        duk_push_boolean(ctx, monitor->Pause());
+        return 1;
+    }
+    duk_ret_t js_now_playing_play_pause(duk_context* ctx) {
+        duk_push_this(ctx);
+        duk_get_prop_string(ctx, -1, "\xFF" "monitorPtr");
+        NowPlayingMonitor* monitor = (NowPlayingMonitor*)duk_get_pointer(ctx, -1);
+        if (!monitor) return DUK_RET_ERROR;
+        duk_push_boolean(ctx, monitor->PlayPause());
+        return 1;
+    }
+    duk_ret_t js_now_playing_stop(duk_context* ctx) {
+        duk_push_this(ctx);
+        duk_get_prop_string(ctx, -1, "\xFF" "monitorPtr");
+        NowPlayingMonitor* monitor = (NowPlayingMonitor*)duk_get_pointer(ctx, -1);
+        if (!monitor) return DUK_RET_ERROR;
+        duk_push_boolean(ctx, monitor->Stop());
+        return 1;
+    }
+    duk_ret_t js_now_playing_next(duk_context* ctx) {
+        duk_push_this(ctx);
+        duk_get_prop_string(ctx, -1, "\xFF" "monitorPtr");
+        NowPlayingMonitor* monitor = (NowPlayingMonitor*)duk_get_pointer(ctx, -1);
+        if (!monitor) return DUK_RET_ERROR;
+        duk_push_boolean(ctx, monitor->Next());
+        return 1;
+    }
+    duk_ret_t js_now_playing_previous(duk_context* ctx) {
+        duk_push_this(ctx);
+        duk_get_prop_string(ctx, -1, "\xFF" "monitorPtr");
+        NowPlayingMonitor* monitor = (NowPlayingMonitor*)duk_get_pointer(ctx, -1);
+        if (!monitor) return DUK_RET_ERROR;
+        duk_push_boolean(ctx, monitor->Previous());
+        return 1;
+    }
+    duk_ret_t js_now_playing_set_position(duk_context* ctx) {
+        if (duk_get_top(ctx) < 1 || !duk_is_number(ctx, 0)) return DUK_RET_TYPE_ERROR;
+        int value = duk_get_int(ctx, 0);
+        bool isPercent = true;
+        if (duk_get_top(ctx) > 1 && duk_is_string(ctx, 1)) {
+            std::string mode = duk_get_string(ctx, 1);
+            if (mode == "seconds") isPercent = false;
+            else if (mode == "percent") isPercent = true;
+        } else if (value > 100) {
+            isPercent = false;
+        }
+        duk_push_this(ctx);
+        duk_get_prop_string(ctx, -1, "\xFF" "monitorPtr");
+        NowPlayingMonitor* monitor = (NowPlayingMonitor*)duk_get_pointer(ctx, -1);
+        if (!monitor) return DUK_RET_ERROR;
+        duk_push_boolean(ctx, monitor->SetPosition(value, isPercent));
+        return 1;
+    }
+    duk_ret_t js_now_playing_set_shuffle(duk_context* ctx) {
+        if (duk_get_top(ctx) < 1 || !duk_is_boolean(ctx, 0)) return DUK_RET_TYPE_ERROR;
+        bool enabled = duk_get_boolean(ctx, 0) != 0;
+        duk_push_this(ctx);
+        duk_get_prop_string(ctx, -1, "\xFF" "monitorPtr");
+        NowPlayingMonitor* monitor = (NowPlayingMonitor*)duk_get_pointer(ctx, -1);
+        if (!monitor) return DUK_RET_ERROR;
+        duk_push_boolean(ctx, monitor->SetShuffle(enabled));
+        return 1;
+    }
+    duk_ret_t js_now_playing_toggle_shuffle(duk_context* ctx) {
+        duk_push_this(ctx);
+        duk_get_prop_string(ctx, -1, "\xFF" "monitorPtr");
+        NowPlayingMonitor* monitor = (NowPlayingMonitor*)duk_get_pointer(ctx, -1);
+        if (!monitor) return DUK_RET_ERROR;
+        duk_push_boolean(ctx, monitor->ToggleShuffle());
+        return 1;
+    }
+    duk_ret_t js_now_playing_set_repeat(duk_context* ctx) {
+        if (duk_get_top(ctx) < 1 || !duk_is_string(ctx, 0)) return DUK_RET_TYPE_ERROR;
+        std::string mode = duk_get_string(ctx, 0);
+        int repeatMode = 0;
+        if (mode == "none") repeatMode = 0;
+        else if (mode == "one") repeatMode = 1;
+        else if (mode == "all") repeatMode = 2;
+        else return DUK_RET_TYPE_ERROR;
+        duk_push_this(ctx);
+        duk_get_prop_string(ctx, -1, "\xFF" "monitorPtr");
+        NowPlayingMonitor* monitor = (NowPlayingMonitor*)duk_get_pointer(ctx, -1);
+        if (!monitor) return DUK_RET_ERROR;
+        duk_push_boolean(ctx, monitor->SetRepeat(repeatMode));
+        return 1;
+    }
+    duk_ret_t js_now_playing_destroy(duk_context* ctx) {
+        duk_push_this(ctx);
+        duk_get_prop_string(ctx, -1, "\xFF" "monitorPtr");
+        NowPlayingMonitor* monitor = (NowPlayingMonitor*)duk_get_pointer(ctx, -1);
+        if (monitor) {
+            delete monitor;
+            duk_push_pointer(ctx, nullptr);
+            duk_put_prop_string(ctx, -3, "\xFF" "monitorPtr");
+        }
+        return 0;
+    }
+
     void BindSystemBaseMethods(duk_context* ctx) {
         duk_push_c_function(ctx, js_get_env, DUK_VARARGS);
         duk_put_prop_string(ctx, -2, "getEnv");
@@ -515,6 +936,28 @@ namespace JSApi {
         duk_put_prop_string(ctx, -2, "execute");
         duk_push_c_function(ctx, js_system_get_display_metrics, 0);
         duk_put_prop_string(ctx, -2, "getDisplayMetrics");
+        duk_push_c_function(ctx, js_system_set_wallpaper, 1);
+        duk_put_prop_string(ctx, -2, "setWallpaper");
+        duk_push_c_function(ctx, js_system_get_current_wallpaper_path, 0);
+        duk_put_prop_string(ctx, -2, "getCurrentWallpaperPath");
+        duk_push_c_function(ctx, js_system_extract_file_icon, DUK_VARARGS);
+        duk_put_prop_string(ctx, -2, "extractFileIcon");
+        duk_push_c_function(ctx, js_system_get_brightness, DUK_VARARGS);
+        duk_put_prop_string(ctx, -2, "getBrightness");
+        duk_push_c_function(ctx, js_system_set_brightness, 1);
+        duk_put_prop_string(ctx, -2, "setBrightness");
+        duk_push_c_function(ctx, js_system_list_app_volumes, 0);
+        duk_put_prop_string(ctx, -2, "listAppVolumes");
+        duk_push_c_function(ctx, js_system_get_app_volume, 1);
+        duk_put_prop_string(ctx, -2, "getAppVolume");
+        duk_push_c_function(ctx, js_system_set_app_volume, 2);
+        duk_put_prop_string(ctx, -2, "setAppVolume");
+        duk_push_c_function(ctx, js_system_get_app_peak, 1);
+        duk_put_prop_string(ctx, -2, "getAppPeak");
+        duk_push_c_function(ctx, js_system_get_app_mute, 1);
+        duk_put_prop_string(ctx, -2, "getAppMute");
+        duk_push_c_function(ctx, js_system_set_app_mute, 2);
+        duk_put_prop_string(ctx, -2, "setAppMute");
         duk_push_c_function(ctx, js_system_load_addon, 1);
         duk_put_prop_string(ctx, -2, "loadAddon");
         duk_push_c_function(ctx, js_system_unload_addon, 1);
@@ -572,6 +1015,26 @@ namespace JSApi {
         duk_push_c_function(ctx, js_disk_finalizer, 1);
         duk_set_finalizer(ctx, -2);
         duk_put_prop_string(ctx, -2, "disk");
+
+        // NowPlaying Class
+        duk_push_c_function(ctx, js_now_playing_constructor, 0);
+        duk_push_object(ctx);
+        duk_push_c_function(ctx, js_now_playing_stats, 0); duk_put_prop_string(ctx, -2, "stats");
+        duk_push_c_function(ctx, js_now_playing_play, 0); duk_put_prop_string(ctx, -2, "play");
+        duk_push_c_function(ctx, js_now_playing_pause, 0); duk_put_prop_string(ctx, -2, "pause");
+        duk_push_c_function(ctx, js_now_playing_play_pause, 0); duk_put_prop_string(ctx, -2, "playPause");
+        duk_push_c_function(ctx, js_now_playing_stop, 0); duk_put_prop_string(ctx, -2, "stop");
+        duk_push_c_function(ctx, js_now_playing_next, 0); duk_put_prop_string(ctx, -2, "next");
+        duk_push_c_function(ctx, js_now_playing_previous, 0); duk_put_prop_string(ctx, -2, "previous");
+        duk_push_c_function(ctx, js_now_playing_set_position, DUK_VARARGS); duk_put_prop_string(ctx, -2, "setPosition");
+        duk_push_c_function(ctx, js_now_playing_set_shuffle, 1); duk_put_prop_string(ctx, -2, "setShuffle");
+        duk_push_c_function(ctx, js_now_playing_toggle_shuffle, 0); duk_put_prop_string(ctx, -2, "toggleShuffle");
+        duk_push_c_function(ctx, js_now_playing_set_repeat, 1); duk_put_prop_string(ctx, -2, "setRepeat");
+        duk_push_c_function(ctx, js_now_playing_destroy, 0); duk_put_prop_string(ctx, -2, "destroy");
+        duk_put_prop_string(ctx, -2, "prototype");
+        duk_push_c_function(ctx, js_now_playing_finalizer, 1);
+        duk_set_finalizer(ctx, -2);
+        duk_put_prop_string(ctx, -2, "nowPlaying");
 
         // AudioLevel Class
         duk_push_c_function(ctx, js_audio_constructor, 1);

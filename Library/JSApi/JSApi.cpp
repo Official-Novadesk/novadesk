@@ -39,6 +39,8 @@ extern std::vector<Widget*> widgets;
 namespace JSApi {
 
     static HWND s_MessageWindow = nullptr;
+    static bool WrapExportedFunctionWithModuleDir(duk_context* ctx, duk_idx_t fnIndex, const std::string& dirname);
+    static void WrapModuleExportsWithDirContext(duk_context* ctx, duk_idx_t exportsIndex, const std::string& dirname);
 
     static bool IsMainScriptPath(const std::wstring& scriptPath) {
         std::wstring normalized = PathUtils::NormalizePath(scriptPath);
@@ -125,15 +127,25 @@ namespace JSApi {
 
         std::wstring request = Utils::ToWString(duk_get_string(ctx, 0));
         std::wstring basePath;
+        std::wstring fallbackBaseDir;
         if (!GetRequireBasePath(ctx, basePath)) {
+            // For deferred callbacks, prefer the current global __dirname context.
+            duk_get_global_string(ctx, "__dirname");
+            if (duk_is_string(ctx, -1)) {
+                fallbackBaseDir = Utils::ToWString(duk_get_string(ctx, -1));
+            }
+            duk_pop(ctx);
+
             basePath = s_CurrentScriptPath;
         }
 
-        if (basePath.empty()) {
+        if (basePath.empty() && fallbackBaseDir.empty()) {
             basePath = PathUtils::ResolvePath(L"index.js", PathUtils::GetWidgetsDir());
         }
 
-        std::wstring baseDir = PathUtils::GetParentDir(basePath);
+        std::wstring baseDir = fallbackBaseDir.empty()
+            ? PathUtils::GetParentDir(basePath)
+            : fallbackBaseDir;
         std::wstring resolved = request;
         if (!HasJsExtension(resolved)) {
             resolved += L".js";
@@ -231,9 +243,13 @@ namespace JSApi {
         // module.exports may have been replaced
         duk_get_prop_string(ctx, -2, "exports"); // module.exports
 
+        // Preserve module-local relative path semantics for exported functions
+        // invoked later from other scripts.
+        WrapModuleExportsWithDirContext(ctx, -1, dirname);
+
         // cache[modulePath] = module.exports (update in case replaced)
         duk_dup(ctx, -1);
-        duk_put_prop_string(ctx, -4, resolvedKey.c_str());
+        duk_put_prop_string(ctx, -5, resolvedKey.c_str());
 
         duk_remove(ctx, -2); // exports
         duk_remove(ctx, -2); // module
@@ -342,6 +358,8 @@ namespace JSApi {
         std::string filename = Utils::ToString(finalScriptPath);
         duk_push_string(ctx, dirname.c_str());
         duk_put_global_string(ctx, "__dirname");
+        duk_push_string(ctx, dirname.c_str());
+        duk_put_global_string(ctx, "__widgetsDir");
         duk_push_string(ctx, filename.c_str());
         duk_put_global_string(ctx, "__filename");
 
@@ -437,6 +455,68 @@ namespace JSApi {
         return s_MessageWindow;
     }
 
+        static bool WrapExportedFunctionWithModuleDir(duk_context* ctx, duk_idx_t fnIndex, const std::string& dirname) {
+        fnIndex = duk_normalize_index(ctx, fnIndex);
+        if (!duk_is_function(ctx, fnIndex)) {
+            return false;
+        }
+
+        // Build: (function(fn, dirname){ return function(){ ... }})
+        if (duk_peval_string(ctx,
+            "(function(fn, dirname) {"
+            "  return function() {"
+            "    var oldDir = __dirname;"
+            "    __dirname = dirname;"
+            "    try {"
+            "      return fn.apply(this, arguments);"
+            "    } finally {"
+            "      __dirname = oldDir;"
+            "    }"
+            "  };"
+            "})") != 0) {
+            duk_pop(ctx);
+            return false;
+        }
+
+        duk_dup(ctx, fnIndex);
+        duk_push_string(ctx, dirname.c_str());
+        if (duk_pcall(ctx, 2) != 0) {
+            duk_pop(ctx);
+            return false;
+        }
+        return true;
+    }
+
+    static void WrapModuleExportsWithDirContext(duk_context* ctx, duk_idx_t exportsIndex, const std::string& dirname) {
+        exportsIndex = duk_normalize_index(ctx, exportsIndex);
+        if (duk_is_function(ctx, exportsIndex)) {
+            if (WrapExportedFunctionWithModuleDir(ctx, exportsIndex, dirname)) {
+                duk_replace(ctx, exportsIndex);
+            }
+            return;
+        }
+
+        if (!duk_is_object(ctx, exportsIndex)) {
+            return;
+        }
+
+        duk_enum(ctx, exportsIndex, DUK_ENUM_OWN_PROPERTIES_ONLY);
+        while (duk_next(ctx, -1, 1)) {
+            // [ ... enum key value ]
+            if (duk_is_string(ctx, -2) && duk_is_function(ctx, -1)) {
+                std::string key = duk_get_string(ctx, -2);
+                if (WrapExportedFunctionWithModuleDir(ctx, -1, dirname)) {
+                    // wrapped function on top
+                    duk_put_prop_string(ctx, exportsIndex, key.c_str());
+                } else {
+                    duk_pop(ctx); // pop error/partial wrapper result
+                }
+            }
+            duk_pop_2(ctx); // key, value
+        }
+        duk_pop(ctx); // enum
+    }
+    
     // ==============================================
     // Host API Implementation
     // ==============================================

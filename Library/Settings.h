@@ -25,6 +25,7 @@ public:
     static void Save();
     static std::wstring GetSettingsPath();
     static std::wstring GetLogPath();
+    static bool IsFirstRun();
 
     static void SetGlobalBool(const std::string& key, bool value);
     static bool GetGlobalBool(const std::string& key, bool defaultValue);
@@ -33,6 +34,7 @@ private:
     static void Load();
     static json s_Data;
     static bool s_Dirty;
+    static bool s_IsFirstRun;
 };
 
 #endif

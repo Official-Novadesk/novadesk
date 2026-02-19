@@ -77,7 +77,9 @@ namespace JSApi {
             duk_get_prop_string(ctx, -1, "__timers");
         }
         
-        duk_dup(ctx, 0); // duplicate function
+        if (!WrapCallbackWithDirContext(ctx, 0)) {
+            duk_dup(ctx, 0); // duplicate function
+        }
         duk_put_prop_index(ctx, -2, (duk_uarridx_t)tempId);
         duk_pop_2(ctx); // pop __timers and global_stash
 
@@ -116,7 +118,9 @@ namespace JSApi {
             duk_get_prop_string(ctx, -1, "__timers");
         }
         
-        duk_dup(ctx, 0); // duplicate function
+        if (!WrapCallbackWithDirContext(ctx, 0)) {
+            duk_dup(ctx, 0); // duplicate function
+        }
         duk_put_prop_index(ctx, -2, (duk_uarridx_t)tempId);
         duk_pop_2(ctx); // pop __timers and global_stash
 
@@ -278,6 +282,16 @@ namespace JSApi {
         return 1;
     }
 
+    duk_ret_t js_novadesk_isPortable(duk_context* ctx) {
+        duk_push_boolean(ctx, PathUtils::IsPortableEnvironment());
+        return 1;
+    }
+
+    duk_ret_t js_novadesk_isFirstRun(duk_context* ctx) {
+        duk_push_boolean(ctx, Settings::IsFirstRun());
+        return 1;
+    }
+
     void BindConsoleMethods(duk_context* ctx) {
         duk_push_c_function(ctx, js_log, DUK_VARARGS);
         duk_put_prop_string(ctx, -2, "log");
@@ -316,6 +330,10 @@ namespace JSApi {
         duk_put_prop_string(ctx, -2, "getSettingsFilePath");
         duk_push_c_function(ctx, js_novadesk_getLogPath, 0);
         duk_put_prop_string(ctx, -2, "getLogPath");
+        duk_push_c_function(ctx, js_novadesk_isPortable, 0);
+        duk_put_prop_string(ctx, -2, "isPortable");
+        duk_push_c_function(ctx, js_novadesk_isFirstRun, 0);
+        duk_put_prop_string(ctx, -2, "isFirstRun");
     }
 
     std::wstring ResolveScriptPath(duk_context* ctx, const std::wstring& path) {
@@ -323,16 +341,41 @@ namespace JSApi {
         if (!PathUtils::IsPathRelative(path)) return PathUtils::NormalizePath(path);
 
         std::wstring baseDir = PathUtils::GetWidgetsDir();
-        
-        duk_get_global_string(ctx, "__dirname");
-        if (duk_is_string(ctx, -1)) {
-            std::wstring dirname = Utils::ToWString(duk_get_string(ctx, -1));
-            if (!dirname.empty()) {
-                baseDir = dirname;
-                if (baseDir.back() != L'\\') baseDir += L'\\';
+
+        bool resolvedFromRequireStack = false;
+
+        // Prefer the current module path when inside require() execution.
+        duk_push_global_stash(ctx);
+        if (duk_get_prop_string(ctx, -1, "__require_stack") && duk_is_array(ctx, -1)) {
+            duk_uarridx_t len = (duk_uarridx_t)duk_get_length(ctx, -1);
+            if (len > 0) {
+                duk_get_prop_index(ctx, -1, len - 1);
+                if (duk_is_string(ctx, -1)) {
+                    std::wstring currentFile = Utils::ToWString(duk_get_string(ctx, -1));
+                    std::wstring currentDir = PathUtils::GetParentDir(currentFile);
+                    if (!currentDir.empty()) {
+                        baseDir = currentDir;
+                        if (baseDir.back() != L'\\') baseDir += L'\\';
+                        resolvedFromRequireStack = true;
+                    }
+                }
+                duk_pop(ctx);
             }
         }
-        duk_pop(ctx);
+        duk_pop_2(ctx);
+
+        // Fallback to global __dirname (main script / widget script context).
+        if (!resolvedFromRequireStack) {
+            duk_get_global_string(ctx, "__dirname");
+            if (duk_is_string(ctx, -1)) {
+                std::wstring dirname = Utils::ToWString(duk_get_string(ctx, -1));
+                if (!dirname.empty()) {
+                    baseDir = dirname;
+                    if (baseDir.back() != L'\\') baseDir += L'\\';
+                }
+            }
+            duk_pop(ctx);
+        }
 
         return PathUtils::ResolvePath(path, baseDir);
     }

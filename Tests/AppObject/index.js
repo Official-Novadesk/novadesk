@@ -18,3 +18,9 @@ console.log("Settings Path: " + settingsPath);
 
 const logPath = app.getLogPath();
 console.log("Log Path: " + logPath);
+
+const isPortable = app.isPortable();
+console.log("Is Portable: " + isPortable);
+
+const isFirstRun = app.isFirstRun();
+console.log("Is First Run: " + isFirstRun);

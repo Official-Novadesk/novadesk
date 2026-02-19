@@ -186,6 +186,13 @@ namespace PropertyParser {
         reader.GetBool("antiAlias", options.antialias);
         reader.GetBool("show", options.show);
         reader.GetString("container", options.containerId);
+        reader.GetString("group", options.groupId);
+        reader.GetBool("mouseEventCursor", options.mouseEventCursor);
+        reader.GetString("mouseEventCursorName", options.mouseEventCursorName);
+        reader.GetString("cursorsDir", options.cursorsDir);
+        if (!options.cursorsDir.empty()) {
+            options.cursorsDir = JSApi::ResolveScriptPath(ctx, options.cursorsDir);
+        }
 
         if (reader.GetFloatArray("transformMatrix", options.transformMatrix, 6)) {
             options.hasTransformMatrix = true;
@@ -707,6 +714,10 @@ namespace PropertyParser {
 
         duk_push_boolean(ctx, element->IsVisible()); duk_put_prop_string(ctx, -2, "show");
         duk_push_string(ctx, Utils::ToString(element->GetContainerId()).c_str()); duk_put_prop_string(ctx, -2, "container");
+        duk_push_string(ctx, Utils::ToString(element->GetGroupId()).c_str()); duk_put_prop_string(ctx, -2, "group");
+        duk_push_boolean(ctx, element->GetMouseEventCursor()); duk_put_prop_string(ctx, -2, "mouseEventCursor");
+        duk_push_string(ctx, Utils::ToString(element->GetMouseEventCursorName()).c_str()); duk_put_prop_string(ctx, -2, "mouseEventCursorName");
+        duk_push_string(ctx, Utils::ToString(element->GetCursorsDir()).c_str()); duk_put_prop_string(ctx, -2, "cursorsDir");
         duk_push_number(ctx, element->GetRotate()); duk_put_prop_string(ctx, -2, "rotate");
         duk_push_boolean(ctx, element->GetAntiAlias()); duk_put_prop_string(ctx, -2, "antiAlias");
 
@@ -882,6 +893,10 @@ namespace PropertyParser {
         element->SetAntiAlias(options.antialias);
         element->SetShow(options.show);
         element->SetContainerId(options.containerId);
+        element->SetGroupId(options.groupId);
+        element->SetMouseEventCursor(options.mouseEventCursor);
+        element->SetMouseEventCursorName(options.mouseEventCursorName);
+        element->SetCursorsDir(options.cursorsDir);
         element->SetCornerRadius(options.solidColorRadius);
         element->SetPadding(options.paddingLeft, options.paddingTop, options.paddingRight, options.paddingBottom);
         
@@ -1082,6 +1097,10 @@ namespace PropertyParser {
         options.antialias = element->GetAntiAlias();
         options.show = element->IsVisible();
         options.containerId = element->GetContainerId();
+        options.groupId = element->GetGroupId();
+        options.mouseEventCursor = element->GetMouseEventCursor();
+        options.mouseEventCursorName = element->GetMouseEventCursorName();
+        options.cursorsDir = element->GetCursorsDir();
 
         options.hasSolidColor = element->HasSolidColor();
         options.solidColor = element->GetSolidColor();
@@ -1139,6 +1158,11 @@ namespace PropertyParser {
         options.clip = element->GetClipString();
         options.fontPath = element->GetFontPath();
         options.shadows = element->GetShadows();
+        options.fontGradient = element->GetFontGradient();
+        options.letterSpacing = element->GetLetterSpacing();
+        options.underLine = element->GetUnderline();
+        options.strikeThrough = element->GetStrikethrough();
+        options.textCase = element->GetTextCase();
     }
 
     void PreFillImageOptions(ImageOptions& options, ImageElement* element) {

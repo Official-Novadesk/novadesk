@@ -15,7 +15,9 @@ namespace JSApi {
     duk_ret_t js_widget_add_round_line(duk_context* ctx);
     duk_ret_t js_widget_add_shape(duk_context* ctx);
     duk_ret_t js_widget_set_element_properties(duk_context* ctx);
+    duk_ret_t js_widget_set_group_properties(duk_context* ctx);
     duk_ret_t js_widget_remove_elements(duk_context* ctx);
+    duk_ret_t js_widget_remove_elements_by_group(duk_context* ctx);
     duk_ret_t js_widget_get_element_property(duk_context* ctx);
     duk_ret_t js_widget_begin_update(duk_context* ctx);
     duk_ret_t js_widget_end_update(duk_context* ctx);

@@ -20,6 +20,7 @@
 #include "ImageElement.h"
 #include "BarElement.h"
 #include "Tooltip.h"
+#include "CursorManager.h"
 
 #pragma comment(lib, "comctl32.lib")
 
@@ -96,6 +97,8 @@ public:
     void AddShape(const PropertyParser::ShapeOptions& options);
 
     void SetElementProperties(const std::wstring& id, duk_context* ctx);
+    void SetGroupProperties(const std::wstring& group, duk_context* ctx);
+    void RemoveElementsByGroup(const std::wstring& group);
     bool RemoveElements(const std::wstring& id = L"");
     void RemoveElements(const std::vector<std::wstring>& ids);
 	// Context Menu
@@ -126,10 +129,21 @@ private:
     void OnContextMenu();
     bool BuildCombinedShapeGeometry(class PathShape* target, const PropertyParser::ShapeOptions& options);
     void ReleaseCombinedConsumes(class PathShape* target);
+    void ApplyParsedPropertiesToElement(Element* element, duk_context* ctx);
     void UpdateContainerForElement(Element* element, const std::wstring& newContainerId);
     bool WouldCreateContainerCycle(Element* element, Element* container) const;
     void RenderContainerChildren(Element* container);
     bool HitTestContainerChildren(Element* container, int x, int y, Element*& outElement);
+    bool HitTestContainerChildrenDetailed(
+        Element* container,
+        int x,
+        int y,
+        UINT message,
+        WPARAM wParam,
+        Element*& outHitElement,
+        Element*& outActionElement,
+        Element*& outMouseActionElement,
+        Element*& outToolTipElement);
 
 private:
     std::wstring m_Id;
@@ -140,6 +154,7 @@ private:
     ZPOSITION m_WindowZPosition;
     std::vector<Element*> m_Elements;
     Element* m_MouseOverElement = nullptr;
+    Element* m_TooltipElement = nullptr;
     bool m_IsBatchUpdating = false;
     
     // Context Menu
@@ -153,6 +168,7 @@ private:
     POINT m_DragStartCursor = { 0, 0 };
     POINT m_DragStartWindow = { 0, 0 };
     bool m_IsMouseOverWidget = false;
+    CursorManager m_CursorManager;
     
     // Rendering
     Microsoft::WRL::ComPtr<ID2D1DeviceContext> m_pContext;

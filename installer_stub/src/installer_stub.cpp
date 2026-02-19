@@ -584,7 +584,18 @@ bool UninstallSelf() {
     bool removalQueued = false;
     try {
         std::error_code ec;
-        fs::remove_all(installDirPath / "Widgets", ec);
+        // Remove every child entry so dynamically created folders are cleaned too.
+        if (fs::exists(installDirPath, ec) && fs::is_directory(installDirPath, ec)) {
+            for (const auto& entry : fs::directory_iterator(installDirPath, fs::directory_options::skip_permission_denied, ec)) {
+                if (ec) break;
+                const fs::path& child = entry.path();
+                if (_wcsicmp(child.c_str(), exePath.c_str()) == 0) {
+                    continue;
+                }
+                fs::remove_all(child, ec);
+                ec.clear();
+            }
+        }
         ec.clear();
         fs::remove_all(installDirPath, ec);
         if (ec || fs::exists(installDirPath)) {
