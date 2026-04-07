@@ -5,6 +5,7 @@
   "author": "Your Name",
   "description": "Widget Description",
   "icon": "assets/icon.ico",
+  "preview": "defaultPreview.png",
   "setup": {
     "createDesktopShortcut": true,
     "createStartupShortcut": false,

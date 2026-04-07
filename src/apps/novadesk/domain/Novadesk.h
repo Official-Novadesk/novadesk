@@ -15,3 +15,5 @@ void TrayDestroy(int trayId);
 void TraySetImage(int trayId, const std::wstring &path);
 void TraySetToolTip(int trayId, const std::wstring &toolTip);
 void TraySetContextMenu(int trayId, const std::vector<MenuItem> &menu);
+bool RequestSingleInstanceLock();
+void ReleaseSingleInstanceLock();

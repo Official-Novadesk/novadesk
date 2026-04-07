@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <vector>
 #include <windows.h>
 
 #include "quickjs.h"
@@ -26,8 +27,18 @@ namespace JSEngine
 
     void InitializeJavaScriptAPI(duk_context *ctx);
     bool LoadAndExecuteScript(duk_context *ctx, const std::wstring &scriptPath = L"");
+    bool LoadAndExecuteScripts(duk_context *ctx, const std::vector<std::wstring> &scriptPaths);
     std::wstring GetEntryScriptDir();
+    std::wstring GetCurrentScriptDir();
+    std::wstring GetCurrentScriptPath();
+    void RegisterWidgetOwner(Widget *widget, const std::wstring &scriptPath);
+    void RegisterTrayOwner(int trayId, const std::wstring &scriptPath);
+    void UnregisterTrayOwner(int trayId);
     void Reload();
+    bool AddScript(const std::wstring &scriptPath);
+    bool RemoveScript(const std::wstring &scriptPath);
+    bool RefreshScript(const std::wstring &scriptPath);
+    std::vector<std::wstring> GetLoadedScripts();
 
     void OnTimer(UINT_PTR id);
     void OnMessage(UINT message, WPARAM wParam, LPARAM lParam);

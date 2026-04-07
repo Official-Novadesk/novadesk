@@ -1,0 +1,5 @@
+src/apps/novadesk/Version.h
+src/apps/novadesk/Novadesk.rc
+src/apps/manage_novadesk/main.cpp
+src/apps/novadesk/manage_novadesk.rc
+installer/setp.nsi

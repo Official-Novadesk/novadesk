@@ -52,6 +52,16 @@ bool Widget::IsValid(Widget *pWidget)
     return false;
 }
 
+std::vector<Widget *> &Widget::GetAllWidgets()
+{
+    return widgets;
+}
+
+void Widget::ClearAllWidgets()
+{
+    widgets.clear();
+}
+
 /*
 ** Construct a new Widget with the specified options.
 ** Options include size, position, colors, z-order, and behavior flags.

@@ -17,6 +17,25 @@ namespace novadesk::scripting::quickjs
     {
         bool g_moduleSystemDebug = false;
         thread_local bool g_uiScriptImportRestricted = false;
+        
+        struct ModuleNameParts
+        {
+            std::string path;
+            std::string revisionTag;
+        };
+
+        ModuleNameParts SplitRevisionTag(const std::string &name)
+        {
+            ModuleNameParts out{name, ""};
+            const std::size_t pos = name.rfind("#rev=");
+            if (pos == std::string::npos)
+            {
+                return out;
+            }
+            out.path = name.substr(0, pos);
+            out.revisionTag = name.substr(pos);
+            return out;
+        }
 
         bool IsBuiltinModuleName(const std::string &name)
         {
@@ -25,23 +44,28 @@ namespace novadesk::scripting::quickjs
 
         std::string NormalizeModuleNameImpl(const std::string &baseName, const std::string &moduleName)
         {
-            if (IsBuiltinModuleName(moduleName))
+            const ModuleNameParts base = SplitRevisionTag(baseName);
+            const ModuleNameParts req = SplitRevisionTag(moduleName);
+
+            if (IsBuiltinModuleName(req.path))
             {
-                return moduleName;
+                return req.path;
             }
 
-            std::filesystem::path modulePath(moduleName);
+            const std::string revisionTag = req.revisionTag.empty() ? base.revisionTag : req.revisionTag;
+
+            std::filesystem::path modulePath(req.path);
             if (modulePath.is_absolute())
             {
-                return modulePath.lexically_normal().string();
+                return modulePath.lexically_normal().string() + revisionTag;
             }
 
-            std::filesystem::path base(baseName);
-            if (!base.empty())
+            std::filesystem::path basePath(base.path);
+            if (!basePath.empty())
             {
-                base = base.parent_path();
+                basePath = basePath.parent_path();
             }
-            return (base / modulePath).lexically_normal().string();
+            return (basePath / modulePath).lexically_normal().string() + revisionTag;
         }
 
     } // namespace
@@ -77,25 +101,26 @@ namespace novadesk::scripting::quickjs
         }
 
         const std::string requested = moduleName ? std::string(moduleName) : std::string();
-        if (g_uiScriptImportRestricted && IsBuiltinModuleName(requested))
+        const ModuleNameParts requestedParts = SplitRevisionTag(requested);
+        if (g_uiScriptImportRestricted && IsBuiltinModuleName(requestedParts.path))
         {
             JS_ThrowReferenceError(ctx, "Module not allowed in ui script: %s", moduleName ? moduleName : "<null>");
             return nullptr;
         }
 
-        if (moduleName && requested == "novadesk")
+        if (moduleName && requestedParts.path == "novadesk")
         {
             return EnsureNovadeskModule(ctx, moduleName);
         }
-        if (moduleName && requested == "system")
+        if (moduleName && requestedParts.path == "system")
         {
             return EnsureSystemModule(ctx, moduleName);
         }
-        if (moduleName && requested == "fs")
+        if (moduleName && requestedParts.path == "fs")
         {
             return EnsureFsModule(ctx, moduleName);
         }
-        const std::wstring modulePath = Utils::ToWString(moduleName ? moduleName : "");
+        const std::wstring modulePath = Utils::ToWString(requestedParts.path);
         const std::string source = FileUtils::ReadFileContent(modulePath);
         if (source.empty())
         {

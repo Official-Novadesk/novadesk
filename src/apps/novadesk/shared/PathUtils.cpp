@@ -252,6 +252,30 @@ namespace PathUtils {
     }
 
     /*
+    ** Get the directory containing addons.
+    ** Portable: <exe>\Addons\
+    ** Standard: <Documents>\Novadesk\Addons\
+    */
+    std::wstring GetAddonsDir() {
+        if (IsPortableEnvironment()) {
+            return GetExeDir() + L"Addons\\";
+        }
+
+        wchar_t path[MAX_PATH];
+        if (SUCCEEDED(SHGetFolderPathW(NULL, CSIDL_PERSONAL, NULL, 0, path))) {
+            std::wstring docsPath = path;
+            if (!docsPath.empty() && docsPath.back() != L'\\') {
+                docsPath += L'\\';
+            }
+            std::wstring addonsPath = docsPath + GetProductName() + L"\\Addons\\";
+            CreateDirectoryW((docsPath + GetProductName()).c_str(), NULL);
+            CreateDirectoryW(addonsPath.c_str(), NULL);
+            return addonsPath;
+        }
+        return GetExeDir() + L"Addons\\";
+    }
+
+    /*
     ** Get the AppData path for the product.
     */
     std::wstring GetAppDataPath() {

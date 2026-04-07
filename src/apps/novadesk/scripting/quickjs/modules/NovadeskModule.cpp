@@ -761,6 +761,17 @@ namespace novadesk::scripting::quickjs
             return JS_UNDEFINED;
         }
 
+        JSValue JsAppRequestSingleInstanceLock(JSContext *ctx, JSValueConst, int, JSValueConst *)
+        {
+            return JS_NewBool(ctx, RequestSingleInstanceLock() ? 1 : 0);
+        }
+
+        JSValue JsAppReleaseSingleInstanceLock(JSContext *ctx, JSValueConst, int, JSValueConst *)
+        {
+            ReleaseSingleInstanceLock();
+            return JS_NewBool(ctx, 1);
+        }
+
         JSValue JsAppSaveLogToFile(JSContext *ctx, JSValueConst, int argc, JSValueConst *argv)
         {
             if (argc < 1)
@@ -900,6 +911,24 @@ namespace novadesk::scripting::quickjs
             return true;
         }
 
+        std::wstring ResolveTrayImagePath(const std::wstring &inputPath)
+        {
+            if (inputPath.empty())
+                return inputPath;
+
+            if (PathUtils::IsPathRelative(inputPath))
+            {
+                std::wstring baseDir = PathUtils::GetParentDir(JSEngine::GetCurrentScriptPath());
+                if (baseDir.empty())
+                    baseDir = JSEngine::GetEntryScriptDir();
+                if (baseDir.empty())
+                    baseDir = PathUtils::GetWidgetsDir();
+                return PathUtils::ResolvePath(inputPath, baseDir);
+            }
+
+            return PathUtils::NormalizePath(inputPath);
+        }
+
         JSValue JsTrayOn(JSContext *ctx, JSValueConst thisVal, int argc, JSValueConst *argv)
         {
             if (argc < 2 || !JS_IsString(argv[0]) || !JS_IsFunction(ctx, argv[1]))
@@ -937,6 +966,7 @@ namespace novadesk::scripting::quickjs
             TrayDestroy(trayId);
             JSEngine::ClearTrayEventCallbacks(trayId);
             JSEngine::ClearTrayCommandCallbacks(trayId);
+            JSEngine::UnregisterTrayOwner(trayId);
             return JS_UNDEFINED;
         }
 
@@ -958,7 +988,7 @@ namespace novadesk::scripting::quickjs
             }
             std::wstring path = Utils::ToWString(pathC);
             JS_FreeCString(ctx, pathC);
-            TraySetImage(trayId, path);
+            TraySetImage(trayId, ResolveTrayImagePath(path));
             return JS_UNDEFINED;
         }
 
@@ -1021,6 +1051,7 @@ namespace novadesk::scripting::quickjs
                 }
                 imagePath = Utils::ToWString(pathC);
                 JS_FreeCString(ctx, pathC);
+                imagePath = ResolveTrayImagePath(imagePath);
             }
 
             const int trayId = TrayCreate(imagePath);
@@ -1031,6 +1062,7 @@ namespace novadesk::scripting::quickjs
             JS_SetPropertyStr(ctx, tray, "setContextMenu", JS_NewCFunction(ctx, JsTraySetContextMenu, "setContextMenu", 1));
             JS_SetPropertyStr(ctx, tray, "on", JS_NewCFunction(ctx, JsTrayOn, "on", 2));
             JS_SetPropertyStr(ctx, tray, "destroy", JS_NewCFunction(ctx, JsTrayDestroy, "destroy", 0));
+            JSEngine::RegisterTrayOwner(trayId, JSEngine::GetCurrentScriptPath());
             return tray;
         }
 
@@ -1213,6 +1245,8 @@ namespace novadesk::scripting::quickjs
             JS_SetPropertyStr(ctx, app, "reload", JS_NewCFunction(ctx, JsAppReload, "reload", 0));
             JS_SetPropertyStr(ctx, app, "refresh", JS_NewCFunction(ctx, JsAppRefresh, "refresh", 0));
             JS_SetPropertyStr(ctx, app, "exit", JS_NewCFunction(ctx, JsAppExit, "exit", 0));
+            JS_SetPropertyStr(ctx, app, "requestSingleInstanceLock", JS_NewCFunction(ctx, JsAppRequestSingleInstanceLock, "requestSingleInstanceLock", 0));
+            JS_SetPropertyStr(ctx, app, "releaseSingleInstanceLock", JS_NewCFunction(ctx, JsAppReleaseSingleInstanceLock, "releaseSingleInstanceLock", 0));
             JS_SetPropertyStr(ctx, app, "saveLogToFile", JS_NewCFunction(ctx, JsAppSaveLogToFile, "saveLogToFile", 1));
             JS_SetPropertyStr(ctx, app, "disableLogging", JS_NewCFunction(ctx, JsAppDisableLogging, "disableLogging", 1));
             JS_SetPropertyStr(ctx, app, "useHardwareAcceleration", JS_NewCFunction(ctx, JsAppUseHardwareAcceleration, "useHardwareAcceleration", 1));

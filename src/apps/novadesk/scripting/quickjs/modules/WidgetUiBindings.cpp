@@ -36,6 +36,8 @@ namespace novadesk::scripting::quickjs
         bool g_widgetUiDebug = false;
         JSClassID g_widgetWindowClassId = 0;
         JSClassID g_widgetUiClassId = 0;
+        JSRuntime *g_widgetWindowClassRuntime = nullptr;
+        JSRuntime *g_widgetUiClassRuntime = nullptr;
 
         Widget *GetWidget(JSContext *ctx, JSValueConst thisVal)
         {
@@ -806,7 +808,9 @@ namespace novadesk::scripting::quickjs
             JS_CFUNC_DEF("addBar", 1, JsWidgetAddBar),
             JS_CFUNC_DEF("addRoundLine", 1, JsWidgetAddRoundLine),
             JS_CFUNC_DEF("addShape", 1, JsWidgetAddShape),
+            JS_CFUNC_DEF("setElementProperty", 2, JsWidgetSetElementProperties),
             JS_CFUNC_DEF("setElementProperties", 2, JsWidgetSetElementProperties),
+            JS_CFUNC_DEF("setElementPropertyByGroup", 2, JsWidgetSetElementPropertiesByGroup),
             JS_CFUNC_DEF("setElementPropertiesByGroup", 2, JsWidgetSetElementPropertiesByGroup),
             JS_CFUNC_DEF("getElementProperty", 2, JsWidgetGetElementProperty),
             JS_CFUNC_DEF("removeElements", 1, JsWidgetRemoveElements),
@@ -832,26 +836,39 @@ namespace novadesk::scripting::quickjs
                 }
             }
 
-            const std::wstring baseDir = JSEngine::GetEntryScriptDir();
-            const std::wstring absPath = PathUtils::ResolvePath(
-                scriptPath,
-                baseDir.empty() ? PathUtils::GetWidgetsDir() : baseDir);
+            std::wstring absPath;
+            std::wstring baseDir;
+            if (PathUtils::IsPathRelative(scriptPath))
+            {
+                baseDir = GetWidgetScriptBaseDir(widget);
+                absPath = PathUtils::ResolvePath(
+                    scriptPath,
+                    baseDir.empty() ? PathUtils::GetWidgetsDir() : baseDir);
+            }
+            else
+            {
+                absPath = PathUtils::NormalizePath(scriptPath);
+            }
             const std::string scriptSource = FileUtils::ReadFileContent(absPath);
             if (scriptSource.empty())
             {
-                Logging::Log(LogLevel::Error, L"[novadesk] widget ui script not found: %s", absPath.c_str());
                 return false;
             }
 
+            JSRuntime *rt = JS_GetRuntime(ctx);
             if (g_widgetUiClassId == 0)
             {
-                JS_NewClassID(JS_GetRuntime(ctx), &g_widgetUiClassId);
+                JS_NewClassID(rt, &g_widgetUiClassId);
+            }
+            if (g_widgetUiClassRuntime != rt)
+            {
                 JSClassDef uiCls{};
                 uiCls.class_name = "WidgetUiBridge";
-                JS_NewClass(JS_GetRuntime(ctx), g_widgetUiClassId, &uiCls);
+                JS_NewClass(rt, g_widgetUiClassId, &uiCls);
                 JSValue uiProto = JS_NewObject(ctx);
                 JS_SetPropertyFunctionList(ctx, uiProto, kWidgetProtoFuncs, sizeof(kWidgetProtoFuncs) / sizeof(kWidgetProtoFuncs[0]));
                 JS_SetClassProto(ctx, g_widgetUiClassId, uiProto);
+                g_widgetUiClassRuntime = rt;
             }
 
             JSValue uiObj = JS_NewObjectClass(ctx, g_widgetUiClassId);
@@ -866,9 +883,11 @@ namespace novadesk::scripting::quickjs
             const std::string fileName = Utils::ToString(absPath);
             const std::string dirName = Utils::ToString(PathUtils::GetParentDir(absPath));
             const std::string widgetDirName = Utils::ToString(PathUtils::GetWidgetsDir());
+            const std::string addonsPathName = Utils::ToString(PathUtils::GetAddonsDir());
             JS_SetPropertyStr(ctx, global, "__filename", JS_NewString(ctx, fileName.c_str()));
             JS_SetPropertyStr(ctx, global, "__dirname", JS_NewString(ctx, dirName.c_str()));
             JS_SetPropertyStr(ctx, global, "__widgetDir", JS_NewString(ctx, widgetDirName.c_str()));
+            JS_SetPropertyStr(ctx, global, "__addonsPath", JS_NewString(ctx, addonsPathName.c_str()));
             JS_FreeValue(ctx, global);
 
             const std::string scriptPrelude =
@@ -899,6 +918,9 @@ namespace novadesk::scripting::quickjs
             JSAtom widgetDirAtom = JS_NewAtom(ctx, "__widgetDir");
             JS_DeleteProperty(ctx, global2, widgetDirAtom, 0);
             JS_FreeAtom(ctx, widgetDirAtom);
+            JSAtom addonsPathAtom = JS_NewAtom(ctx, "__addonsPath");
+            JS_DeleteProperty(ctx, global2, addonsPathAtom, 0);
+            JS_FreeAtom(ctx, addonsPathAtom);
             JS_FreeValue(ctx, global2);
             JS_FreeValue(ctx, uiObj);
             JS_FreeValue(ctx, ipcObj);
@@ -933,19 +955,24 @@ namespace novadesk::scripting::quickjs
 
     JSClassID EnsureWidgetWindowClass(JSContext *ctx)
     {
+        JSRuntime *rt = JS_GetRuntime(ctx);
         if (g_widgetWindowClassId == 0)
         {
-            JS_NewClassID(JS_GetRuntime(ctx), &g_widgetWindowClassId);
+            JS_NewClassID(rt, &g_widgetWindowClassId);
+        }
+        if (g_widgetWindowClassRuntime != rt)
+        {
             JSClassDef cls{};
             cls.class_name = "widgetWindow";
             cls.finalizer = JsWidgetFinalizer;
-            JS_NewClass(JS_GetRuntime(ctx), g_widgetWindowClassId, &cls);
+            JS_NewClass(rt, g_widgetWindowClassId, &cls);
             InitWidgetWindowEventBindings(g_widgetWindowClassId);
 
             JSValue proto = JS_NewObject(ctx);
             JS_SetPropertyFunctionList(ctx, proto, kWidgetProtoFuncs, sizeof(kWidgetProtoFuncs) / sizeof(kWidgetProtoFuncs[0]));
             AttachWidgetWindowEventMethods(ctx, proto);
             JS_SetClassProto(ctx, g_widgetWindowClassId, proto);
+            g_widgetWindowClassRuntime = rt;
         }
         return g_widgetWindowClassId;
     }
@@ -1014,6 +1041,29 @@ namespace novadesk::scripting::quickjs
             options.show = parsed.show;
         if (parsed.hasScriptPath)
             options.scriptPath = parsed.scriptPath;
+        if (!options.scriptPath.empty())
+        {
+            if (PathUtils::IsPathRelative(options.scriptPath))
+            {
+                std::wstring base = JSEngine::GetCurrentScriptDir();
+                if (base.empty())
+                {
+                    base = JSEngine::GetEntryScriptDir();
+                }
+                if (!base.empty())
+                {
+                    options.scriptPath = PathUtils::ResolvePath(options.scriptPath, base);
+                }
+                else
+                {
+                    options.scriptPath = PathUtils::ResolvePath(options.scriptPath, PathUtils::GetWidgetsDir());
+                }
+            }
+            else
+            {
+                options.scriptPath = PathUtils::NormalizePath(options.scriptPath);
+            }
+        }
         if (parsed.hasDraggable)
             options.draggable = parsed.draggable;
         if (parsed.hasClickThrough)
@@ -1048,6 +1098,7 @@ namespace novadesk::scripting::quickjs
             widget->Show();
         }
         widgets.push_back(widget);
+        JSEngine::RegisterWidgetOwner(widget, JSEngine::GetCurrentScriptPath());
 
         if (g_widgetUiDebug)
         {

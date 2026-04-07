@@ -22,6 +22,7 @@ namespace PathUtils {
     std::wstring GetExePath();
     std::wstring GetExeDir();
     std::wstring GetWidgetsDir();
+    std::wstring GetAddonsDir();
     bool IsPortableEnvironment();
     std::wstring GetAppDataPath();
     std::wstring GetProductName();

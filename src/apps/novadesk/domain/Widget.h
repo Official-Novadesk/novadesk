@@ -113,6 +113,8 @@ public:
     void Redraw();
 
     Element* FindElementById(const std::wstring& id);
+    static std::vector<Widget *> &GetAllWidgets();
+    static void ClearAllWidgets();
     static bool IsValid(Widget* pWidget);
 
 private:
