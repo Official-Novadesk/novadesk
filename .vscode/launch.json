@@ -5,7 +5,7 @@
             "name": "Debug build-mingw/novadesk.exe",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build-mingw/novadesk.exe",
+            "program": "${workspaceFolder}/build-mingw/Debug/novadesk.exe",
             "args": ["--debug"],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",

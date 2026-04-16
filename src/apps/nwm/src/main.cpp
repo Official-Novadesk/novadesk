@@ -45,7 +45,9 @@ const std::unordered_set<std::string> DEFAULT_ADDONS = {
     "hotkey",
     "hotkey.dll",
     "nowplaying",
-    "nowplaying.dll"
+    "nowplaying.dll",
+    "blurbehind",
+    "blurbehind.dll"
 };
 
 struct SetupOptions {

@@ -2,7 +2,7 @@
 # Use: .\run.ps1 -Script "path/to/script.js"
 
 param(
-    [string]$Script = "$PSScriptRoot\src\Widgets\builtin\Widgets\index.js"
+    [string]$Script = "$PSScriptRoot\src\Widgets\builtin\Widgets\Fental\index.js"
 )
 
 $exePath = "$PSScriptRoot\dist\novadesk.exe"

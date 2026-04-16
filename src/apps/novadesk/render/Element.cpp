@@ -223,10 +223,22 @@ void Element::RenderBevel(ID2D1DeviceContext* context) {
         (float)(bounds.Y + bounds.Height) + pad
     );
     
-    Microsoft::WRL::ComPtr<ID2D1SolidColorBrush> highlightBrush;
-    Microsoft::WRL::ComPtr<ID2D1SolidColorBrush> shadowBrush;
-    Direct2D::CreateSolidBrush(context, m_BevelColor, m_BevelAlpha / 255.0f, highlightBrush.GetAddressOf());
-    Direct2D::CreateSolidBrush(context, m_BevelColor2, m_BevelAlpha2 / 255.0f, shadowBrush.GetAddressOf());
+    Microsoft::WRL::ComPtr<ID2D1Brush> highlightBrush;
+    Microsoft::WRL::ComPtr<ID2D1Brush> shadowBrush;
+    Direct2D::CreateBrushFromGradientOrColor(
+        context,
+        rect,
+        &m_BevelGradient,
+        m_BevelColor,
+        m_BevelAlpha / 255.0f,
+        highlightBrush.GetAddressOf());
+    Direct2D::CreateBrushFromGradientOrColor(
+        context,
+        rect,
+        &m_BevelGradient2,
+        m_BevelColor2,
+        m_BevelAlpha2 / 255.0f,
+        shadowBrush.GetAddressOf());
 
     float offset = m_BevelWidth / 2.0f;
     
@@ -255,12 +267,22 @@ void Element::RenderBevel(ID2D1DeviceContext* context) {
         break;
         
     case 4: // Pillow
-        for (int i = 0; i < m_BevelWidth; i++) {
-            float alpha = (m_BevelAlpha / 255.0f) * (1.0f - (float)i / m_BevelWidth);
-            Microsoft::WRL::ComPtr<ID2D1SolidColorBrush> fadeBrush;
-            Direct2D::CreateSolidBrush(context, m_BevelColor, alpha, fadeBrush.GetAddressOf());
-            D2D1_RECT_F r = D2D1::RectF(rect.left + i, rect.top + i, rect.right - i, rect.bottom - i);
-            context->DrawRectangle(r, fadeBrush.Get(), 1.0f);
+        if (m_BevelGradient.type != GRADIENT_NONE && !m_BevelGradient.stops.empty())
+        {
+            for (int i = 0; i < m_BevelWidth; i++) {
+                D2D1_RECT_F r = D2D1::RectF(rect.left + i, rect.top + i, rect.right - i, rect.bottom - i);
+                context->DrawRectangle(r, highlightBrush.Get(), 1.0f);
+            }
+        }
+        else
+        {
+            for (int i = 0; i < m_BevelWidth; i++) {
+                float alpha = (m_BevelAlpha / 255.0f) * (1.0f - (float)i / m_BevelWidth);
+                Microsoft::WRL::ComPtr<ID2D1SolidColorBrush> fadeBrush;
+                Direct2D::CreateSolidBrush(context, m_BevelColor, alpha, fadeBrush.GetAddressOf());
+                D2D1_RECT_F r = D2D1::RectF(rect.left + i, rect.top + i, rect.right - i, rect.bottom - i);
+                context->DrawRectangle(r, fadeBrush.Get(), 1.0f);
+            }
         }
         break;
     }

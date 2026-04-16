@@ -253,26 +253,43 @@ namespace PathUtils {
 
     /*
     ** Get the directory containing addons.
-    ** Portable: <exe>\Addons\
-    ** Standard: <Documents>\Novadesk\Addons\
+    ** Resolution order:
+    ** 1) Existing <exe>\Addons\
+    ** 2) Existing <Documents>\<Product>\Addons\
+    ** 3) Return preferred fallback path without creating directories
     */
     std::wstring GetAddonsDir() {
-        if (IsPortableEnvironment()) {
-            return GetExeDir() + L"Addons\\";
+        auto normalizeDir = [](std::wstring p) -> std::wstring {
+            if (!p.empty() && p.back() != L'\\') {
+                p += L'\\';
+            }
+            return p;
+        };
+        auto dirExists = [](const std::wstring &p) -> bool {
+            std::error_code ec;
+            return std::filesystem::exists(p, ec) && std::filesystem::is_directory(p, ec);
+        };
+
+        std::wstring exeAddonsPath = normalizeDir(GetExeDir() + L"Addons");
+        if (dirExists(exeAddonsPath)) {
+            return exeAddonsPath;
         }
 
+        std::wstring docsAddonsPath;
         wchar_t path[MAX_PATH];
         if (SUCCEEDED(SHGetFolderPathW(NULL, CSIDL_PERSONAL, NULL, 0, path))) {
-            std::wstring docsPath = path;
-            if (!docsPath.empty() && docsPath.back() != L'\\') {
-                docsPath += L'\\';
+            std::wstring docsRoot = normalizeDir(path);
+            docsAddonsPath = docsRoot + GetProductName() + L"\\Addons\\";
+            if (dirExists(docsAddonsPath)) {
+                return docsAddonsPath;
             }
-            std::wstring addonsPath = docsPath + GetProductName() + L"\\Addons\\";
-            CreateDirectoryW((docsPath + GetProductName()).c_str(), NULL);
-            CreateDirectoryW(addonsPath.c_str(), NULL);
-            return addonsPath;
         }
-        return GetExeDir() + L"Addons\\";
+
+        // Neither exists: return preferred fallback path without creating anything.
+        if (!docsAddonsPath.empty()) {
+            return docsAddonsPath;
+        }
+        return exeAddonsPath;
     }
 
     /*

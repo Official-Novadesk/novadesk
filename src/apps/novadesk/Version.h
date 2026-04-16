@@ -1,3 +1,3 @@
 #pragma once
 
-#define NOVADESK_VERSION "0.8.0.0"
+#define NOVADESK_VERSION "0.9.0.0"

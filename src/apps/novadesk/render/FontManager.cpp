@@ -134,8 +134,6 @@ namespace FontManager
         ULONG m_RefCount;
     };
 
-    // --- FontManager Implementation ---
-
     Microsoft::WRL::ComPtr<DirectoryFontCollectionLoader> g_pLoader;
     std::map<std::wstring, Microsoft::WRL::ComPtr<IDWriteFontCollection>> g_CollectionCache;
 

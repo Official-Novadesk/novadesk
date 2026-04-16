@@ -6,7 +6,11 @@
 
 #include "../../domain/Widget.h"
 #include "../../render/BarElement.h"
+#include "../../render/BitmapElement.h"
+#include "../../render/HistogramElement.h"
+#include "../../render/AreaGraphElement.h"
 #include "../../render/ImageElement.h"
+#include "../../render/LineElement.h"
 #include "../../render/RoundLineElement.h"
 #include "../../render/ShapeElement.h"
 #include "../../render/RectangleShape.h"
@@ -64,6 +68,113 @@ namespace novadesk::scripting::quickjs
             return JS_ThrowTypeError(ctx, "%s: %s", method, usage);
         }
 
+        JSValue GetGeneralImagePropertyValue(JSContext *ctx, Element *element, const std::string &prop)
+        {
+            if (prop == "grayscale")
+            {
+                bool val = false;
+                if (auto *img = dynamic_cast<ImageElement *>(element)) val = img->IsGrayscale();
+                else if (auto *btn = dynamic_cast<ButtonElement *>(element)) val = btn->IsGrayscale();
+                else if (auto *bmp = dynamic_cast<BitmapElement *>(element)) val = bmp->IsGrayscale();
+                return JS_NewBool(ctx, val ? 1 : 0);
+            }
+            if (prop == "useExifOrientation")
+            {
+                bool val = false;
+                if (auto *img = dynamic_cast<ImageElement *>(element)) val = img->GetUseExifOrientation();
+                else if (auto *btn = dynamic_cast<ButtonElement *>(element)) val = btn->GetUseExifOrientation();
+                else if (auto *bmp = dynamic_cast<BitmapElement *>(element)) val = bmp->GetUseExifOrientation();
+                return JS_NewBool(ctx, val ? 1 : 0);
+            }
+            if (prop == "imageAlpha")
+            {
+                BYTE val = 255;
+                if (auto *img = dynamic_cast<ImageElement *>(element)) val = img->GetImageAlpha();
+                else if (auto *btn = dynamic_cast<ButtonElement *>(element)) val = btn->GetImageAlpha();
+                else if (auto *bmp = dynamic_cast<BitmapElement *>(element)) val = bmp->GetImageAlpha();
+                return JS_NewInt32(ctx, static_cast<int>(val));
+            }
+            if (prop == "imageTint")
+            {
+                bool hasTint = false;
+                COLORREF color = 0;
+                BYTE alpha = 255;
+                if (auto *img = dynamic_cast<ImageElement *>(element)) {
+                    hasTint = img->HasImageTint();
+                    if (hasTint) { color = img->GetImageTint(); alpha = img->GetImageTintAlpha(); }
+                } else if (auto *btn = dynamic_cast<ButtonElement *>(element)) {
+                    hasTint = btn->HasImageTint();
+                    if (hasTint) { color = btn->GetImageTint(); alpha = btn->GetImageTintAlpha(); }
+                } else if (auto *bmp = dynamic_cast<BitmapElement *>(element)) {
+                    hasTint = bmp->HasImageTint();
+                    if (hasTint) { color = bmp->GetImageTint(); alpha = bmp->GetImageTintAlpha(); }
+                }
+                if (hasTint) {
+                    const std::wstring c = ColorUtil::ToRGBAString(color, alpha);
+                    return JS_NewString(ctx, Utils::ToString(c).c_str());
+                }
+            }
+            if (prop == "imageFlip")
+            {
+                ImageFlipMode flip = IMAGE_FLIP_NONE;
+                if (auto *img = dynamic_cast<ImageElement *>(element)) flip = img->GetImageFlip();
+                else if (auto *btn = dynamic_cast<ButtonElement *>(element)) flip = btn->GetImageFlip();
+                else if (auto *bmp = dynamic_cast<BitmapElement *>(element)) flip = bmp->GetImageFlip();
+                
+                const char *flipStr = "none";
+                switch (flip) {
+                case IMAGE_FLIP_HORIZONTAL: flipStr = "horizontal"; break;
+                case IMAGE_FLIP_VERTICAL: flipStr = "vertical"; break;
+                case IMAGE_FLIP_BOTH: flipStr = "both"; break;
+                default: break;
+                }
+                return JS_NewString(ctx, flipStr);
+            }
+            if (prop == "imageCrop")
+            {
+                bool hasCrop = false;
+                float x = 0, y = 0, w = 0, h = 0;
+                ImageCropOrigin origin = IMAGE_CROP_ORIGIN_TOP_LEFT;
+                if (auto *img = dynamic_cast<ImageElement *>(element)) {
+                    hasCrop = img->HasImageCrop();
+                    if (hasCrop) { x = img->GetImageCropX(); y = img->GetImageCropY(); w = img->GetImageCropW(); h = img->GetImageCropH(); origin = img->GetImageCropOrigin(); }
+                } else if (auto *btn = dynamic_cast<ButtonElement *>(element)) {
+                    hasCrop = btn->HasImageCrop();
+                    if (hasCrop) { x = btn->GetImageCropX(); y = btn->GetImageCropY(); w = btn->GetImageCropW(); h = btn->GetImageCropH(); origin = btn->GetImageCropOrigin(); }
+                }
+                if (hasCrop) {
+                    JSValue arr = JS_NewArray(ctx);
+                    JS_SetPropertyUint32(ctx, arr, 0, JS_NewFloat64(ctx, x));
+                    JS_SetPropertyUint32(ctx, arr, 1, JS_NewFloat64(ctx, y));
+                    JS_SetPropertyUint32(ctx, arr, 2, JS_NewFloat64(ctx, w));
+                    JS_SetPropertyUint32(ctx, arr, 3, JS_NewFloat64(ctx, h));
+                    JS_SetPropertyUint32(ctx, arr, 4, JS_NewInt32(ctx, (int)origin));
+                    return arr;
+                }
+            }
+            if (prop == "colorMatrix")
+            {
+                bool hasMatrix = false;
+                const float *m = nullptr;
+                if (auto *img = dynamic_cast<ImageElement *>(element)) {
+                    hasMatrix = img->HasColorMatrix();
+                    if (hasMatrix) m = img->GetColorMatrix();
+                } else if (auto *btn = dynamic_cast<ButtonElement *>(element)) {
+                    hasMatrix = btn->HasColorMatrix();
+                    if (hasMatrix) m = btn->GetColorMatrix();
+                } else if (auto *bmp = dynamic_cast<BitmapElement *>(element)) {
+                    hasMatrix = bmp->HasColorMatrix();
+                    if (hasMatrix) m = bmp->GetColorMatrix();
+                }
+                if (hasMatrix && m) {
+                    JSValue arr = JS_NewArray(ctx);
+                    for (uint32_t i = 0; i < 20; ++i) JS_SetPropertyUint32(ctx, arr, i, JS_NewFloat64(ctx, m[i]));
+                    return arr;
+                }
+            }
+            return JS_UNDEFINED;
+        }
+
         std::wstring GetWidgetScriptBaseDir(Widget *widget)
         {
             if (!widget)
@@ -87,6 +198,19 @@ namespace novadesk::scripting::quickjs
             PropertyParser::ImageOptions options;
             PropertyParser::ParseImageOptions(ctx, argv[0], options, GetWidgetScriptBaseDir(widget));
             widget->AddImage(options);
+            return JS_UNDEFINED;
+        }
+
+        JSValue JsWidgetAddButton(JSContext *ctx, JSValueConst thisVal, int argc, JSValueConst *argv)
+        {
+            Widget *widget = GetAnyWidget(ctx, thisVal);
+            if (!widget)
+                return JS_EXCEPTION;
+            if (argc < 1 || !JS_IsObject(argv[0]))
+                return ThrowTypeError(ctx, "addButton", "expected options object");
+            PropertyParser::ButtonOptions options;
+            PropertyParser::ParseButtonOptions(ctx, argv[0], options, GetWidgetScriptBaseDir(widget));
+            widget->AddButton(options);
             return JS_UNDEFINED;
         }
 
@@ -129,6 +253,32 @@ namespace novadesk::scripting::quickjs
             return JS_UNDEFINED;
         }
 
+        JSValue JsWidgetAddLine(JSContext *ctx, JSValueConst thisVal, int argc, JSValueConst *argv)
+        {
+            Widget *widget = GetAnyWidget(ctx, thisVal);
+            if (!widget)
+                return JS_EXCEPTION;
+            if (argc < 1 || !JS_IsObject(argv[0]))
+                return ThrowTypeError(ctx, "addLine", "expected options object");
+            PropertyParser::LineOptions options;
+            PropertyParser::ParseLineOptions(ctx, argv[0], options, GetWidgetScriptBaseDir(widget));
+            widget->AddLine(options);
+            return JS_UNDEFINED;
+        }
+
+        JSValue JsWidgetAddHistogram(JSContext *ctx, JSValueConst thisVal, int argc, JSValueConst *argv)
+        {
+            Widget *widget = GetAnyWidget(ctx, thisVal);
+            if (!widget)
+                return JS_EXCEPTION;
+            if (argc < 1 || !JS_IsObject(argv[0]))
+                return ThrowTypeError(ctx, "addHistogram", "expected options object");
+            PropertyParser::HistogramOptions options;
+            PropertyParser::ParseHistogramOptions(ctx, argv[0], options, GetWidgetScriptBaseDir(widget));
+            widget->AddHistogram(options);
+            return JS_UNDEFINED;
+        }
+
         JSValue JsWidgetAddShape(JSContext *ctx, JSValueConst thisVal, int argc, JSValueConst *argv)
         {
             Widget *widget = GetAnyWidget(ctx, thisVal);
@@ -139,6 +289,45 @@ namespace novadesk::scripting::quickjs
             PropertyParser::ShapeOptions options;
             PropertyParser::ParseShapeOptions(ctx, argv[0], options, GetWidgetScriptBaseDir(widget));
             widget->AddShape(options);
+            return JS_UNDEFINED;
+        }
+
+        JSValue JsWidgetAddBitmap(JSContext *ctx, JSValueConst thisVal, int argc, JSValueConst *argv)
+        {
+            Widget *widget = GetAnyWidget(ctx, thisVal);
+            if (!widget)
+                return JS_EXCEPTION;
+            if (argc < 1 || !JS_IsObject(argv[0]))
+                return ThrowTypeError(ctx, "addBitmap", "expected options object");
+            PropertyParser::BitmapOptions options;
+            PropertyParser::ParseBitmapOptions(ctx, argv[0], options, GetWidgetScriptBaseDir(widget));
+            widget->AddBitmap(options);
+            return JS_UNDEFINED;
+        }
+
+        JSValue JsWidgetAddRotator(JSContext *ctx, JSValueConst thisVal, int argc, JSValueConst *argv)
+        {
+            Widget *widget = GetAnyWidget(ctx, thisVal);
+            if (!widget)
+                return JS_EXCEPTION;
+            if (argc < 1 || !JS_IsObject(argv[0]))
+                return ThrowTypeError(ctx, "addRotator", "expected options object");
+            PropertyParser::RotatorOptions options;
+            PropertyParser::ParseRotatorOptions(ctx, argv[0], options, GetWidgetScriptBaseDir(widget));
+            widget->AddRotator(options);
+            return JS_UNDEFINED;
+        }
+
+        JSValue JsWidgetAddAreaGraph(JSContext *ctx, JSValueConst thisVal, int argc, JSValueConst *argv)
+        {
+            Widget *widget = GetAnyWidget(ctx, thisVal);
+            if (!widget)
+                return JS_EXCEPTION;
+            if (argc < 1 || !JS_IsObject(argv[0]))
+                return ThrowTypeError(ctx, "addAreaGraph", "expected options object");
+            PropertyParser::AreaGraphOptions options;
+            PropertyParser::ParseAreaGraphOptions(ctx, argv[0], options, GetWidgetScriptBaseDir(widget));
+            widget->AddAreaGraph(options);
             return JS_UNDEFINED;
         }
 
@@ -244,6 +433,13 @@ namespace novadesk::scripting::quickjs
                 PropertyParser::ParseImageOptions(ctx, argv[1], options, baseDir);
                 PropertyParser::ApplyImageOptions(image, options);
             }
+            else if (auto *btn = dynamic_cast<ButtonElement *>(element))
+            {
+                PropertyParser::ButtonOptions options;
+                PropertyParser::PreFillButtonOptions(options, btn);
+                PropertyParser::ParseButtonOptions(ctx, argv[1], options, baseDir);
+                PropertyParser::ApplyButtonOptions(btn, options);
+            }
             else if (auto *text = dynamic_cast<TextElement *>(element))
             {
                 PropertyParser::TextOptions options;
@@ -265,12 +461,47 @@ namespace novadesk::scripting::quickjs
                 PropertyParser::ParseRoundLineOptions(ctx, argv[1], options, baseDir);
                 PropertyParser::ApplyRoundLineOptions(round, options);
             }
+            else if (auto *line = dynamic_cast<LineElement *>(element))
+            {
+                PropertyParser::LineOptions options;
+                PropertyParser::PreFillLineOptions(options, line);
+                PropertyParser::ParseLineOptions(ctx, argv[1], options, baseDir);
+                PropertyParser::ApplyLineOptions(line, options);
+            }
+            else if (auto *histogram = dynamic_cast<HistogramElement *>(element))
+            {
+                PropertyParser::HistogramOptions options;
+                PropertyParser::PreFillHistogramOptions(options, histogram);
+                PropertyParser::ParseHistogramOptions(ctx, argv[1], options, baseDir);
+                PropertyParser::ApplyHistogramOptions(histogram, options);
+            }
             else if (auto *shape = dynamic_cast<ShapeElement *>(element))
             {
                 PropertyParser::ShapeOptions options;
                 PropertyParser::PreFillShapeOptions(options, shape);
                 PropertyParser::ParseShapeOptions(ctx, argv[1], options, baseDir);
                 PropertyParser::ApplyShapeOptions(shape, options);
+            }
+            else if (auto *bitmap = dynamic_cast<BitmapElement *>(element))
+            {
+                PropertyParser::BitmapOptions options;
+                PropertyParser::PreFillBitmapOptions(options, bitmap);
+                PropertyParser::ParseBitmapOptions(ctx, argv[1], options, baseDir);
+                PropertyParser::ApplyBitmapOptions(bitmap, options);
+            }
+            else if (auto *rotator = dynamic_cast<RotatorElement *>(element))
+            {
+                PropertyParser::RotatorOptions options;
+                PropertyParser::PreFillRotatorOptions(options, rotator);
+                PropertyParser::ParseRotatorOptions(ctx, argv[1], options, baseDir);
+                PropertyParser::ApplyRotatorOptions(rotator, options);
+            }
+            else if (auto *graph = dynamic_cast<AreaGraphElement *>(element))
+            {
+                PropertyParser::AreaGraphOptions options;
+                PropertyParser::PreFillAreaGraphOptions(options, graph);
+                PropertyParser::ParseAreaGraphOptions(ctx, argv[1], options, baseDir);
+                PropertyParser::ApplyAreaGraphOptions(graph, options);
             }
 
             widget->Redraw();
@@ -546,17 +777,141 @@ namespace novadesk::scripting::quickjs
                     }
                     return JS_NewString(ctx, aspect);
                 }
-                if (prop == "grayscale")
-                    return JS_NewBool(ctx, img->IsGrayscale() ? 1 : 0);
+                if (prop == "scaleMargins")
+                {
+                    if (!img->HasScaleMargins())
+                    {
+                        return JS_UNDEFINED;
+                    }
+                    JSValue arr = JS_NewArray(ctx);
+                    JS_SetPropertyUint32(ctx, arr, 0, JS_NewFloat64(ctx, img->GetScaleMarginLeft()));
+                    JS_SetPropertyUint32(ctx, arr, 1, JS_NewFloat64(ctx, img->GetScaleMarginTop()));
+                    JS_SetPropertyUint32(ctx, arr, 2, JS_NewFloat64(ctx, img->GetScaleMarginRight()));
+                    JS_SetPropertyUint32(ctx, arr, 3, JS_NewFloat64(ctx, img->GetScaleMarginBottom()));
+                    return arr;
+                }
                 if (prop == "tile")
                     return JS_NewBool(ctx, img->IsTile() ? 1 : 0);
-                if (prop == "imageAlpha")
-                    return JS_NewInt32(ctx, static_cast<int>(img->GetImageAlpha()));
-                if (prop == "imageTint" && img->HasImageTint())
+                
+                return GetGeneralImagePropertyValue(ctx, element, prop);
+            }
+            else if (element->GetType() == ELEMENT_BUTTON)
+            {
+                auto *btn = static_cast<ButtonElement *>(element);
+                if (prop == "buttonImageName")
+                    return JS_NewString(ctx, Utils::ToString(btn->GetImagePath()).c_str());
+                
+                return GetGeneralImagePropertyValue(ctx, element, prop);
+            }
+            else if (element->GetType() == ELEMENT_BITMAP)
+            {
+                auto *bitmap = static_cast<BitmapElement *>(element);
+                if (prop == "value")
+                    return JS_NewFloat64(ctx, bitmap->GetValue());
+                if (prop == "bitmapImageName")
+                    return JS_NewString(ctx, Utils::ToString(bitmap->GetImagePath()).c_str());
+                if (prop == "bitmapFrames")
+                    return JS_NewInt32(ctx, bitmap->GetBitmapFrames());
+                if (prop == "bitmapZeroFrame")
+                    return JS_NewBool(ctx, bitmap->GetBitmapZeroFrame() ? 1 : 0);
+                if (prop == "bitmapExtend")
+                    return JS_NewBool(ctx, bitmap->GetBitmapExtend() ? 1 : 0);
+                if (prop == "minValue")
+                    return JS_NewFloat64(ctx, bitmap->GetMinValue());
+                if (prop == "maxValue")
+                    return JS_NewFloat64(ctx, bitmap->GetMaxValue());
+                if (prop == "bitmapOrientation")
+                    return JS_NewString(ctx, Utils::ToString(bitmap->GetBitmapOrientation()).c_str());
+                if (prop == "bitmapDigits")
+                    return JS_NewInt32(ctx, bitmap->GetBitmapDigits());
+                if (prop == "bitmapSeparation")
+                    return JS_NewInt32(ctx, bitmap->GetBitmapSeparation());
+                if (prop == "bitmapAlign")
                 {
-                    const std::wstring c = ColorUtil::ToRGBAString(img->GetImageTint(), img->GetImageTintAlpha());
-                    return JS_NewString(ctx, Utils::ToString(c).c_str());
+                    const char *align = "left";
+                    switch (bitmap->GetBitmapAlign())
+                    {
+                    case BITMAP_ALIGN_CENTER:
+                        align = "center";
+                        break;
+                    case BITMAP_ALIGN_RIGHT:
+                        align = "right";
+                        break;
+                    default:
+                        break;
+                    }
+                    return JS_NewString(ctx, align);
                 }
+
+                return GetGeneralImagePropertyValue(ctx, element, prop);
+            }
+            else if (element->GetType() == ELEMENT_AREA_GRAPH)
+            {
+                auto *graph = static_cast<AreaGraphElement *>(element);
+                if (prop == "data")
+                {
+                    JSValue arr = JS_NewArray(ctx);
+                    const auto &data = graph->GetData();
+                    for (uint32_t i = 0; i < static_cast<uint32_t>(data.size()); ++i)
+                    {
+                        JS_SetPropertyUint32(ctx, arr, i, JS_NewFloat64(ctx, data[i]));
+                    }
+                    return arr;
+                }
+                if (prop == "minValue")
+                    return JS_NewFloat64(ctx, graph->GetMinValue());
+                if (prop == "maxValue")
+                    return JS_NewFloat64(ctx, graph->GetMaxValue());
+                if (prop == "autoRange")
+                    return JS_NewBool(ctx, graph->GetAutoRange() ? 1 : 0);
+                if (prop == "lineColor")
+                    return JS_NewString(ctx, Utils::ToString(ColorUtil::ToRGBAString(graph->GetLineColor(), 255)).c_str());
+                if (prop == "lineWidth")
+                    return JS_NewFloat64(ctx, graph->GetLineWidth());
+                if (prop == "fillColor")
+                    return JS_NewString(ctx, Utils::ToString(ColorUtil::ToRGBAString(graph->GetFillColor(), graph->GetFillAlpha())).c_str());
+                if (prop == "fillAlpha")
+                    return JS_NewInt32(ctx, graph->GetFillAlpha());
+                if (prop == "maxPoints")
+                    return JS_NewInt32(ctx, graph->GetMaxPoints());
+                if (prop == "gridColor")
+                    return JS_NewString(ctx, Utils::ToString(ColorUtil::ToRGBAString(graph->GetGridColor(), graph->GetGridAlpha())).c_str());
+                if (prop == "gridAlpha")
+                    return JS_NewInt32(ctx, graph->GetGridAlpha());
+                if (prop == "gridVisible")
+                    return JS_NewBool(ctx, graph->GetGridVisible() ? 1 : 0);
+                if (prop == "gridX")
+                    return JS_NewInt32(ctx, graph->GetGridXSpacing());
+                if (prop == "gridY")
+                    return JS_NewInt32(ctx, graph->GetGridYSpacing());
+                if (prop == "graphStart")
+                    return JS_NewString(ctx, graph->GetGraphStartLeft() ? "left" : "right");
+                if (prop == "flip")
+                    return JS_NewBool(ctx, graph->GetFlip() ? 1 : 0);
+            }
+            else if (element->GetType() == ELEMENT_ROTATOR)
+            {
+                auto *rotator = static_cast<RotatorElement *>(element);
+                if (prop == "value")
+                    return JS_NewFloat64(ctx, rotator->GetValue());
+                if (prop == "rotatorImageName")
+                    return JS_NewString(ctx, Utils::ToString(rotator->GetImagePath()).c_str());
+                if (prop == "offsetX")
+                    return JS_NewFloat64(ctx, rotator->GetOffsetX());
+                if (prop == "offsetY")
+                    return JS_NewFloat64(ctx, rotator->GetOffsetY());
+                if (prop == "startAngle")
+                    return JS_NewFloat64(ctx, rotator->GetStartAngle());
+                if (prop == "rotationAngle")
+                    return JS_NewFloat64(ctx, rotator->GetRotationAngle());
+                if (prop == "valueRemainder")
+                    return JS_NewInt32(ctx, rotator->GetValueRemainder());
+                if (prop == "minValue")
+                    return JS_NewFloat64(ctx, rotator->GetMinValue());
+                if (prop == "maxValue")
+                    return JS_NewFloat64(ctx, rotator->GetMaxValue());
+
+                return GetGeneralImagePropertyValue(ctx, element, prop);
             }
             else if (element->GetType() == ELEMENT_BAR)
             {
@@ -602,6 +957,138 @@ namespace novadesk::scripting::quickjs
                 if (prop == "lineColorBg" && rl->HasLineColorBg())
                 {
                     const std::wstring c = ColorUtil::ToRGBAString(rl->GetLineColorBg(), rl->GetLineAlphaBg());
+                    return JS_NewString(ctx, Utils::ToString(c).c_str());
+                }
+            }
+            else if (element->GetType() == ELEMENT_LINE)
+            {
+                auto *line = static_cast<LineElement *>(element);
+                if (prop == "lineCount")
+                    return JS_NewInt32(ctx, line->GetLineCount());
+                if (prop == "lineWidth")
+                    return JS_NewFloat64(ctx, line->GetLineWidth());
+                if (prop == "maxPoints")
+                    return JS_NewInt32(ctx, line->GetMaxPoints());
+                if (prop == "horizontalLines")
+                    return JS_NewBool(ctx, line->GetHorizontalLines() ? 1 : 0);
+                if (prop == "horizontalLineColor")
+                {
+                    const std::wstring c = ColorUtil::ToRGBAString(line->GetHorizontalLineColor(), line->GetHorizontalLineAlpha());
+                    return JS_NewString(ctx, Utils::ToString(c).c_str());
+                }
+                if (prop == "graphStart")
+                    return JS_NewString(ctx, line->GetGraphStartLeft() ? "left" : "right");
+                if (prop == "graphOrientation")
+                    return JS_NewString(ctx, line->GetGraphHorizontalOrientation() ? "horizontal" : "vertical");
+                if (prop == "flip")
+                    return JS_NewBool(ctx, line->GetFlip() ? 1 : 0);
+                if (prop == "transformStroke")
+                    return JS_NewString(ctx, line->GetStrokeTransformType() == D2D1_STROKE_TRANSFORM_TYPE_FIXED ? "fixed" : "normal");
+                if (prop == "autoRange")
+                    return JS_NewBool(ctx, line->GetAutoRange() ? 1 : 0);
+                if (prop == "rangeMin")
+                    return JS_NewFloat64(ctx, line->GetScaleMin());
+                if (prop == "rangeMax")
+                    return JS_NewFloat64(ctx, line->GetScaleMax());
+
+                if (prop == "data")
+                {
+                    JSValue arr = JS_NewArray(ctx);
+                    const auto &dataSets = line->GetDataSets();
+                    if (!dataSets.empty())
+                    {
+                        for (uint32_t i = 0; i < static_cast<uint32_t>(dataSets[0].size()); ++i)
+                        {
+                            JS_SetPropertyUint32(ctx, arr, i, JS_NewFloat64(ctx, dataSets[0][i]));
+                        }
+                    }
+                    return arr;
+                }
+
+                for (int i = 0; i < line->GetLineCount(); ++i)
+                {
+                    std::string colorKey = (i == 0) ? "lineColor" : ("lineColor" + std::to_string(i + 1));
+                    if (prop == colorKey)
+                    {
+                        const auto &colors = line->GetLineColors();
+                        const auto &alphas = line->GetLineAlphas();
+                        if (i < (int)colors.size() && i < (int)alphas.size())
+                        {
+                            const std::wstring c = ColorUtil::ToRGBAString(colors[(size_t)i], alphas[(size_t)i]);
+                            return JS_NewString(ctx, Utils::ToString(c).c_str());
+                        }
+                    }
+
+                    std::string scaleKey = (i == 0) ? "lineScale" : ("lineScale" + std::to_string(i + 1));
+                    if (prop == scaleKey)
+                    {
+                        const auto &scales = line->GetScaleValues();
+                        if (i < (int)scales.size())
+                        {
+                            return JS_NewFloat64(ctx, scales[(size_t)i]);
+                        }
+                    }
+
+                    std::string dataKey = (i == 0) ? "data" : ("data" + std::to_string(i + 1));
+                    if (prop == dataKey)
+                    {
+                        JSValue arr = JS_NewArray(ctx);
+                        const auto &dataSets = line->GetDataSets();
+                        if (i < (int)dataSets.size())
+                        {
+                            for (uint32_t k = 0; k < static_cast<uint32_t>(dataSets[(size_t)i].size()); ++k)
+                            {
+                                JS_SetPropertyUint32(ctx, arr, k, JS_NewFloat64(ctx, dataSets[(size_t)i][k]));
+                            }
+                        }
+                        return arr;
+                    }
+                }
+            }
+            else if (element->GetType() == ELEMENT_HISTOGRAM)
+            {
+                auto *histogram = static_cast<HistogramElement *>(element);
+                if (prop == "data")
+                {
+                    JSValue arr = JS_NewArray(ctx);
+                    const auto &data = histogram->GetData();
+                    for (uint32_t i = 0; i < static_cast<uint32_t>(data.size()); ++i)
+                    {
+                        JS_SetPropertyUint32(ctx, arr, i, JS_NewFloat64(ctx, data[i]));
+                    }
+                    return arr;
+                }
+                if (prop == "data2")
+                {
+                    JSValue arr = JS_NewArray(ctx);
+                    const auto &data = histogram->GetData2();
+                    for (uint32_t i = 0; i < static_cast<uint32_t>(data.size()); ++i)
+                    {
+                        JS_SetPropertyUint32(ctx, arr, i, JS_NewFloat64(ctx, data[i]));
+                    }
+                    return arr;
+                }
+                if (prop == "autoRange")
+                    return JS_NewBool(ctx, histogram->GetAutoRange() ? 1 : 0);
+                if (prop == "graphStart")
+                    return JS_NewString(ctx, histogram->GetGraphStartLeft() ? "left" : "right");
+                if (prop == "graphOrientation")
+                    return JS_NewString(ctx, histogram->GetGraphHorizontalOrientation() ? "horizontal" : "vertical");
+                if (prop == "flip")
+                    return JS_NewBool(ctx, histogram->GetFlip() ? 1 : 0);
+                if (prop == "primaryColor")
+                {
+                    const std::wstring c = ColorUtil::ToRGBAString(histogram->GetPrimaryColor(), histogram->GetPrimaryAlpha());
+                    return JS_NewString(ctx, Utils::ToString(c).c_str());
+                }
+                if (prop == "secondaryColor")
+                {
+                    const std::wstring c = ColorUtil::ToRGBAString(histogram->GetSecondaryColor(), histogram->GetSecondaryAlpha());
+                    return JS_NewString(ctx, Utils::ToString(c).c_str());
+                }
+                if (prop == "bothColor")
+                {
+                    const std::wstring c = ColorUtil::ToRGBAString(histogram->GetBothColor(), histogram->GetBothAlpha());
                     return JS_NewString(ctx, Utils::ToString(c).c_str());
                 }
             }
@@ -804,10 +1291,16 @@ namespace novadesk::scripting::quickjs
 
         const JSCFunctionListEntry kWidgetProtoFuncs[] = {
             JS_CFUNC_DEF("addImage", 1, JsWidgetAddImage),
+            JS_CFUNC_DEF("addButton", 1, JsWidgetAddButton),
             JS_CFUNC_DEF("addText", 1, JsWidgetAddText),
             JS_CFUNC_DEF("addBar", 1, JsWidgetAddBar),
+            JS_CFUNC_DEF("addLine", 1, JsWidgetAddLine),
+            JS_CFUNC_DEF("addHistogram", 1, JsWidgetAddHistogram),
             JS_CFUNC_DEF("addRoundLine", 1, JsWidgetAddRoundLine),
             JS_CFUNC_DEF("addShape", 1, JsWidgetAddShape),
+            JS_CFUNC_DEF("addBitmap", 1, JsWidgetAddBitmap),
+            JS_CFUNC_DEF("addRotator", 1, JsWidgetAddRotator),
+            JS_CFUNC_DEF("addAreaGraph", 1, JsWidgetAddAreaGraph),
             JS_CFUNC_DEF("setElementProperty", 2, JsWidgetSetElementProperties),
             JS_CFUNC_DEF("setElementProperties", 2, JsWidgetSetElementProperties),
             JS_CFUNC_DEF("setElementPropertyByGroup", 2, JsWidgetSetElementPropertiesByGroup),

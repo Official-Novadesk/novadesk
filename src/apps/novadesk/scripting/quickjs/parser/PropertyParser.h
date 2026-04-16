@@ -9,11 +9,15 @@
 
 #include "quickjs.h"
 #include "../../../render/BarElement.h"
+#include "../../../render/BitmapElement.h"
 #include "../../../render/Element.h"
 #include "../../../render/ImageElement.h"
+#include "../../../render/LineElement.h"
 #include "../../../render/RoundLineElement.h"
 #include "../../../render/ShapeElement.h"
+#include "../../../render/ShapeElement.h"
 #include "../../../render/TextElement.h"
+#include "../../../render/ButtonElement.h"
 
 struct duk_hthread;
 using duk_context = duk_hthread;
@@ -22,8 +26,14 @@ class Element;
 class ImageElement;
 class TextElement;
 class BarElement;
+class LineElement;
+class HistogramElement;
 class RoundLineElement;
 class ShapeElement;
+class AreaGraphElement;
+class ButtonElement;
+class BitmapElement;
+class RotatorElement;
 
 namespace PropertyParser
 {
@@ -66,8 +76,10 @@ namespace PropertyParser
         int bevelWidth = 0;
         COLORREF bevelColor = RGB(255, 255, 255);
         BYTE bevelAlpha = 200;
+        GradientInfo bevelGradient;
         COLORREF bevelColor2 = RGB(0, 0, 0);
         BYTE bevelAlpha2 = 150;
+        GradientInfo bevelGradient2;
         int paddingLeft = 0;
         int paddingTop = 0;
         int paddingRight = 0;
@@ -111,20 +123,92 @@ namespace PropertyParser
         bool tooltipBalloon = false;
     };
 
-    struct ImageOptions : public ElementOptions
+    struct GeneralImageOptions : public ElementOptions
     {
-        std::wstring path;
-        ImageAspectRatio preserveAspectRatio = IMAGE_ASPECT_STRETCH;
+        ImageFlipMode imageFlip = IMAGE_FLIP_NONE;
+        bool hasImageCrop = false;
+        float imageCropX = 0.0f;
+        float imageCropY = 0.0f;
+        float imageCropW = 0.0f;
+        float imageCropH = 0.0f;
+        ImageCropOrigin imageCropOrigin = IMAGE_CROP_ORIGIN_TOP_LEFT;
+        bool useExifOrientation = false;
         BYTE imageAlpha = 255;
         bool grayscale = false;
-        bool tile = false;
-        bool hasTransformMatrix = false;
-        std::array<float, 6> transformMatrix{};
         bool hasColorMatrix = false;
         std::array<float, 20> colorMatrix{};
         bool hasImageTint = false;
         COLORREF imageTint = RGB(255, 255, 255);
         BYTE imageTintAlpha = 255;
+    };
+
+    struct ImageOptions : public GeneralImageOptions
+    {
+        std::wstring path;
+        ImageAspectRatio preserveAspectRatio = IMAGE_ASPECT_STRETCH;
+        bool hasScaleMargins = false;
+        float scaleMarginLeft = 0.0f;
+        float scaleMarginTop = 0.0f;
+        float scaleMarginRight = 0.0f;
+        float scaleMarginBottom = 0.0f;
+        bool tile = false;
+    };
+
+    struct ButtonOptions : public GeneralImageOptions
+    {
+        std::wstring buttonImageName;
+        int buttonActionCallbackId = -1;
+    };
+
+    struct BitmapOptions : public GeneralImageOptions
+    {
+        double value = 0.0;
+        std::wstring bitmapImageName;
+        int bitmapFrames = 1;
+        bool bitmapZeroFrame = false;
+        bool bitmapExtend = false;
+        double minValue = 0.0;
+        double maxValue = 1.0;
+        std::wstring bitmapOrientation = L"auto";
+        int bitmapDigits = 0;
+        BitmapAlign bitmapAlign = BITMAP_ALIGN_LEFT;
+        int bitmapSeparation = 0;
+    };
+
+    struct RotatorOptions : public GeneralImageOptions
+    {
+        double value = 0.0;
+        std::wstring rotatorImageName;
+        double minValue = 0.0;
+        double maxValue = 1.0;
+        double offsetX = 0.0;
+        double offsetY = 0.0;
+        double startAngle = 0.0;
+        double rotationAngle = 6.283185307179586; // 2 * PI
+        int valueRemainder = 0;
+    };
+    
+    struct AreaGraphOptions : public ElementOptions
+    {
+        std::vector<float> data;
+        float minValue = 0.0f;
+        float maxValue = 1.0f;
+        bool autoRange = false;
+        COLORREF lineColor = RGB(0, 180, 255);
+        GradientInfo lineGradient;
+        float lineWidth = 1.0f;
+        COLORREF fillColor = RGB(0, 180, 255);
+        BYTE fillAlpha = 50;
+        GradientInfo fillGradient;
+        int maxPoints = 0;
+        COLORREF gridColor = RGB(100, 100, 100);
+        BYTE gridAlpha = 100;
+        GradientInfo gridGradient;
+        bool gridVisible = true;
+        int gridX = 20;
+        int gridY = 20;
+        bool graphStartLeft = false;
+        bool flip = false;
     };
 
     struct TextOptions : public ElementOptions
@@ -181,6 +265,49 @@ namespace PropertyParser
         GradientInfo lineGradientBg;
     };
 
+    struct LineOptions : public ElementOptions
+    {
+        int lineCount = 1;
+        std::vector<std::vector<float>> dataSets;
+        std::vector<COLORREF> lineColors;
+        std::vector<BYTE> lineAlphas;
+        std::vector<GradientInfo> lineGradients;
+        std::vector<float> scaleValues;
+        float lineWidth = 1.0f;
+        int maxPoints = 0;
+        bool horizontalLines = false;
+        COLORREF horizontalLineColor = RGB(0, 0, 0);
+        BYTE horizontalLineAlpha = 255;
+        GradientInfo horizontalLineGradient;
+        bool graphStartLeft = false;               // false = right
+        bool graphHorizontalOrientation = false;   // false = vertical
+        bool flip = false;
+        D2D1_STROKE_TRANSFORM_TYPE transformStroke = D2D1_STROKE_TRANSFORM_TYPE_NORMAL;
+        bool autoRange = false;
+        float scaleMin = 0.0f;
+        float scaleMax = 100.0f;
+    };
+
+    struct HistogramOptions : public ElementOptions
+    {
+        std::vector<float> data;
+        std::vector<float> data2;
+        bool autoRange = false;
+        bool graphStartLeft = false;             // false = right
+        bool graphHorizontalOrientation = false; // false = vertical
+        bool flip = false;
+
+        COLORREF primaryColor = RGB(0, 128, 0);
+        BYTE primaryAlpha = 255;
+        GradientInfo primaryGradient;
+        COLORREF secondaryColor = RGB(255, 0, 0);
+        BYTE secondaryAlpha = 255;
+        GradientInfo secondaryGradient;
+        COLORREF bothColor = RGB(255, 255, 0);
+        BYTE bothAlpha = 255;
+        GradientInfo bothGradient;
+    };
+
     struct ShapeCombineOp
     {
         std::wstring id;
@@ -230,29 +357,59 @@ namespace PropertyParser
     void ParseElementOptions(JSContext *ctx, JSValueConst obj, ElementOptions &options, const std::wstring &baseDir = L"");
     void ParseImageOptions(JSContext *ctx, JSValueConst obj, ImageOptions &options, const std::wstring &baseDir = L"");
     void ParseTextOptions(JSContext *ctx, JSValueConst obj, TextOptions &options, const std::wstring &baseDir = L"");
+    void ParseButtonOptions(JSContext *ctx, JSValueConst obj, ButtonOptions &options, const std::wstring &baseDir = L"");
+    void ParseBitmapOptions(JSContext *ctx, JSValueConst obj, BitmapOptions &options, const std::wstring &baseDir = L"");
+    void ParseRotatorOptions(JSContext *ctx, JSValueConst obj, RotatorOptions &options, const std::wstring &baseDir = L"");
     void ParseBarOptions(JSContext *ctx, JSValueConst obj, BarOptions &options, const std::wstring &baseDir = L"");
+    void ParseLineOptions(JSContext *ctx, JSValueConst obj, LineOptions &options, const std::wstring &baseDir = L"");
+    void ParseHistogramOptions(JSContext *ctx, JSValueConst obj, HistogramOptions &options, const std::wstring &baseDir = L"");
     void ParseRoundLineOptions(JSContext *ctx, JSValueConst obj, RoundLineOptions &options, const std::wstring &baseDir = L"");
     void ParseShapeOptions(JSContext *ctx, JSValueConst obj, ShapeOptions &options, const std::wstring &baseDir = L"");
+    void ParseAreaGraphOptions(JSContext *ctx, JSValueConst obj, AreaGraphOptions &options, const std::wstring &baseDir = L"");
 
     void ApplyElementOptions(Element *element, const ElementOptions &options);
     void ApplyImageOptions(ImageElement *element, const ImageOptions &options);
     void ApplyTextOptions(TextElement *element, const TextOptions &options);
+    void ApplyButtonOptions(ButtonElement *element, const ButtonOptions &options);
+    void ApplyBitmapOptions(BitmapElement *element, const BitmapOptions &options);
+    void ApplyRotatorOptions(RotatorElement *element, const RotatorOptions &options);
     void ApplyBarOptions(BarElement *element, const BarOptions &options);
+    void ApplyLineOptions(LineElement *element, const LineOptions &options);
+    void ApplyHistogramOptions(HistogramElement *element, const HistogramOptions &options);
     void ApplyRoundLineOptions(RoundLineElement *element, const RoundLineOptions &options);
     void ApplyShapeOptions(ShapeElement *element, const ShapeOptions &options);
+    void ApplyAreaGraphOptions(AreaGraphElement *element, const AreaGraphOptions &options);
 
+    void PreFillElementOptions(ElementOptions &options, Element *element);
     void PreFillImageOptions(ImageOptions &options, ImageElement *element);
     void PreFillTextOptions(TextOptions &options, TextElement *element);
+    void PreFillButtonOptions(ButtonOptions &options, ButtonElement *element);
+    void PreFillBitmapOptions(BitmapOptions &options, BitmapElement *element);
+    void PreFillRotatorOptions(RotatorOptions &options, RotatorElement *element);
     void PreFillBarOptions(BarOptions &options, BarElement *element);
+    void PreFillLineOptions(LineOptions &options, LineElement *element);
+    void PreFillHistogramOptions(HistogramOptions &options, HistogramElement *element);
     void PreFillRoundLineOptions(RoundLineOptions &options, RoundLineElement *element);
     void PreFillShapeOptions(ShapeOptions &options, ShapeElement *element);
+    void PreFillAreaGraphOptions(AreaGraphOptions &options, AreaGraphElement *element);
+
+    void ParseGeneralImageOptions(JSContext *ctx, JSValueConst obj, GeneralImageOptions &options);
+    void ApplyGeneralImageOptions(GeneralImage *image, const GeneralImageOptions &options);
+    void PreFillGeneralImageOptions(GeneralImageOptions &options, GeneralImage *image);
 
     void ParseElementOptions(duk_context *ctx, ElementOptions &options);
+    void ParseGeneralImageOptions(duk_context *ctx, GeneralImageOptions &options);
     void ParseImageOptions(duk_context *ctx, ImageOptions &options);
     void ParseTextOptions(duk_context *ctx, TextOptions &options);
     void ParseBarOptions(duk_context *ctx, BarOptions &options);
+    void ParseLineOptions(duk_context *ctx, LineOptions &options);
+    void ParseHistogramOptions(duk_context *ctx, HistogramOptions &options);
     void ParseRoundLineOptions(duk_context *ctx, RoundLineOptions &options);
     void ParseShapeOptions(duk_context *ctx, ShapeOptions &options);
+    void ParseButtonOptions(duk_context *ctx, ButtonOptions &options);
+    void ParseBitmapOptions(duk_context *ctx, BitmapOptions &options);
+    void ParseRotatorOptions(duk_context *ctx, RotatorOptions &options);
+    void ParseAreaGraphOptions(duk_context *ctx, AreaGraphOptions &options);
 } // namespace PropertyParser
 
 namespace novadesk::scripting::quickjs::parser

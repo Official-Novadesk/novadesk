@@ -30,8 +30,14 @@ enum ElementType
     ELEMENT_IMAGE,
     ELEMENT_TEXT,
     ELEMENT_BAR,
+    ELEMENT_LINE,
     ELEMENT_ROUNDLINE,
-    ELEMENT_SHAPE
+    ELEMENT_SHAPE,
+    ELEMENT_HISTOGRAM,
+    ELEMENT_BITMAP,
+    ELEMENT_BUTTON,
+    ELEMENT_ROTATOR,
+    ELEMENT_AREA_GRAPH
 };
 
 struct GfxRect {
@@ -133,6 +139,8 @@ public:
         m_BevelColor2 = color2;
         m_BevelAlpha2 = alpha2;
     }
+    void SetBevelGradient(const GradientInfo& gradient) { m_BevelGradient = gradient; }
+    void SetBevelGradient2(const GradientInfo& gradient) { m_BevelGradient2 = gradient; }
 
     void SetAntiAlias(bool enable) { m_AntiAlias = enable; }
     
@@ -165,6 +173,8 @@ public:
     BYTE GetBevelAlpha() const { return m_BevelAlpha; }
     COLORREF GetBevelColor2() const { return m_BevelColor2; }
     BYTE GetBevelAlpha2() const { return m_BevelAlpha2; }
+    const GradientInfo& GetBevelGradient() const { return m_BevelGradient; }
+    const GradientInfo& GetBevelGradient2() const { return m_BevelGradient2; }
 
     int GetPaddingLeft() const { return m_PaddingLeft; }
     int GetPaddingTop() const { return m_PaddingTop; }
@@ -270,6 +280,8 @@ protected:
     BYTE m_BevelAlpha = 200;
     COLORREF m_BevelColor2 = RGB(0, 0, 0);
     BYTE m_BevelAlpha2 = 150;
+    GradientInfo m_BevelGradient;
+    GradientInfo m_BevelGradient2;
 
     // Rendering properties
     bool m_AntiAlias = true;

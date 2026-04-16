@@ -19,6 +19,9 @@
 #include "ImageElement.h"
 #include "TextElement.h"
 #include "BarElement.h"
+#include "LineElement.h"
+#include "HistogramElement.h"
+#include "AreaGraphElement.h"
 #include "RoundLineElement.h"
 #include "RectangleShape.h"
 #include "EllipseShape.h"
@@ -29,6 +32,8 @@
 #include "ShapeElement.h"
 #include "ColorUtil.h"
 #include "PathUtils.h"
+#include "ButtonElement.h"
+#include "BitmapElement.h"
 #include "../scripting/quickjs/engine/JSEngine.h"
 
 #define WIDGET_CLASS_NAME L"NovadeskWidget"
@@ -1024,6 +1029,85 @@ void Widget::AddImage(const PropertyParser::ImageOptions &options)
 }
 
 /*
+** Add a button content item to the widget.
+*/
+void Widget::AddButton(const PropertyParser::ButtonOptions &options)
+{
+    if (options.id.empty())
+    {
+        Logging::Log(LogLevel::Error, L"AddButton failed: Element ID cannot be empty.");
+        return;
+    }
+
+    if (FindElementById(options.id))
+    {
+        RemoveElements(options.id);
+    }
+
+    ButtonElement *element = new ButtonElement(options.id, options.x, options.y, options.buttonImageName);
+
+    PropertyParser::ApplyButtonOptions(element, options);
+
+    m_Elements.push_back(element);
+    UpdateContainerForElement(element, options.containerId);
+
+    Redraw();
+}
+
+/*
+** Add a bitmap content item to the widget.
+*/
+void Widget::AddBitmap(const PropertyParser::BitmapOptions &options)
+{
+    if (options.id.empty())
+    {
+        Logging::Log(LogLevel::Error, L"AddBitmap failed: Element ID cannot be empty.");
+        return;
+    }
+
+    if (FindElementById(options.id))
+    {
+        RemoveElements(options.id);
+    }
+
+    BitmapElement *element = new BitmapElement(options.id, options.x, options.y, options.bitmapImageName);
+
+    PropertyParser::ApplyBitmapOptions(element, options);
+
+    m_Elements.push_back(element);
+    UpdateContainerForElement(element, options.containerId);
+
+    Redraw();
+}
+
+/*
+** Add a rotator content item to the widget.
+** The rotator rotates an image based on the measure value.
+*/
+void Widget::AddRotator(const PropertyParser::RotatorOptions &options)
+{
+    if (options.id.empty())
+    {
+        Logging::Log(LogLevel::Error, L"AddRotator failed: Element ID cannot be empty.");
+        return;
+    }
+
+    if (FindElementById(options.id))
+    {
+        RemoveElements(options.id);
+    }
+
+    RotatorElement *element = new RotatorElement(options.id, options.x, options.y, options.rotatorImageName);
+
+    PropertyParser::ApplyRotatorOptions(element, options);
+
+    m_Elements.push_back(element);
+    UpdateContainerForElement(element, options.containerId);
+
+    Redraw();
+}
+
+/*
 ** Add a text content item to the widget.
 ** Text will be rendered with the specified font and styling.
 */
@@ -1073,6 +1157,56 @@ void Widget::AddBar(const PropertyParser::BarOptions &options)
     BarElement *element = new BarElement(options.id, options.x, options.y, options.width, options.height, options.value, options.orientation);
 
     PropertyParser::ApplyBarOptions(element, options); // Changed from ApplyElementOptions
+
+    m_Elements.push_back(element);
+    UpdateContainerForElement(element, options.containerId);
+
+    Redraw();
+}
+
+/*
+** Add a line graph content item to the widget.
+*/
+void Widget::AddLine(const PropertyParser::LineOptions &options)
+{
+    if (options.id.empty())
+    {
+        Logging::Log(LogLevel::Error, L"AddLine failed: Element ID cannot be empty.");
+        return;
+    }
+
+    if (FindElementById(options.id))
+    {
+        RemoveElements(options.id);
+    }
+
+    LineElement *element = new LineElement(options.id, options.x, options.y, options.width, options.height);
+    PropertyParser::ApplyLineOptions(element, options);
+
+    m_Elements.push_back(element);
+    UpdateContainerForElement(element, options.containerId);
+
+    Redraw();
+}
+
+/*
+** Add a histogram content item to the widget.
+*/
+void Widget::AddHistogram(const PropertyParser::HistogramOptions &options)
+{
+    if (options.id.empty())
+    {
+        Logging::Log(LogLevel::Error, L"AddHistogram failed: Element ID cannot be empty.");
+        return;
+    }
+
+    if (FindElementById(options.id))
+    {
+        RemoveElements(options.id);
+    }
+
+    HistogramElement *element = new HistogramElement(options.id, options.x, options.y, options.width, options.height);
+    PropertyParser::ApplyHistogramOptions(element, options);
 
     m_Elements.push_back(element);
     UpdateContainerForElement(element, options.containerId);
@@ -1160,6 +1294,31 @@ void Widget::AddShape(const PropertyParser::ShapeOptions &options)
         PathShape *path = static_cast<PathShape *>(element);
         BuildCombinedShapeGeometry(path, options);
     }
+
+    m_Elements.push_back(element);
+    UpdateContainerForElement(element, options.containerId);
+
+    Redraw();
+}
+
+/*
+** Add an area graph content item to the widget.
+*/
+void Widget::AddAreaGraph(const PropertyParser::AreaGraphOptions &options)
+{
+    if (options.id.empty())
+    {
+        Logging::Log(LogLevel::Error, L"AddAreaGraph failed: Element ID cannot be empty.");
+        return;
+    }
+
+    if (FindElementById(options.id))
+    {
+        RemoveElements(options.id);
+    }
+
+    AreaGraphElement *element = new AreaGraphElement(options.id, options.x, options.y, options.width, options.height);
+    PropertyParser::ApplyAreaGraphOptions(element, options);
 
     m_Elements.push_back(element);
     UpdateContainerForElement(element, options.containerId);
@@ -1644,6 +1803,22 @@ void Widget::ApplyParsedPropertiesToElement(Element *element, duk_context *ctx)
         PropertyParser::ApplyBarOptions(static_cast<BarElement *>(element), options);
         UpdateContainerForElement(element, options.containerId);
     }
+    else if (element->GetType() == ELEMENT_LINE)
+    {
+        PropertyParser::LineOptions options;
+        PropertyParser::PreFillLineOptions(options, static_cast<LineElement *>(element));
+        PropertyParser::ParseLineOptions(ctx, options);
+        PropertyParser::ApplyLineOptions(static_cast<LineElement *>(element), options);
+        UpdateContainerForElement(element, options.containerId);
+    }
+    else if (element->GetType() == ELEMENT_HISTOGRAM)
+    {
+        PropertyParser::HistogramOptions options;
+        PropertyParser::PreFillHistogramOptions(options, static_cast<HistogramElement *>(element));
+        PropertyParser::ParseHistogramOptions(ctx, options);
+        PropertyParser::ApplyHistogramOptions(static_cast<HistogramElement *>(element), options);
+        UpdateContainerForElement(element, options.containerId);
+    }
     else if (element->GetType() == ELEMENT_ROUNDLINE)
     {
         PropertyParser::RoundLineOptions options;
@@ -1669,6 +1844,38 @@ void Widget::ApplyParsedPropertiesToElement(Element *element, duk_context *ctx)
                 BuildCombinedShapeGeometry(path, options);
             }
         }
+    }
+    else if (element->GetType() == ELEMENT_BUTTON)
+    {
+        PropertyParser::ButtonOptions options;
+        PropertyParser::PreFillButtonOptions(options, static_cast<ButtonElement *>(element));
+        PropertyParser::ParseButtonOptions(ctx, options);
+        PropertyParser::ApplyButtonOptions(static_cast<ButtonElement *>(element), options);
+        UpdateContainerForElement(element, options.containerId);
+    }
+    else if (element->GetType() == ELEMENT_BITMAP)
+    {
+        PropertyParser::BitmapOptions options;
+        PropertyParser::PreFillBitmapOptions(options, static_cast<BitmapElement *>(element));
+        PropertyParser::ParseBitmapOptions(ctx, options);
+        PropertyParser::ApplyBitmapOptions(static_cast<BitmapElement *>(element), options);
+        UpdateContainerForElement(element, options.containerId);
+    }
+    else if (element->GetType() == ELEMENT_ROTATOR)
+    {
+        PropertyParser::RotatorOptions options;
+        PropertyParser::PreFillRotatorOptions(options, static_cast<RotatorElement *>(element));
+        PropertyParser::ParseRotatorOptions(ctx, options);
+        PropertyParser::ApplyRotatorOptions(static_cast<RotatorElement *>(element), options);
+        UpdateContainerForElement(element, options.containerId);
+    }
+    else if (element->GetType() == ELEMENT_AREA_GRAPH)
+    {
+        PropertyParser::AreaGraphOptions options;
+        PropertyParser::PreFillAreaGraphOptions(options, static_cast<AreaGraphElement *>(element));
+        PropertyParser::ParseAreaGraphOptions(ctx, options);
+        PropertyParser::ApplyAreaGraphOptions(static_cast<AreaGraphElement *>(element), options);
+        UpdateContainerForElement(element, options.containerId);
     }
 }
 
@@ -2115,6 +2322,34 @@ bool Widget::HandleMouseMessage(UINT message, WPARAM wParam, LPARAM lParam)
         y = pt.y;
     }
 
+    bool needRedraw = false;
+    if (message == WM_MOUSEMOVE || message == WM_LBUTTONDOWN || message == WM_LBUTTONUP || message == WM_MOUSELEAVE)
+    {
+        bool isDown = (GetAsyncKeyState(VK_LBUTTON) & 0x8000) != 0;
+        if (message == WM_LBUTTONDOWN) isDown = true;
+        if (message == WM_LBUTTONUP) isDown = false;
+        
+        for (Element *el : m_Elements)
+        {
+            if (el && el->GetType() == ELEMENT_BUTTON)
+            {
+                ButtonElement* btn = static_cast<ButtonElement*>(el);
+                ButtonState newState = BUTTON_STATE_NORMAL;
+                
+                if (message != WM_MOUSELEAVE && btn->IsVisible() && btn->HitTest(x, y))
+                {
+                    newState = isDown ? BUTTON_STATE_CLICKED : BUTTON_STATE_HOVERED;
+                }
+                
+                if (btn->GetButtonState() != newState)
+                {
+                    btn->SetButtonState(newState);
+                    needRedraw = true;
+                }
+            }
+        }
+    }
+
     {
         JSEngine::MouseEventData widgetEventData;
         widgetEventData.clientX = x;
@@ -2521,6 +2756,13 @@ bool Widget::HandleMouseMessage(UINT message, WPARAM wParam, LPARAM lParam)
             JSEngine::CallEventCallback(actionId, this, &eventData);
             handled = true;
         }
+    }
+
+
+
+    if (needRedraw && !m_IsBatchUpdating)
+    {
+        Redraw();
     }
 
     return handled;

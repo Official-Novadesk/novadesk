@@ -18,7 +18,12 @@
 #include "../render/Element.h"
 #include "../render/TextElement.h"
 #include "../render/ImageElement.h"
+#include "../render/BitmapElement.h"
+#include "../render/RotatorElement.h"
+#include "../render/HistogramElement.h"
+#include "../render/ButtonElement.h"
 #include "../render/BarElement.h"
+#include "../render/LineElement.h"
 #include "../render/Tooltip.h"
 #include "../render/CursorManager.h"
 
@@ -30,9 +35,15 @@ typedef struct duk_hthread duk_context;
 namespace PropertyParser {
     struct ImageOptions;
     struct TextOptions;
+    struct ButtonOptions;
+    struct BitmapOptions;
+    struct RotatorOptions;
     struct BarOptions;
+    struct LineOptions;
+    struct HistogramOptions;
     struct RoundLineOptions;
     struct ShapeOptions;
+    struct AreaGraphOptions;
 }
 
 #include "MenuItem.h"
@@ -92,9 +103,15 @@ public:
 
     void AddImage(const PropertyParser::ImageOptions& options);
     void AddText(const PropertyParser::TextOptions& options);
+    void AddButton(const PropertyParser::ButtonOptions& options);
+    void AddBitmap(const PropertyParser::BitmapOptions& options);
+    void AddRotator(const PropertyParser::RotatorOptions& options);
     void AddBar(const PropertyParser::BarOptions& options);
+    void AddLine(const PropertyParser::LineOptions& options);
+    void AddHistogram(const PropertyParser::HistogramOptions& options);
     void AddRoundLine(const PropertyParser::RoundLineOptions& options);
     void AddShape(const PropertyParser::ShapeOptions& options);
+    void AddAreaGraph(const PropertyParser::AreaGraphOptions& options);
 
     void SetElementProperties(const std::wstring& id, duk_context* ctx);
     void SetGroupProperties(const std::wstring& group, duk_context* ctx);

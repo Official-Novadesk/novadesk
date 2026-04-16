@@ -1,3 +1,4 @@
+ui.beginUpdate();
 // ImageElement Test Suite
 // Comprehensive test of all ImageElement features and options
 
@@ -487,3 +488,137 @@ ui.addText({
     fontSize: 14,
     fontColor: "rgb(255,255,255)"
 });
+
+// Test 25: ImageFlip modes
+ui.addImage({
+    id: "flip-horizontal",
+    path: "../assets/pic.png",
+    x: 150,
+    y: 920,
+    width: 100,
+    height: 100,
+    imageFlip: "horizontal"
+});
+ui.addText({
+    id: "label-flip-horizontal",
+    text: "ImageFlip:\nhorizontal",
+    x: 155,
+    y: 1030,
+    fontSize: 14,
+    fontColor: "rgb(255,255,255)"
+});
+
+ui.addImage({
+    id: "flip-vertical",
+    path: "../assets/pic.png",
+    x: 280,
+    y: 920,
+    width: 100,
+    height: 100,
+    imageFlip: "vertical"
+});
+ui.addText({
+    id: "label-flip-vertical",
+    text: "ImageFlip:\nvertical",
+    x: 285,
+    y: 1030,
+    fontSize: 14,
+    fontColor: "rgb(255,255,255)"
+});
+
+ui.addImage({
+    id: "flip-both",
+    path: "../assets/pic.png",
+    x: 410,
+    y: 920,
+    width: 100,
+    height: 100,
+    imageFlip: "both"
+});
+ui.addText({
+    id: "label-flip-both",
+    text: "ImageFlip:\nboth",
+    x: 415,
+    y: 1030,
+    fontSize: 14,
+    fontColor: "rgb(255,255,255)"
+});
+
+ui.addImage({
+    id: "flip-none",
+    path: "../assets/pic.png",
+    x: 540,
+    y: 920,
+    width: 100,
+    height: 100,
+    imageFlip: "none"
+});
+ui.addText({
+    id: "label-flip-none",
+    text: "ImageFlip:\nnone",
+    x: 545,
+    y: 1030,
+    fontSize: 14,
+    fontColor: "rgb(255,255,255)"
+});
+
+// Test 26: EXIF orientation toggle
+ui.addImage({
+    id: "exif-orientation",
+    path: "../assets/pic.png",
+    x: 670,
+    y: 920,
+    width: 100,
+    height: 100,
+    useExifOrientation: true
+});
+ui.addText({
+    id: "label-exif-orientation",
+    text: "useExifOrientation:\ntrue",
+    x: 675,
+    y: 1030,
+    fontSize: 14,
+    fontColor: "rgb(255,255,255)"
+});
+
+// Test 27: ImageCrop [X, Y, W, H, Origin]
+// Origin: 0=TL, 1=TR, 2=BR, 3=BL, 4=CENTER
+ui.addImage({
+    id: "crop-center-auto-size",
+    path: "../assets/pic.png",
+    x: 790,
+    y: 920,
+    imageCrop: [-50,-30,100,60,5]
+});
+ui.addText({
+    id: "label-crop-center-auto-size",
+    text: "ImageCrop:\n[-30,-20,60,40,4]",
+    x: 770,
+    y: 975,
+    fontSize: 12,
+    fontColor: "rgb(255,255,255)"
+});
+
+// Test 28: ScaleMargins [Left, Top, Right, Bottom]
+// Active when Tile=false and PreserveAspectRatio=stretch
+ui.addImage({
+    id: "scale-margins",
+    path: "../assets/pic.png",
+    x: 20,
+    y: 1040,
+    width: 220,
+    height: 50,
+    preserveAspectRatio: "stretch",
+    tile: false,
+    scaleMargins: [20, 20, 20, 20]
+});
+ui.addText({
+    id: "label-scale-margins",
+    text: "ScaleMargins:\n[20,20,20,20]",
+    x: 20,
+    y: 1068,
+    fontSize: 12,
+    fontColor: "rgb(255,255,255)"
+});
+
+ui.endUpdate();

@@ -8,6 +8,7 @@
 #include "Direct2DHelper.h"
 #include "../shared/Logging.h"
 #include <cmath>
+#include <cstring>
 
 using namespace Microsoft::WRL;
 
@@ -16,6 +17,68 @@ namespace Direct2D
     ComPtr<ID2D1Factory1> g_pD2DFactory;
     ComPtr<IDWriteFactory1> g_pDWriteFactory;
     ComPtr<IWICImagingFactory> g_pWICFactory;
+
+    namespace
+    {
+        WICBitmapTransformOptions ExifOrientationToWicTransform(USHORT orientation)
+        {
+            switch (orientation)
+            {
+            case 2:  return WICBitmapTransformFlipHorizontal;
+            case 3:  return WICBitmapTransformRotate180;
+            case 4:  return WICBitmapTransformFlipVertical;
+            case 5:  return (WICBitmapTransformOptions)(WICBitmapTransformRotate90 | WICBitmapTransformFlipHorizontal);
+            case 6:  return WICBitmapTransformRotate90;
+            case 7:  return (WICBitmapTransformOptions)(WICBitmapTransformRotate270 | WICBitmapTransformFlipHorizontal);
+            case 8:  return WICBitmapTransformRotate270;
+            case 1:
+            default: return WICBitmapTransformRotate0;
+            }
+        }
+
+        bool ReadExifOrientation(IWICBitmapFrameDecode* frame, USHORT& outOrientation)
+        {
+            if (!frame)
+                return false;
+
+            outOrientation = 1;
+            ComPtr<IWICMetadataQueryReader> queryReader;
+            HRESULT hr = frame->GetMetadataQueryReader(queryReader.GetAddressOf());
+            if (FAILED(hr) || !queryReader)
+                return false;
+
+            PROPVARIANT value;
+            PropVariantInit(&value);
+            hr = queryReader->GetMetadataByName(L"/app1/ifd/{ushort=274}", &value);
+            if (FAILED(hr))
+            {
+                PropVariantClear(&value);
+                return false;
+            }
+
+            bool found = false;
+            if (value.vt == VT_UI2)
+            {
+                outOrientation = value.uiVal;
+                found = true;
+            }
+            else if (value.vt == VT_UI4)
+            {
+                outOrientation = static_cast<USHORT>(value.ulVal);
+                found = true;
+            }
+            else if ((value.vt == (VT_VECTOR | VT_UI1)) && value.caub.cElems >= sizeof(USHORT))
+            {
+                USHORT tmp = 1;
+                memcpy(&tmp, value.caub.pElems, sizeof(USHORT));
+                outOrientation = tmp;
+                found = true;
+            }
+
+            PropVariantClear(&value);
+            return found;
+        }
+    }
 
     bool Initialize()
     {
@@ -155,7 +218,7 @@ namespace Direct2D
         return false;
     }
 
-    bool LoadWICBitmapFromFile(const std::wstring& path, IWICBitmap** wicBitmap)
+    bool LoadWICBitmapFromFile(const std::wstring& path, IWICBitmap** wicBitmap, bool useExifOrientation)
     {
         if (!g_pWICFactory) return false;
 
@@ -167,23 +230,42 @@ namespace Direct2D
         hr = pDecoder->GetFrame(0, pFrame.GetAddressOf());
         if (FAILED(hr)) return false;
 
+        ComPtr<IWICBitmapSource> pSource = pFrame;
+        if (useExifOrientation)
+        {
+            USHORT orientation = 1;
+            if (ReadExifOrientation(pFrame.Get(), orientation))
+            {
+                const WICBitmapTransformOptions transform = ExifOrientationToWicTransform(orientation);
+                if (transform != WICBitmapTransformRotate0)
+                {
+                    ComPtr<IWICBitmapFlipRotator> pFlipRotator;
+                    hr = g_pWICFactory->CreateBitmapFlipRotator(pFlipRotator.GetAddressOf());
+                    if (FAILED(hr)) return false;
+                    hr = pFlipRotator->Initialize(pSource.Get(), transform);
+                    if (FAILED(hr)) return false;
+                    pSource = pFlipRotator;
+                }
+            }
+        }
+
         ComPtr<IWICFormatConverter> pConverter;
         hr = g_pWICFactory->CreateFormatConverter(pConverter.GetAddressOf());
         if (FAILED(hr)) return false;
 
-        hr = pConverter->Initialize(pFrame.Get(), GUID_WICPixelFormat32bppPBGRA, WICBitmapDitherTypeNone, nullptr, 0.0, WICBitmapPaletteTypeMedianCut);
+        hr = pConverter->Initialize(pSource.Get(), GUID_WICPixelFormat32bppPBGRA, WICBitmapDitherTypeNone, nullptr, 0.0, WICBitmapPaletteTypeMedianCut);
         if (FAILED(hr)) return false;
 
         hr = g_pWICFactory->CreateBitmapFromSource(pConverter.Get(), WICBitmapCacheOnLoad, wicBitmap);
         return SUCCEEDED(hr);
     }
 
-    bool LoadBitmapFromFile(ID2D1RenderTarget* context, const std::wstring& path, ID2D1Bitmap** bitmap, IWICBitmap** wicBitmap)
+    bool LoadBitmapFromFile(ID2D1RenderTarget* context, const std::wstring& path, ID2D1Bitmap** bitmap, IWICBitmap** wicBitmap, bool useExifOrientation)
     {
         if (!context || !g_pWICFactory) return false;
 
         ComPtr<IWICBitmap> pWICBitmap;
-        if (!LoadWICBitmapFromFile(path, pWICBitmap.GetAddressOf())) return false;
+        if (!LoadWICBitmapFromFile(path, pWICBitmap.GetAddressOf(), useExifOrientation)) return false;
 
         HRESULT hr = context->CreateBitmapFromWicBitmap(pWICBitmap.Get(), nullptr, bitmap);
         if (SUCCEEDED(hr) && wicBitmap)

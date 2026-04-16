@@ -1,6 +1,7 @@
 #include "PropertyParser.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cwctype>
 #include <filesystem>
 
@@ -8,6 +9,9 @@
 #include "../../../shared/Logging.h"
 #include "../../../shared/PathUtils.h"
 #include "../../../shared/Utils.h"
+#include "../../render/RotatorElement.h"
+#include "../../render/AreaGraphElement.h"
+#include "../../render/HistogramElement.h"
 #include "../engine/JSEngine.h"
 
 namespace PropertyParser
@@ -198,6 +202,124 @@ namespace PropertyParser
             if (s == L"xor")
                 return D2D1_COMBINE_MODE_XOR;
             return D2D1_COMBINE_MODE_UNION;
+        }
+
+        bool GetFloatArrayPropAllowEmpty(JSContext *ctx, JSValueConst obj, const char *key, std::vector<float> &out)
+        {
+            JSValue v = JS_GetPropertyStr(ctx, obj, key);
+            if (JS_IsException(v) || !JS_IsArray(v))
+            {
+                JS_FreeValue(ctx, v);
+                return false;
+            }
+
+            uint32_t len = 0;
+            JSValue lenV = JS_GetPropertyStr(ctx, v, "length");
+            if (JS_ToUint32(ctx, &len, lenV) != 0)
+            {
+                JS_FreeValue(ctx, lenV);
+                JS_FreeValue(ctx, v);
+                return false;
+            }
+            JS_FreeValue(ctx, lenV);
+
+            std::vector<float> tmp;
+            tmp.reserve(len);
+            for (uint32_t i = 0; i < len; ++i)
+            {
+                JSValue iv = JS_GetPropertyUint32(ctx, v, i);
+                double d = 0.0;
+                if (JS_ToFloat64(ctx, &d, iv) == 0)
+                {
+                    tmp.push_back(static_cast<float>(d));
+                }
+                JS_FreeValue(ctx, iv);
+            }
+
+            JS_FreeValue(ctx, v);
+            out = std::move(tmp);
+            return true;
+        }
+
+        void ParsePrefixedGeneralImageOptions(
+            JSContext *ctx,
+            JSValueConst obj,
+            const std::string &prefix,
+            GeneralImageOptions &out)
+        {
+            out.imageFlip = IMAGE_FLIP_NONE;
+            out.hasImageCrop = false;
+            out.useExifOrientation = false;
+            out.imageAlpha = 255;
+            out.grayscale = false;
+            out.hasColorMatrix = false;
+            out.hasImageTint = false;
+
+            std::wstring imageFlip = GetStringProp(ctx, obj, (prefix + "ImageFlip").c_str());
+            std::transform(imageFlip.begin(), imageFlip.end(), imageFlip.begin(), ::towlower);
+            if (imageFlip == L"horizontal")
+                out.imageFlip = IMAGE_FLIP_HORIZONTAL;
+            else if (imageFlip == L"vertical")
+                out.imageFlip = IMAGE_FLIP_VERTICAL;
+            else if (imageFlip == L"both")
+                out.imageFlip = IMAGE_FLIP_BOTH;
+            else if (imageFlip == L"none")
+                out.imageFlip = IMAGE_FLIP_NONE;
+
+            std::vector<float> imageCrop;
+            if (GetFloatArrayProp(ctx, obj, (prefix + "ImageCrop").c_str(), imageCrop, 4))
+            {
+                out.hasImageCrop = true;
+                out.imageCropX = imageCrop[0];
+                out.imageCropY = imageCrop[1];
+                out.imageCropW = imageCrop[2];
+                out.imageCropH = imageCrop[3];
+                out.imageCropOrigin = IMAGE_CROP_ORIGIN_TOP_LEFT;
+                if (imageCrop.size() >= 5)
+                {
+                    int origin = static_cast<int>(imageCrop[4]);
+                    if (origin < static_cast<int>(IMAGE_CROP_ORIGIN_TOP_LEFT))
+                        origin = static_cast<int>(IMAGE_CROP_ORIGIN_TOP_LEFT);
+                    if (origin > static_cast<int>(IMAGE_CROP_ORIGIN_CENTER))
+                        origin = static_cast<int>(IMAGE_CROP_ORIGIN_CENTER);
+                    out.imageCropOrigin = static_cast<ImageCropOrigin>(origin);
+                }
+            }
+
+            GetBoolProp(ctx, obj, (prefix + "GreyScale").c_str(), out.grayscale);
+            GetBoolProp(ctx, obj, (prefix + "UseExifOrientation").c_str(), out.useExifOrientation);
+
+            int alpha = 255;
+            if (GetIntProp(ctx, obj, (prefix + "ImageAlpha").c_str(), alpha))
+                out.imageAlpha = static_cast<BYTE>(alpha);
+
+            std::wstring tint = GetStringProp(ctx, obj, (prefix + "ImageTint").c_str());
+            if (!tint.empty() && ColorUtil::ParseRGBA(tint, out.imageTint, out.imageTintAlpha))
+            {
+                out.hasImageTint = true;
+            }
+
+            std::vector<float> colorMatrix;
+            if (GetFloatArrayProp(ctx, obj, (prefix + "ColorMatrix").c_str(), colorMatrix, 20))
+            {
+                for (int i = 0; i < 20; ++i)
+                    out.colorMatrix[i] = colorMatrix[(size_t)i];
+                out.hasColorMatrix = true;
+            }
+            else
+            {
+                bool hasComponents = false;
+                for (int i = 1; i <= 20; ++i)
+                {
+                    float val = 0.0f;
+                    if (GetFloatProp(ctx, obj, (prefix + "ColorMatrix" + std::to_string(i)).c_str(), val))
+                    {
+                        out.colorMatrix[(size_t)(i - 1)] = val;
+                        hasComponents = true;
+                    }
+                }
+                out.hasColorMatrix = hasComponents;
+            }
         }
     } // namespace
 
@@ -520,14 +642,18 @@ namespace PropertyParser
             options.bevelType = 0;
 
         GetIntProp(ctx, obj, "bevelWidth", options.bevelWidth);
-        BYTE a = options.bevelAlpha;
         std::wstring b1 = GetStringProp(ctx, obj, "bevelColor");
         if (!b1.empty())
-            ColorUtil::ParseRGBA(b1, options.bevelColor, a), options.bevelAlpha = a;
-        a = options.bevelAlpha2;
+        {
+            bool hasBevelColor = false;
+            ParseGradientOrColor(b1, options.bevelColor, options.bevelAlpha, options.bevelGradient, hasBevelColor);
+        }
         std::wstring b2 = GetStringProp(ctx, obj, "bevelColor2");
         if (!b2.empty())
-            ColorUtil::ParseRGBA(b2, options.bevelColor2, a), options.bevelAlpha2 = a;
+        {
+            bool hasBevelColor2 = false;
+            ParseGradientOrColor(b2, options.bevelColor2, options.bevelAlpha2, options.bevelGradient2, hasBevelColor2);
+        }
 
         JSValue pad = JS_GetPropertyStr(ctx, obj, "padding");
         if (JS_IsNumber(pad))
@@ -606,27 +732,44 @@ namespace PropertyParser
         GetBoolProp(ctx, obj, "tooltipBalloon", options.tooltipBalloon);
     }
 
-    void ParseImageOptions(JSContext *ctx, JSValueConst obj, ImageOptions &options, const std::wstring &baseDir)
+    void ParseGeneralImageOptions(JSContext *ctx, JSValueConst obj, GeneralImageOptions &options)
     {
-        ParseElementOptions(ctx, obj, options);
-        options.path = GetStringProp(ctx, obj, "path");
-        if (!options.path.empty())
+        std::wstring imageFlip = GetStringProp(ctx, obj, "imageFlip");
+        std::transform(imageFlip.begin(), imageFlip.end(), imageFlip.begin(), ::towlower);
+        if (imageFlip == L"horizontal")
+            options.imageFlip = IMAGE_FLIP_HORIZONTAL;
+        else if (imageFlip == L"vertical")
+            options.imageFlip = IMAGE_FLIP_VERTICAL;
+        else if (imageFlip == L"both")
+            options.imageFlip = IMAGE_FLIP_BOTH;
+        else if (imageFlip == L"none")
+            options.imageFlip = IMAGE_FLIP_NONE;
+
+        std::vector<float> imageCrop;
+        if (GetFloatArrayProp(ctx, obj, "imageCrop", imageCrop, 4))
         {
-            options.path = PathUtils::ResolvePath(options.path, baseDir);
-            std::error_code ec;
-            const bool exists = std::filesystem::exists(std::filesystem::path(options.path), ec);
+            if (imageCrop.size() >= 4)
+            {
+                options.hasImageCrop = true;
+                options.imageCropX = imageCrop[0];
+                options.imageCropY = imageCrop[1];
+                options.imageCropW = imageCrop[2];
+                options.imageCropH = imageCrop[3];
+                options.imageCropOrigin = IMAGE_CROP_ORIGIN_TOP_LEFT;
+                if (imageCrop.size() >= 5)
+                {
+                    int origin = (int)imageCrop[4];
+                    if (origin < (int)IMAGE_CROP_ORIGIN_TOP_LEFT)
+                        origin = (int)IMAGE_CROP_ORIGIN_TOP_LEFT;
+                    if (origin > (int)IMAGE_CROP_ORIGIN_CENTER)
+                        origin = (int)IMAGE_CROP_ORIGIN_CENTER;
+                    options.imageCropOrigin = (ImageCropOrigin)origin;
+                }
+            }
         }
 
-        std::wstring aspect = GetStringProp(ctx, obj, "preserveAspectRatio");
-        if (aspect == L"preserve")
-            options.preserveAspectRatio = IMAGE_ASPECT_PRESERVE;
-        else if (aspect == L"crop")
-            options.preserveAspectRatio = IMAGE_ASPECT_CROP;
-        else if (aspect == L"stretch")
-            options.preserveAspectRatio = IMAGE_ASPECT_STRETCH;
-
         GetBoolProp(ctx, obj, "grayscale", options.grayscale);
-        GetBoolProp(ctx, obj, "tile", options.tile);
+        GetBoolProp(ctx, obj, "useExifOrientation", options.useExifOrientation);
         int alpha = 255;
         if (GetIntProp(ctx, obj, "imageAlpha", alpha))
             options.imageAlpha = static_cast<BYTE>(alpha);
@@ -647,6 +790,217 @@ namespace PropertyParser
                 options.hasColorMatrix = true;
             }
         }
+    }
+
+    void ParseImageOptions(JSContext *ctx, JSValueConst obj, ImageOptions &options, const std::wstring &baseDir)
+    {
+        ParseElementOptions(ctx, obj, options, baseDir);
+        ParseGeneralImageOptions(ctx, obj, options);
+
+        options.path = GetStringProp(ctx, obj, "path");
+        if (!options.path.empty())
+        {
+            options.path = PathUtils::ResolvePath(options.path, baseDir);
+            std::error_code ec;
+            const bool exists = std::filesystem::exists(std::filesystem::path(options.path), ec);
+        }
+
+        std::wstring aspect = GetStringProp(ctx, obj, "preserveAspectRatio");
+        if (aspect == L"preserve")
+            options.preserveAspectRatio = IMAGE_ASPECT_PRESERVE;
+        else if (aspect == L"crop")
+            options.preserveAspectRatio = IMAGE_ASPECT_CROP;
+        else if (aspect == L"stretch")
+            options.preserveAspectRatio = IMAGE_ASPECT_STRETCH;
+
+        std::vector<float> scaleMargins;
+        if (GetFloatArrayProp(ctx, obj, "scaleMargins", scaleMargins, 4))
+        {
+            options.hasScaleMargins = true;
+            options.scaleMarginLeft = scaleMargins[0];
+            options.scaleMarginTop = scaleMargins[1];
+            options.scaleMarginRight = scaleMargins[2];
+            options.scaleMarginBottom = scaleMargins[3];
+        }
+
+        GetBoolProp(ctx, obj, "tile", options.tile);
+    }
+
+    void ParseButtonOptions(JSContext *ctx, JSValueConst obj, ButtonOptions &options, const std::wstring &baseDir)
+    {
+        ParseElementOptions(ctx, obj, options, baseDir);
+        ParseGeneralImageOptions(ctx, obj, options);
+        
+        options.buttonImageName = GetStringProp(ctx, obj, "buttonImageName");
+        if (!options.buttonImageName.empty())
+        {
+            options.buttonImageName = PathUtils::ResolvePath(options.buttonImageName, baseDir);
+        }
+
+        GetEventCallbackProp(ctx, obj, "buttonAction", options.onLeftMouseUpCallbackId);
+    }
+
+    void ParseBitmapOptions(JSContext *ctx, JSValueConst obj, BitmapOptions &options, const std::wstring &baseDir)
+    {
+        ParseElementOptions(ctx, obj, options, baseDir);
+        ParseGeneralImageOptions(ctx, obj, options);
+
+        // Bitmap meter behavior is frame-driven; width/height are ignored.
+        options.width = 0;
+        options.height = 0;
+
+        // ImageCrop is intentionally ignored for Bitmap element semantics.
+        options.hasImageCrop = false;
+
+        // Read as double to preserve numeric precision from JS.
+        JSValue v = JS_GetPropertyStr(ctx, obj, "value");
+        if (!JS_IsException(v) && !JS_IsUndefined(v) && !JS_IsNull(v))
+        {
+            double d = 0.0;
+            if (JS_ToFloat64(ctx, &d, v) == 0)
+            {
+                options.value = d;
+            }
+        }
+        JS_FreeValue(ctx, v);
+
+        options.bitmapImageName = GetStringProp(ctx, obj, "bitmapImageName");
+        if (!options.bitmapImageName.empty())
+        {
+            options.bitmapImageName = PathUtils::ResolvePath(options.bitmapImageName, baseDir);
+        }
+
+        GetIntProp(ctx, obj, "bitmapFrames", options.bitmapFrames);
+        GetBoolProp(ctx, obj, "bitmapZeroFrame", options.bitmapZeroFrame);
+        GetBoolProp(ctx, obj, "bitmapExtend", options.bitmapExtend);
+        { float tmp = static_cast<float>(options.minValue); if (GetFloatProp(ctx, obj, "minValue", tmp)) options.minValue = static_cast<double>(tmp); }
+        { float tmp = static_cast<float>(options.maxValue); if (GetFloatProp(ctx, obj, "maxValue", tmp)) options.maxValue = static_cast<double>(tmp); }
+        options.bitmapOrientation = GetStringProp(ctx, obj, "bitmapOrientation");
+        GetIntProp(ctx, obj, "bitmapDigits", options.bitmapDigits);
+        GetIntProp(ctx, obj, "bitmapSeparation", options.bitmapSeparation);
+
+        std::wstring align = GetStringProp(ctx, obj, "bitmapAlign");
+        std::transform(align.begin(), align.end(), align.begin(), ::towlower);
+        if (align == L"center")
+            options.bitmapAlign = BITMAP_ALIGN_CENTER;
+        else if (align == L"right")
+            options.bitmapAlign = BITMAP_ALIGN_RIGHT;
+        else if (align == L"left")
+            options.bitmapAlign = BITMAP_ALIGN_LEFT;
+    }
+
+    void ParseRotatorOptions(JSContext *ctx, JSValueConst obj, RotatorOptions &options, const std::wstring &baseDir)
+    {
+        ParseElementOptions(ctx, obj, options, baseDir);
+        ParseGeneralImageOptions(ctx, obj, options);
+
+        options.hasImageCrop = false;
+
+        // Read value
+        JSValue v = JS_GetPropertyStr(ctx, obj, "value");
+        if (!JS_IsException(v) && !JS_IsUndefined(v) && !JS_IsNull(v))
+        {
+            double d = 0.0;
+            if (JS_ToFloat64(ctx, &d, v) == 0)
+            {
+                options.value = d;
+            }
+        }
+        JS_FreeValue(ctx, v);
+
+        options.rotatorImageName = GetStringProp(ctx, obj, "rotatorImageName");
+        if (!options.rotatorImageName.empty())
+        {
+            options.rotatorImageName = PathUtils::ResolvePath(options.rotatorImageName, baseDir);
+        }
+
+        { float tmp = static_cast<float>(options.offsetX); if (GetFloatProp(ctx, obj, "offsetX", tmp)) options.offsetX = static_cast<double>(tmp); }
+        { float tmp = static_cast<float>(options.offsetY); if (GetFloatProp(ctx, obj, "offsetY", tmp)) options.offsetY = static_cast<double>(tmp); }
+        { float tmp = static_cast<float>(options.startAngle); if (GetFloatProp(ctx, obj, "startAngle", tmp)) options.startAngle = static_cast<double>(tmp); }
+        { float tmp = static_cast<float>(options.rotationAngle); if (GetFloatProp(ctx, obj, "rotationAngle", tmp)) options.rotationAngle = static_cast<double>(tmp); }
+        GetIntProp(ctx, obj, "valueRemainder", options.valueRemainder);
+        { float tmp = static_cast<float>(options.minValue); if (GetFloatProp(ctx, obj, "minValue", tmp)) options.minValue = static_cast<double>(tmp); }
+        { float tmp = static_cast<float>(options.maxValue); if (GetFloatProp(ctx, obj, "maxValue", tmp)) options.maxValue = static_cast<double>(tmp); }
+    }
+
+    void ParseAreaGraphOptions(JSContext *ctx, JSValueConst obj, AreaGraphOptions &options, const std::wstring &baseDir)
+    {
+        ParseElementOptions(ctx, obj, options, baseDir);
+
+        JSValue dataVal = JS_GetPropertyStr(ctx, obj, "data");
+        if (JS_IsArray(dataVal))
+        {
+            uint32_t len = 0;
+            JSValue lenVal = JS_GetPropertyStr(ctx, dataVal, "length");
+            JS_ToUint32(ctx, &len, lenVal);
+            JS_FreeValue(ctx, lenVal);
+
+            options.data.clear();
+            for (uint32_t i = 0; i < len; ++i)
+            {
+                JSValue v = JS_GetPropertyUint32(ctx, dataVal, i);
+                double d = 0.0;
+                JS_ToFloat64(ctx, &d, v);
+                options.data.push_back(static_cast<float>(d));
+                JS_FreeValue(ctx, v);
+            }
+        }
+        JS_FreeValue(ctx, dataVal);
+
+        GetFloatProp(ctx, obj, "minValue", options.minValue);
+        GetFloatProp(ctx, obj, "maxValue", options.maxValue);
+        GetBoolProp(ctx, obj, "autoRange", options.autoRange);
+
+        std::wstring lc = GetStringProp(ctx, obj, "lineColor");
+        if (!lc.empty())
+        {
+            GradientInfo parsedGradient;
+            BYTE parsedAlpha = 255;
+            if (ParseGradientString(lc, parsedGradient))
+            {
+                options.lineGradient = parsedGradient;
+            }
+            else if (ColorUtil::ParseRGBA(lc, options.lineColor, parsedAlpha))
+            {
+                options.lineGradient = GradientInfo();
+            }
+        }
+        GetFloatProp(ctx, obj, "lineWidth", options.lineWidth);
+
+        std::wstring fc = GetStringProp(ctx, obj, "fillColor");
+        if (!fc.empty())
+        {
+            GradientInfo parsedGradient;
+            if (ParseGradientString(fc, parsedGradient))
+            {
+                options.fillGradient = parsedGradient;
+            }
+            else if (ColorUtil::ParseRGBA(fc, options.fillColor, options.fillAlpha))
+            {
+                options.fillGradient = GradientInfo();
+            }
+        }
+        GetIntProp(ctx, obj, "maxPoints", options.maxPoints);
+
+        std::wstring gc = GetStringProp(ctx, obj, "gridColor");
+        if (!gc.empty())
+        {
+            GradientInfo parsedGradient;
+            if (ParseGradientString(gc, parsedGradient))
+            {
+                options.gridGradient = parsedGradient;
+            }
+            else if (ColorUtil::ParseRGBA(gc, options.gridColor, options.gridAlpha))
+            {
+                options.gridGradient = GradientInfo();
+            }
+        }
+
+        GetIntProp(ctx, obj, "gridX", options.gridX);
+        GetIntProp(ctx, obj, "gridY", options.gridY);
+        GetBoolProp(ctx, obj, "gridVisible", options.gridVisible);
+        GetBoolProp(ctx, obj, "graphStartLeft", options.graphStartLeft);
+        GetBoolProp(ctx, obj, "flip", options.flip);
     }
 
     void ParseTextOptions(JSContext *ctx, JSValueConst obj, TextOptions &options, const std::wstring &baseDir)
@@ -788,6 +1142,240 @@ namespace PropertyParser
 
         std::wstring bc = GetStringProp(ctx, obj, "barColor");
         ParseGradientOrColor(bc, options.barColor, options.barAlpha, options.barGradient, options.hasBarColor);
+    }
+
+    void ParseLineOptions(JSContext *ctx, JSValueConst obj, LineOptions &options, const std::wstring &baseDir)
+    {
+        ParseElementOptions(ctx, obj, options, baseDir);
+
+        GetIntProp(ctx, obj, "lineCount", options.lineCount);
+        if (options.lineCount < 1)
+        {
+            options.lineCount = 1;
+        }
+
+        GetFloatProp(ctx, obj, "lineWidth", options.lineWidth);
+        if (options.lineWidth < 1.0f)
+        {
+            options.lineWidth = 1.0f;
+        }
+        GetIntProp(ctx, obj, "maxPoints", options.maxPoints);
+        if (options.maxPoints < 0)
+        {
+            options.maxPoints = 0;
+        }
+
+        GetBoolProp(ctx, obj, "horizontalLines", options.horizontalLines);
+        std::wstring horizontalLineColor = GetStringProp(ctx, obj, "horizontalLineColor");
+        if (!horizontalLineColor.empty())
+        {
+            GradientInfo parsedGradient;
+            if (ParseGradientString(horizontalLineColor, parsedGradient))
+            {
+                options.horizontalLineGradient = parsedGradient;
+            }
+            else if (ColorUtil::ParseRGBA(horizontalLineColor, options.horizontalLineColor, options.horizontalLineAlpha))
+            {
+                options.horizontalLineGradient = GradientInfo();
+            }
+        }
+
+        std::wstring graphStart = GetStringProp(ctx, obj, "graphStart");
+        std::transform(graphStart.begin(), graphStart.end(), graphStart.begin(), ::towlower);
+        if (graphStart == L"left")
+        {
+            options.graphStartLeft = true;
+        }
+        else if (graphStart == L"right")
+        {
+            options.graphStartLeft = false;
+        }
+
+        std::wstring graphOrientation = GetStringProp(ctx, obj, "graphOrientation");
+        std::transform(graphOrientation.begin(), graphOrientation.end(), graphOrientation.begin(), ::towlower);
+        if (graphOrientation == L"horizontal")
+        {
+            options.graphHorizontalOrientation = true;
+        }
+        else if (graphOrientation == L"vertical")
+        {
+            options.graphHorizontalOrientation = false;
+        }
+
+        GetBoolProp(ctx, obj, "flip", options.flip);
+
+        std::wstring transformStroke = GetStringProp(ctx, obj, "transformStroke");
+        std::transform(transformStroke.begin(), transformStroke.end(), transformStroke.begin(), ::towlower);
+        if (transformStroke == L"fixed")
+        {
+            options.transformStroke = D2D1_STROKE_TRANSFORM_TYPE_FIXED;
+        }
+        else if (transformStroke == L"normal")
+        {
+            options.transformStroke = D2D1_STROKE_TRANSFORM_TYPE_NORMAL;
+        }
+
+        GetBoolProp(ctx, obj, "autoRange", options.autoRange);
+        GetFloatProp(ctx, obj, "rangeMin", options.scaleMin);
+        GetFloatProp(ctx, obj, "rangeMax", options.scaleMax);
+        if (options.scaleMax < options.scaleMin)
+        {
+            std::swap(options.scaleMin, options.scaleMax);
+        }
+        if (fabsf(options.scaleMax - options.scaleMin) < 0.000001f)
+        {
+            options.scaleMax = options.scaleMin + 1.0f;
+        }
+
+        const size_t desiredLineCount = (size_t)options.lineCount;
+
+        if (options.dataSets.size() != desiredLineCount)
+        {
+            options.dataSets.resize(desiredLineCount);
+        }
+
+        if (options.lineColors.size() < desiredLineCount)
+        {
+            options.lineColors.resize(desiredLineCount, RGB(255, 255, 255));
+        }
+        else if (options.lineColors.size() > desiredLineCount)
+        {
+            options.lineColors.resize(desiredLineCount);
+        }
+
+        if (options.lineAlphas.size() < desiredLineCount)
+        {
+            options.lineAlphas.resize(desiredLineCount, 255);
+        }
+        else if (options.lineAlphas.size() > desiredLineCount)
+        {
+            options.lineAlphas.resize(desiredLineCount);
+        }
+
+        if (options.lineGradients.size() < desiredLineCount)
+        {
+            options.lineGradients.resize(desiredLineCount);
+        }
+        else if (options.lineGradients.size() > desiredLineCount)
+        {
+            options.lineGradients.resize(desiredLineCount);
+        }
+
+        if (options.scaleValues.size() < desiredLineCount)
+        {
+            options.scaleValues.resize(desiredLineCount, 1.0f);
+        }
+        else if (options.scaleValues.size() > desiredLineCount)
+        {
+            options.scaleValues.resize(desiredLineCount);
+        }
+
+        for (int i = 0; i < options.lineCount; ++i)
+        {
+            std::wstring dataKey = (i == 0) ? L"data" : (L"data" + std::to_wstring(i + 1));
+            std::vector<float> data;
+            std::string dataKeyUtf8 = Utils::ToString(dataKey);
+            if (GetFloatArrayProp(ctx, obj, dataKeyUtf8.c_str(), data, 1))
+            {
+                options.dataSets[(size_t)i] = std::move(data);
+            }
+
+            std::wstring colorKey = (i == 0) ? L"lineColor" : (L"lineColor" + std::to_wstring(i + 1));
+            std::string colorKeyUtf8 = Utils::ToString(colorKey);
+            std::wstring colorValue = GetStringProp(ctx, obj, colorKeyUtf8.c_str());
+            if (!colorValue.empty())
+            {
+                GradientInfo parsedGradient;
+                if (ParseGradientString(colorValue, parsedGradient))
+                {
+                    options.lineGradients[(size_t)i] = parsedGradient;
+                }
+                else if (ColorUtil::ParseRGBA(colorValue, options.lineColors[(size_t)i], options.lineAlphas[(size_t)i]))
+                {
+                    options.lineGradients[(size_t)i] = GradientInfo();
+                }
+            }
+
+            std::wstring scaleKey = (i == 0) ? L"lineScale" : (L"lineScale" + std::to_wstring(i + 1));
+            std::string scaleKeyUtf8 = Utils::ToString(scaleKey);
+            float scaleValue = 1.0f;
+            if (GetFloatProp(ctx, obj, scaleKeyUtf8.c_str(), scaleValue))
+            {
+                if (!std::isfinite(scaleValue))
+                {
+                    scaleValue = 1.0f;
+                }
+                options.scaleValues[(size_t)i] = scaleValue;
+            }
+        }
+    }
+
+    void ParseHistogramOptions(JSContext *ctx, JSValueConst obj, HistogramOptions &options, const std::wstring &baseDir)
+    {
+        ParseElementOptions(ctx, obj, options, baseDir);
+
+        GetFloatArrayPropAllowEmpty(ctx, obj, "data", options.data);
+        GetFloatArrayPropAllowEmpty(ctx, obj, "data2", options.data2);
+
+        GetBoolProp(ctx, obj, "autoRange", options.autoRange);
+        GetBoolProp(ctx, obj, "flip", options.flip);
+
+        std::wstring graphStart = GetStringProp(ctx, obj, "graphStart");
+        std::transform(graphStart.begin(), graphStart.end(), graphStart.begin(), ::towlower);
+        if (graphStart == L"left")
+            options.graphStartLeft = true;
+        else if (graphStart == L"right")
+            options.graphStartLeft = false;
+
+        std::wstring graphOrientation = GetStringProp(ctx, obj, "graphOrientation");
+        std::transform(graphOrientation.begin(), graphOrientation.end(), graphOrientation.begin(), ::towlower);
+        if (graphOrientation == L"horizontal")
+            options.graphHorizontalOrientation = true;
+        else if (graphOrientation == L"vertical")
+            options.graphHorizontalOrientation = false;
+
+        std::wstring primaryColor = GetStringProp(ctx, obj, "primaryColor");
+        if (!primaryColor.empty())
+        {
+            GradientInfo parsedGradient;
+            if (ParseGradientString(primaryColor, parsedGradient))
+            {
+                options.primaryGradient = parsedGradient;
+            }
+            else if (ColorUtil::ParseRGBA(primaryColor, options.primaryColor, options.primaryAlpha))
+            {
+                options.primaryGradient = GradientInfo();
+            }
+        }
+
+        std::wstring secondaryColor = GetStringProp(ctx, obj, "secondaryColor");
+        if (!secondaryColor.empty())
+        {
+            GradientInfo parsedGradient;
+            if (ParseGradientString(secondaryColor, parsedGradient))
+            {
+                options.secondaryGradient = parsedGradient;
+            }
+            else if (ColorUtil::ParseRGBA(secondaryColor, options.secondaryColor, options.secondaryAlpha))
+            {
+                options.secondaryGradient = GradientInfo();
+            }
+        }
+
+        std::wstring bothColor = GetStringProp(ctx, obj, "bothColor");
+        if (!bothColor.empty())
+        {
+            GradientInfo parsedGradient;
+            if (ParseGradientString(bothColor, parsedGradient))
+            {
+                options.bothGradient = parsedGradient;
+            }
+            else if (ColorUtil::ParseRGBA(bothColor, options.bothColor, options.bothAlpha))
+            {
+                options.bothGradient = GradientInfo();
+            }
+        }
+
     }
 
     void ParseRoundLineOptions(JSContext *ctx, JSValueConst obj, RoundLineOptions &options, const std::wstring &baseDir)
@@ -953,10 +1541,14 @@ namespace PropertyParser
         if (options.bevelType > 0)
         {
             element->SetBevel(options.bevelType, options.bevelWidth, options.bevelColor, options.bevelAlpha, options.bevelColor2, options.bevelAlpha2);
+            element->SetBevelGradient(options.bevelGradient);
+            element->SetBevelGradient2(options.bevelGradient2);
         }
         else
         {
             element->SetBevel(0, 0, 0, 0, 0, 0);
+            element->SetBevelGradient(GradientInfo());
+            element->SetBevelGradient2(GradientInfo());
         }
 
         if (options.hasTransformMatrix && options.transformMatrix.size() >= 6)
@@ -1019,6 +1611,22 @@ namespace PropertyParser
         }
     }
 
+    void ApplyGeneralImageOptions(GeneralImage *image, const GeneralImageOptions &options)
+    {
+        if (!image)
+            return;
+        image->SetImageFlip(options.imageFlip);
+        if (options.hasImageCrop)
+            image->SetImageCrop(options.imageCropX, options.imageCropY, options.imageCropW, options.imageCropH, options.imageCropOrigin);
+        image->SetUseExifOrientation(options.useExifOrientation);
+        image->SetGrayscale(options.grayscale);
+        image->SetImageAlpha(options.imageAlpha);
+        if (options.hasImageTint)
+            image->SetImageTint(options.imageTint, options.imageTintAlpha);
+        if (options.hasColorMatrix)
+            image->SetColorMatrix(options.colorMatrix.data());
+    }
+
     void ApplyImageOptions(ImageElement *element, const ImageOptions &options)
     {
         if (!element)
@@ -1027,13 +1635,131 @@ namespace PropertyParser
         if (!options.path.empty())
             element->UpdateImage(options.path);
         element->SetPreserveAspectRatio(options.preserveAspectRatio);
-        element->SetGrayscale(options.grayscale);
+        if (options.hasScaleMargins)
+            element->SetScaleMargins(options.scaleMarginLeft, options.scaleMarginTop, options.scaleMarginRight, options.scaleMarginBottom);
         element->SetTile(options.tile);
+        
+        // This takes advantage of the fact that ImageElement exposes these methods 
+        // which delegate to its internal GeneralImage.
+        // We could also do: ApplyGeneralImageOptions(&element->GetImage(), options); 
+        // but ImageElement methods are public and easy.
+        
+        element->SetImageFlip(options.imageFlip);
+        if (options.hasImageCrop)
+            element->SetImageCrop(options.imageCropX, options.imageCropY, options.imageCropW, options.imageCropH, options.imageCropOrigin);
+        element->SetUseExifOrientation(options.useExifOrientation);
+        element->SetGrayscale(options.grayscale);
         element->SetImageAlpha(options.imageAlpha);
         if (options.hasImageTint)
             element->SetImageTint(options.imageTint, options.imageTintAlpha);
         if (options.hasColorMatrix)
             element->SetColorMatrix(options.colorMatrix.data());
+    }
+
+    void ApplyButtonOptions(ButtonElement *element, const ButtonOptions &options)
+    {
+        if (!element)
+            return;
+        ApplyElementOptions(element, options);
+        if (!options.buttonImageName.empty())
+            element->UpdateImage(options.buttonImageName);
+
+        element->SetUseExifOrientation(options.useExifOrientation);
+        element->SetGrayscale(options.grayscale);
+        element->SetImageAlpha(options.imageAlpha);
+        element->SetImageFlip(options.imageFlip);
+        if (options.hasImageCrop)
+            element->SetImageCrop(options.imageCropX, options.imageCropY, options.imageCropW, options.imageCropH, options.imageCropOrigin);
+        else
+            element->ClearImageCrop();
+
+        if (options.hasImageTint)
+            element->SetImageTint(options.imageTint, options.imageTintAlpha);
+        if (options.hasColorMatrix)
+            element->SetColorMatrix(options.colorMatrix.data());
+    }
+
+    void ApplyBitmapOptions(BitmapElement *element, const BitmapOptions &options)
+    {
+        if (!element)
+            return;
+
+        ApplyElementOptions(element, options);
+        if (!options.bitmapImageName.empty())
+            element->UpdateImage(options.bitmapImageName);
+
+        element->SetValue(options.value);
+        element->SetBitmapFrames(options.bitmapFrames);
+        element->SetBitmapZeroFrame(options.bitmapZeroFrame);
+        element->SetBitmapExtend(options.bitmapExtend);
+        element->SetMinValue(options.minValue);
+        element->SetMaxValue(options.maxValue);
+        element->SetBitmapOrientation(options.bitmapOrientation);
+        element->SetBitmapDigits(options.bitmapDigits);
+        element->SetBitmapAlign(options.bitmapAlign);
+        element->SetBitmapSeparation(options.bitmapSeparation);
+
+        element->SetUseExifOrientation(options.useExifOrientation);
+        element->SetGrayscale(options.grayscale);
+        element->SetImageAlpha(options.imageAlpha);
+        element->SetImageFlip(options.imageFlip);
+        if (options.hasImageTint)
+            element->SetImageTint(options.imageTint, options.imageTintAlpha);
+        if (options.hasColorMatrix)
+            element->SetColorMatrix(options.colorMatrix.data());
+    }
+
+    void ApplyRotatorOptions(RotatorElement *element, const RotatorOptions &options)
+    {
+        if (!element)
+            return;
+
+        ApplyElementOptions(element, options);
+        if (!options.rotatorImageName.empty())
+            element->UpdateImage(options.rotatorImageName);
+
+        element->SetValue(options.value);
+        element->SetOffsetX(options.offsetX);
+        element->SetOffsetY(options.offsetY);
+        element->SetStartAngle(options.startAngle);
+        element->SetRotationAngle(options.rotationAngle);
+        element->SetValueRemainder(options.valueRemainder);
+        element->SetMinValue(options.minValue);
+        element->SetMaxValue(options.maxValue);
+
+        element->SetUseExifOrientation(options.useExifOrientation);
+        element->SetGrayscale(options.grayscale);
+        element->SetImageAlpha(options.imageAlpha);
+        element->SetImageFlip(options.imageFlip);
+        if (options.hasImageTint)
+            element->SetImageTint(options.imageTint, options.imageTintAlpha);
+        if (options.hasColorMatrix)
+            element->SetColorMatrix(options.colorMatrix.data());
+    }
+
+    void ApplyAreaGraphOptions(AreaGraphElement *element, const AreaGraphOptions &options)
+    {
+        if (!element)
+            return;
+
+        ApplyElementOptions(element, options);
+        element->SetData(options.data);
+        element->SetMinValue(options.minValue);
+        element->SetMaxValue(options.maxValue);
+        element->SetAutoRange(options.autoRange);
+        element->SetLineColor(options.lineColor);
+        element->SetLineGradient(options.lineGradient);
+        element->SetLineWidth(options.lineWidth);
+        element->SetFillColor(options.fillColor, options.fillAlpha);
+        element->SetFillGradient(options.fillGradient);
+        element->SetMaxPoints(options.maxPoints);
+        element->SetGridColor(options.gridColor, options.gridAlpha);
+        element->SetGridGradient(options.gridGradient);
+        element->SetGridVisible(options.gridVisible);
+        element->SetGridXSpacing(options.gridX);
+        element->SetGridYSpacing(options.gridY);
+        element->SetGraphStartLeft(options.graphStartLeft);
+        element->SetFlip(options.flip);
     }
 
     void ApplyTextOptions(TextElement *element, const TextOptions &options)
@@ -1070,6 +1796,49 @@ namespace PropertyParser
             element->SetBarGradient(options.barGradient);
         else if (options.hasBarColor)
             element->SetBarColor(options.barColor, options.barAlpha);
+    }
+
+    void ApplyLineOptions(LineElement *element, const LineOptions &options)
+    {
+        if (!element)
+            return;
+        ApplyElementOptions(element, options);
+        element->SetLineCount(options.lineCount);
+        element->SetDataSets(options.dataSets);
+        element->SetLineColors(options.lineColors, options.lineAlphas);
+        element->SetLineGradients(options.lineGradients);
+        element->SetScaleValues(options.scaleValues);
+        element->SetLineWidth(options.lineWidth);
+        element->SetMaxPoints(options.maxPoints);
+        element->SetHorizontalLines(options.horizontalLines);
+        element->SetHorizontalLineColor(options.horizontalLineColor, options.horizontalLineAlpha);
+        element->SetHorizontalLineGradient(options.horizontalLineGradient);
+        element->SetGraphStartLeft(options.graphStartLeft);
+        element->SetGraphHorizontalOrientation(options.graphHorizontalOrientation);
+        element->SetFlip(options.flip);
+        element->SetStrokeTransformType(options.transformStroke);
+        element->SetAutoRange(options.autoRange);
+        element->SetScaleRange(options.scaleMin, options.scaleMax);
+    }
+
+    void ApplyHistogramOptions(HistogramElement *element, const HistogramOptions &options)
+    {
+        if (!element)
+            return;
+
+        ApplyElementOptions(element, options);
+        element->SetData(options.data);
+        element->SetData2(options.data2);
+        element->SetAutoRange(options.autoRange);
+        element->SetGraphStartLeft(options.graphStartLeft);
+        element->SetGraphHorizontalOrientation(options.graphHorizontalOrientation);
+        element->SetFlip(options.flip);
+        element->SetPrimaryColor(options.primaryColor, options.primaryAlpha);
+        element->SetSecondaryColor(options.secondaryColor, options.secondaryAlpha);
+        element->SetBothColor(options.bothColor, options.bothAlpha);
+        element->SetPrimaryGradient(options.primaryGradient);
+        element->SetSecondaryGradient(options.secondaryGradient);
+        element->SetBothGradient(options.bothGradient);
     }
 
     void ApplyRoundLineOptions(RoundLineElement *element, const RoundLineOptions &options)
@@ -1143,7 +1912,7 @@ namespace PropertyParser
             options.strokeDashes);
     }
 
-    void PreFillImageOptions(ImageOptions &options, ImageElement *element)
+    void PreFillElementOptions(ElementOptions &options, Element *element)
     {
         if (!element)
             return;
@@ -1180,8 +1949,10 @@ namespace PropertyParser
         options.bevelWidth = element->GetBevelWidth();
         options.bevelColor = element->GetBevelColor();
         options.bevelAlpha = element->GetBevelAlpha();
+        options.bevelGradient = element->GetBevelGradient();
         options.bevelColor2 = element->GetBevelColor2();
         options.bevelAlpha2 = element->GetBevelAlpha2();
+        options.bevelGradient2 = element->GetBevelGradient2();
 
         if (element->HasTransformMatrix())
         {
@@ -1189,17 +1960,217 @@ namespace PropertyParser
             const float *m = element->GetTransformMatrix();
             for (int i = 0; i < 6; ++i) options.transformMatrix[i] = m[i];
         }
+    }
+
+    void PreFillGeneralImageOptions(GeneralImageOptions &options, GeneralImage *image)
+    {
+        if (!image) return;
+        options.imageFlip = image->GetImageFlip();
+        options.hasImageCrop = image->HasImageCrop();
+        if (options.hasImageCrop)
+        {
+            options.imageCropX = image->GetImageCropX();
+            options.imageCropY = image->GetImageCropY();
+            options.imageCropW = image->GetImageCropW();
+            options.imageCropH = image->GetImageCropH();
+            options.imageCropOrigin = image->GetImageCropOrigin();
+        }
+        options.useExifOrientation = image->GetUseExifOrientation();
+        options.imageAlpha = image->GetImageAlpha();
+        options.grayscale = image->IsGrayscale();
+        if (image->HasImageTint())
+        {
+            options.hasImageTint = true;
+            options.imageTint = image->GetImageTint();
+            options.imageTintAlpha = image->GetImageTintAlpha();
+        }
+        if (image->HasColorMatrix())
+        {
+            options.hasColorMatrix = true;
+            const float *m = image->GetColorMatrix();
+            for (int i = 0; i < 20; ++i) options.colorMatrix[i] = m[i];
+        }
+    }
+
+    void PreFillImageOptions(ImageOptions &options, ImageElement *element)
+    {
+        if (!element)
+            return;
+        PreFillElementOptions(options, element);
         options.path = element->GetImagePath();
         options.preserveAspectRatio = element->GetPreserveAspectRatio();
+        options.tile = element->IsTile();
+
+        options.imageFlip = element->GetImageFlip();
+        options.hasImageCrop = element->HasImageCrop();
+        if (options.hasImageCrop)
+        {
+            options.imageCropX = element->GetImageCropX();
+            options.imageCropY = element->GetImageCropY();
+            options.imageCropW = element->GetImageCropW();
+            options.imageCropH = element->GetImageCropH();
+            options.imageCropOrigin = element->GetImageCropOrigin();
+        }
+        options.hasScaleMargins = element->HasScaleMargins();
+        if (options.hasScaleMargins)
+        {
+            options.scaleMarginLeft = element->GetScaleMarginLeft();
+            options.scaleMarginTop = element->GetScaleMarginTop();
+            options.scaleMarginRight = element->GetScaleMarginRight();
+            options.scaleMarginBottom = element->GetScaleMarginBottom();
+        }
+        options.useExifOrientation = element->GetUseExifOrientation();
         options.imageAlpha = element->GetImageAlpha();
         options.grayscale = element->IsGrayscale();
-        options.tile = element->IsTile();
         if (element->HasImageTint())
         {
             options.hasImageTint = true;
             options.imageTint = element->GetImageTint();
             options.imageTintAlpha = element->GetImageTintAlpha();
         }
+        if (element->HasColorMatrix())
+        {
+            options.hasColorMatrix = true;
+            const float *m = element->GetColorMatrix();
+            for (int i = 0; i < 20; ++i) options.colorMatrix[i] = m[i];
+        }
+    }
+
+    void PreFillButtonOptions(ButtonOptions &options, ButtonElement *element)
+    {
+        if (!element)
+            return;
+        PreFillElementOptions(options, element);
+
+        options.buttonImageName = element->GetImagePath();
+        options.useExifOrientation = element->GetUseExifOrientation();
+        options.grayscale = element->IsGrayscale();
+        options.imageAlpha = element->GetImageAlpha();
+        options.imageFlip = element->GetImageFlip();
+        options.hasImageCrop = element->HasImageCrop();
+        if (options.hasImageCrop)
+        {
+            options.imageCropX = element->GetImageCropX();
+            options.imageCropY = element->GetImageCropY();
+            options.imageCropW = element->GetImageCropW();
+            options.imageCropH = element->GetImageCropH();
+            options.imageCropOrigin = element->GetImageCropOrigin();
+        }
+        if (element->HasImageTint())
+        {
+            options.hasImageTint = true;
+            options.imageTint = element->GetImageTint();
+            options.imageTintAlpha = element->GetImageTintAlpha();
+        }
+        if (element->HasColorMatrix())
+        {
+            options.hasColorMatrix = true;
+            const float *m = element->GetColorMatrix();
+            for (int i = 0; i < 20; ++i) options.colorMatrix[i] = m[i];
+        }
+    }
+
+    void PreFillBitmapOptions(BitmapOptions &options, BitmapElement *element)
+    {
+        if (!element)
+            return;
+
+        PreFillElementOptions(options, element);
+
+        // Keep width/height invalid for bitmap element options.
+        options.width = 0;
+        options.height = 0;
+
+        options.value = element->GetValue();
+        options.bitmapImageName = element->GetImagePath();
+        options.bitmapFrames = element->GetBitmapFrames();
+        options.bitmapZeroFrame = element->GetBitmapZeroFrame();
+        options.bitmapExtend = element->GetBitmapExtend();
+        options.minValue = element->GetMinValue();
+        options.maxValue = element->GetMaxValue();
+        options.bitmapOrientation = element->GetBitmapOrientation();
+        options.bitmapDigits = element->GetBitmapDigits();
+        options.bitmapAlign = element->GetBitmapAlign();
+        options.bitmapSeparation = element->GetBitmapSeparation();
+
+        options.useExifOrientation = element->GetUseExifOrientation();
+        options.grayscale = element->IsGrayscale();
+        options.imageAlpha = element->GetImageAlpha();
+        options.imageFlip = element->GetImageFlip();
+        if (element->HasImageTint())
+        {
+            options.hasImageTint = true;
+            options.imageTint = element->GetImageTint();
+            options.imageTintAlpha = element->GetImageTintAlpha();
+        }
+        if (element->HasColorMatrix())
+        {
+            options.hasColorMatrix = true;
+            const float *m = element->GetColorMatrix();
+            for (int i = 0; i < 20; ++i) options.colorMatrix[i] = m[i];
+        }
+    }
+
+    void PreFillRotatorOptions(RotatorOptions &options, RotatorElement *element)
+    {
+        if (!element)
+            return;
+
+        PreFillElementOptions(options, element);
+
+        options.value = element->GetValue();
+        options.rotatorImageName = element->GetImagePath();
+        options.offsetX = element->GetOffsetX();
+        options.offsetY = element->GetOffsetY();
+        options.startAngle = element->GetStartAngle();
+        options.rotationAngle = element->GetRotationAngle();
+        options.valueRemainder = element->GetValueRemainder();
+        options.minValue = element->GetMinValue();
+        options.maxValue = element->GetMaxValue();
+
+        options.useExifOrientation = element->GetUseExifOrientation();
+        options.grayscale = element->IsGrayscale();
+        options.imageAlpha = element->GetImageAlpha();
+        options.imageFlip = element->GetImageFlip();
+        if (element->HasImageTint())
+        {
+            options.hasImageTint = true;
+            options.imageTint = element->GetImageTint();
+            options.imageTintAlpha = element->GetImageTintAlpha();
+        }
+        if (element->HasColorMatrix())
+        {
+            options.hasColorMatrix = true;
+            const float *m = element->GetColorMatrix();
+            for (int i = 0; i < 20; ++i) options.colorMatrix[i] = m[i];
+        }
+    }
+
+    void PreFillAreaGraphOptions(AreaGraphOptions &options, AreaGraphElement *element)
+    {
+        if (!element)
+            return;
+
+        PreFillElementOptions(options, element);
+        options.data = element->GetData();
+        options.minValue = element->GetMinValue();
+        options.maxValue = element->GetMaxValue();
+        options.autoRange = element->GetAutoRange();
+        options.lineColor = element->GetLineColor();
+        options.lineGradient = element->GetLineGradient();
+        options.lineWidth = element->GetLineWidth();
+        options.fillColor = element->GetFillColor();
+        options.fillAlpha = element->GetFillAlpha();
+        options.fillGradient = element->GetFillGradient();
+        options.maxPoints = element->GetMaxPoints();
+        options.gridColor = element->GetGridColor();
+        options.gridAlpha = element->GetGridAlpha();
+        options.gridGradient = element->GetGridGradient();
+        options.gridVisible = element->GetGridVisible();
+        options.gridX = element->GetGridXSpacing();
+        options.gridY = element->GetGridYSpacing();
+        options.graphStartLeft = element->GetGraphStartLeft();
+        options.flip = element->GetFlip();
     }
 
     void PreFillTextOptions(TextOptions &options, TextElement *element)
@@ -1319,6 +2290,99 @@ namespace PropertyParser
         options.barColor = element->GetBarColor();
         options.barAlpha = element->GetBarAlpha();
         options.barGradient = element->GetBarGradient();
+    }
+
+    void PreFillLineOptions(LineOptions &options, LineElement *element)
+    {
+        if (!element)
+            return;
+        options.id = element->GetId();
+        options.x = element->GetX();
+        options.y = element->GetY();
+        options.width = element->IsWDefined() ? (element->GetWidth() - element->GetPaddingLeft() - element->GetPaddingRight()) : 0;
+        options.height = element->IsHDefined() ? (element->GetHeight() - element->GetPaddingTop() - element->GetPaddingBottom()) : 0;
+
+        options.show = element->IsVisible();
+        options.containerId = element->GetContainerId();
+        options.groupId = element->GetGroupId();
+        options.mouseEventCursor = element->GetMouseEventCursor();
+        options.mouseEventCursorName = element->GetMouseEventCursorName();
+        options.cursorsDir = element->GetCursorsDir();
+        options.rotate = element->GetRotate();
+        options.antialias = element->GetAntiAlias();
+        options.solidColorRadius = element->GetCornerRadius();
+
+        options.paddingLeft = element->GetPaddingLeft();
+        options.paddingTop = element->GetPaddingTop();
+        options.paddingRight = element->GetPaddingRight();
+        options.paddingBottom = element->GetPaddingBottom();
+
+        if (element->HasSolidColor())
+        {
+            options.hasSolidColor = true;
+            options.solidColor = element->GetSolidColor();
+            options.solidAlpha = element->GetSolidAlpha();
+            options.solidGradient = element->GetSolidGradient();
+        }
+
+        options.bevelType = element->GetBevelType();
+        options.bevelWidth = element->GetBevelWidth();
+        options.bevelColor = element->GetBevelColor();
+        options.bevelAlpha = element->GetBevelAlpha();
+        options.bevelColor2 = element->GetBevelColor2();
+        options.bevelAlpha2 = element->GetBevelAlpha2();
+
+        if (element->HasTransformMatrix())
+        {
+            options.hasTransformMatrix = true;
+            const float *m = element->GetTransformMatrix();
+            for (int i = 0; i < 6; ++i) options.transformMatrix[i] = m[i];
+        }
+
+        options.lineCount = element->GetLineCount();
+        options.dataSets = element->GetDataSets();
+        options.lineColors = element->GetLineColors();
+        options.lineAlphas = element->GetLineAlphas();
+        options.lineGradients = element->GetLineGradients();
+        options.scaleValues = element->GetScaleValues();
+        options.lineWidth = element->GetLineWidth();
+        options.maxPoints = element->GetMaxPoints();
+        options.horizontalLines = element->GetHorizontalLines();
+        options.horizontalLineColor = element->GetHorizontalLineColor();
+        options.horizontalLineAlpha = element->GetHorizontalLineAlpha();
+        options.horizontalLineGradient = element->GetHorizontalLineGradient();
+        options.graphStartLeft = element->GetGraphStartLeft();
+        options.graphHorizontalOrientation = element->GetGraphHorizontalOrientation();
+        options.flip = element->GetFlip();
+        options.transformStroke = element->GetStrokeTransformType();
+        options.autoRange = element->GetAutoRange();
+        options.scaleMin = element->GetScaleMin();
+        options.scaleMax = element->GetScaleMax();
+    }
+
+    void PreFillHistogramOptions(HistogramOptions &options, HistogramElement *element)
+    {
+        if (!element)
+            return;
+
+        PreFillElementOptions(options, element);
+
+        options.data = element->GetData();
+        options.data2 = element->GetData2();
+        options.autoRange = element->GetAutoRange();
+        options.graphStartLeft = element->GetGraphStartLeft();
+        options.graphHorizontalOrientation = element->GetGraphHorizontalOrientation();
+        options.flip = element->GetFlip();
+
+        options.primaryColor = element->GetPrimaryColor();
+        options.primaryAlpha = element->GetPrimaryAlpha();
+        options.secondaryColor = element->GetSecondaryColor();
+        options.secondaryAlpha = element->GetSecondaryAlpha();
+        options.bothColor = element->GetBothColor();
+        options.bothAlpha = element->GetBothAlpha();
+        options.primaryGradient = element->GetPrimaryGradient();
+        options.secondaryGradient = element->GetSecondaryGradient();
+        options.bothGradient = element->GetBothGradient();
     }
 
     void PreFillRoundLineOptions(RoundLineOptions &options, RoundLineElement *element)
@@ -1464,12 +2528,42 @@ namespace PropertyParser
         options.strokeDashes = element->GetStrokeDashes();
     }
 
+    void ParseGeneralImageOptions(duk_context *, GeneralImageOptions &) {}
     void ParseElementOptions(duk_context *, ElementOptions &) {}
-    void ParseImageOptions(duk_context *, ImageOptions &) {}
+    void ParseImageOptions(duk_context *ctx, ImageOptions &options)
+    {
+        ParseElementOptions(ctx, options);
+        ParseGeneralImageOptions(ctx, options);
+    }
     void ParseTextOptions(duk_context *, TextOptions &) {}
     void ParseBarOptions(duk_context *, BarOptions &) {}
+    void ParseLineOptions(duk_context *, LineOptions &) {}
+    void ParseHistogramOptions(duk_context *, HistogramOptions &) {}
     void ParseRoundLineOptions(duk_context *, RoundLineOptions &) {}
     void ParseShapeOptions(duk_context *, ShapeOptions &) {}
+    void ParseButtonOptions(duk_context *ctx, ButtonOptions &options)
+    {
+        ParseElementOptions(ctx, options);
+        ParseGeneralImageOptions(ctx, options);
+    }
+    void ParseBitmapOptions(duk_context *ctx, BitmapOptions &options)
+    {
+        ParseElementOptions(ctx, options);
+        ParseGeneralImageOptions(ctx, options);
+        options.width = 0;
+        options.height = 0;
+    }
+
+    void ParseRotatorOptions(duk_context *ctx, RotatorOptions &options)
+    {
+        ParseElementOptions(ctx, options);
+        ParseGeneralImageOptions(ctx, options);
+    }
+
+    void ParseAreaGraphOptions(duk_context *ctx, AreaGraphOptions &options)
+    {
+        ParseElementOptions(ctx, options);
+    }
 }
 
 namespace novadesk::scripting::quickjs::parser
