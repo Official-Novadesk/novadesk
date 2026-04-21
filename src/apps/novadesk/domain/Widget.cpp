@@ -39,6 +39,27 @@
 #define WIDGET_CLASS_NAME L"NovadeskWidget"
 #define ZPOS_FLAGS (SWP_NOMOVE | SWP_NOSIZE | SWP_NOOWNERZORDER | SWP_NOACTIVATE | SWP_NOSENDCHANGING)
 #define SNAP_DISTANCE 10
+#define TIMER_TOPMOST 2
+#define TIMER_TOOLTIP 3
+
+// Menu Command IDs
+#define CMD_REFRESH 1001
+#define CMD_CLOSE   1002
+#define CMD_EXIT    1003
+
+#define CMD_MANAGE_ZPOS_NORMAL   1101
+#define CMD_MANAGE_ZPOS_DESKTOP  1102
+#define CMD_MANAGE_ZPOS_BOTTOM   1103
+#define CMD_MANAGE_ZPOS_ONTOP    1104
+#define CMD_MANAGE_ZPOS_ONTOPMOST 1105
+
+#define CMD_MANAGE_OPACITY_START 1110 // 1110 to 1120 for 0% to 100%
+
+#define CMD_MANAGE_DRAGGABLE     1130
+#define CMD_MANAGE_CLICKTHROUGH  1131
+#define CMD_MANAGE_SNAPEDGES     1132
+#define CMD_MANAGE_KEEPOFFSCREEN 1133
+
 
 extern std::vector<Widget *> widgets; // Defined in Novadesk.cpp
 
@@ -82,6 +103,8 @@ Widget::Widget(const WidgetOptions &options)
 Widget::~Widget()
 {
     JSEngine::TriggerWidgetEvent(this, "close");
+
+    DestroyToolbarIcon();
 
     if (m_hWnd)
     {
@@ -137,16 +160,25 @@ bool Widget::Create()
 
     HINSTANCE hInstance = GetModuleHandle(nullptr);
 
-    DWORD dwExStyle = WS_EX_TOOLWINDOW | WS_EX_LAYERED;
+    DWORD dwExStyle = WS_EX_LAYERED;
+    if (m_Options.showInToolbar)
+    {
+        dwExStyle |= WS_EX_APPWINDOW;
+    }
+    else
+    {
+        dwExStyle |= WS_EX_TOOLWINDOW;
+    }
     if (m_Options.clickThrough)
     {
         dwExStyle |= WS_EX_TRANSPARENT;
     }
 
+    const std::wstring windowTitle = m_Options.toolbarTitle.empty() ? m_Options.id : m_Options.toolbarTitle;
     m_hWnd = CreateWindowExW(
         dwExStyle,
         WIDGET_CLASS_NAME,
-        m_Options.id.c_str(),
+        windowTitle.c_str(),
         WS_POPUP,
         m_Options.x, m_Options.y, m_Options.width, m_Options.height,
         nullptr, nullptr, hInstance, this);
@@ -176,6 +208,9 @@ bool Widget::Create()
     {
         SetTimer(m_hWnd, TIMER_TOPMOST, 500, nullptr);
     }
+
+    ApplyToolbarTitle();
+    ApplyToolbarIcon();
 
     // Initialize tooltip
     m_Tooltip.Initialize(m_hWnd, hInstance);
@@ -232,6 +267,32 @@ void Widget::UnFocus()
     if (m_hWnd && ::GetFocus() == m_hWnd)
     {
         ::SetFocus(NULL);
+    }
+}
+
+void Widget::Minimize()
+{
+    if (m_hWnd)
+    {
+        if (!m_IsMinimized)
+        {
+            m_IsMinimized = true;
+            JSEngine::TriggerWidgetEvent(this, "minimize");
+        }
+        ShowWindow(m_hWnd, SW_MINIMIZE);
+    }
+}
+
+void Widget::UnMinimize()
+{
+    if (m_hWnd)
+    {
+        if (m_IsMinimized)
+        {
+            m_IsMinimized = false;
+            JSEngine::TriggerWidgetEvent(this, "unMinimize");
+        }
+        ShowWindow(m_hWnd, SW_RESTORE);
     }
 }
 
@@ -473,8 +534,45 @@ void Widget::SetBackgroundColor(const std::wstring &colorStr)
 }
 
 /*
+** Enable/disable dragging.
+*/
+void Widget::SetDraggable(bool enable)
+{
+    if (m_Options.draggable != enable)
+    {
+        m_Options.draggable = enable;
+        Settings::SaveWidget(m_Options.id, m_Options);
+    }
+}
+
+/*
+** Enable/disable snap-to-edges.
+*/
+void Widget::SetSnapEdges(bool enable)
+{
+    if (m_Options.snapEdges != enable)
+    {
+        m_Options.snapEdges = enable;
+        Settings::SaveWidget(m_Options.id, m_Options);
+    }
+}
+
+/*
+** Enable/disable keeping on screen.
+*/
+void Widget::SetKeepOnScreen(bool enable)
+{
+    if (m_Options.keepOnScreen != enable)
+    {
+        m_Options.keepOnScreen = enable;
+        Settings::SaveWidget(m_Options.id, m_Options);
+    }
+}
+
+/*
 ** Enable/disable click-through.
 */
+
 void Widget::SetClickThrough(bool enable)
 {
     if (m_Options.clickThrough != enable)
@@ -490,6 +588,124 @@ void Widget::SetClickThrough(bool enable)
         SetWindowLong(m_hWnd, GWL_EXSTYLE, exStyle);
         Settings::SaveWidget(m_Options.id, m_Options);
     }
+}
+
+void Widget::SetShowInToolbar(bool enable)
+{
+    if (m_Options.showInToolbar == enable)
+        return;
+
+    m_Options.showInToolbar = enable;
+    ApplyToolbarStyle();
+    Settings::SaveWidget(m_Options.id, m_Options);
+}
+
+void Widget::SetToolbarIcon(const std::wstring &path)
+{
+    if (m_Options.toolbarIcon == path)
+        return;
+
+    m_Options.toolbarIcon = path;
+    ApplyToolbarIcon();
+    Settings::SaveWidget(m_Options.id, m_Options);
+}
+
+void Widget::SetToolbarTitle(const std::wstring &title)
+{
+    if (m_Options.toolbarTitle == title)
+        return;
+
+    m_Options.toolbarTitle = title;
+    ApplyToolbarTitle();
+    Settings::SaveWidget(m_Options.id, m_Options);
+}
+
+void Widget::ApplyToolbarStyle()
+{
+    if (!m_hWnd)
+        return;
+
+    LONG_PTR exStyle = GetWindowLongPtrW(m_hWnd, GWL_EXSTYLE);
+    if (m_Options.showInToolbar)
+    {
+        exStyle &= ~static_cast<LONG_PTR>(WS_EX_TOOLWINDOW);
+        exStyle |= WS_EX_APPWINDOW;
+    }
+    else
+    {
+        exStyle &= ~static_cast<LONG_PTR>(WS_EX_APPWINDOW);
+        exStyle |= WS_EX_TOOLWINDOW;
+    }
+
+    SetWindowLongPtrW(m_hWnd, GWL_EXSTYLE, exStyle);
+    SetWindowPos(
+        m_hWnd,
+        nullptr,
+        0, 0, 0, 0,
+        SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+
+    if (IsWindowVisible(m_hWnd))
+    {
+        ShowWindow(m_hWnd, SW_HIDE);
+        ShowWindow(m_hWnd, SW_SHOWNOACTIVATE);
+    }
+}
+
+void Widget::DestroyToolbarIcon()
+{
+    if (m_ToolbarIconOwned && m_ToolbarIconHandle)
+    {
+        DestroyIcon(m_ToolbarIconHandle);
+    }
+    m_ToolbarIconHandle = nullptr;
+    m_ToolbarIconOwned = false;
+}
+
+void Widget::ApplyToolbarIcon()
+{
+    if (!m_hWnd)
+        return;
+
+    DestroyToolbarIcon();
+
+    HICON icon = nullptr;
+    if (!m_Options.toolbarIcon.empty())
+    {
+        icon = reinterpret_cast<HICON>(LoadImageW(
+            nullptr,
+            m_Options.toolbarIcon.c_str(),
+            IMAGE_ICON,
+            0,
+            0,
+            LR_LOADFROMFILE | LR_DEFAULTSIZE));
+
+        if (icon)
+        {
+            m_ToolbarIconHandle = icon;
+            m_ToolbarIconOwned = true;
+        }
+        else
+        {
+            Logging::Log(LogLevel::Warn, L"Widget '%s': failed to load toolbarIcon '%s'", m_Options.id.c_str(), m_Options.toolbarIcon.c_str());
+        }
+    }
+
+    if (!icon)
+    {
+        icon = LoadIcon(GetModuleHandle(nullptr), MAKEINTRESOURCE(IDI_NOVADESK));
+    }
+
+    SendMessageW(m_hWnd, WM_SETICON, ICON_SMALL, reinterpret_cast<LPARAM>(icon));
+    SendMessageW(m_hWnd, WM_SETICON, ICON_BIG, reinterpret_cast<LPARAM>(icon));
+}
+
+void Widget::ApplyToolbarTitle()
+{
+    if (!m_hWnd)
+        return;
+
+    const std::wstring title = m_Options.toolbarTitle.empty() ? m_Options.id : m_Options.toolbarTitle;
+    SetWindowTextW(m_hWnd, title.c_str());
 }
 
 /*
@@ -743,6 +959,28 @@ LRESULT CALLBACK Widget::WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
             }
         }
         return MA_ACTIVATE;
+    case WM_SYSCOMMAND:
+        if (widget)
+        {
+            const UINT command = static_cast<UINT>(wParam & 0xFFF0);
+            if (command == SC_MINIMIZE)
+            {
+                if (!widget->m_IsMinimized)
+                {
+                    widget->m_IsMinimized = true;
+                    JSEngine::TriggerWidgetEvent(widget, "minimize");
+                }
+            }
+            else if (command == SC_RESTORE)
+            {
+                if (widget->m_IsMinimized)
+                {
+                    widget->m_IsMinimized = false;
+                    JSEngine::TriggerWidgetEvent(widget, "unMinimize");
+                }
+            }
+        }
+        return DefWindowProc(hWnd, message, wParam, lParam);
 
     case WM_NCHITTEST:
         return HTCLIENT; // We handle everything in client area to get mouse messages
@@ -755,30 +993,6 @@ LRESULT CALLBACK Widget::WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
                 if (widget->m_WindowZPosition == ZPOSITION_ONTOPMOST)
                 {
                     widget->ChangeZPos(ZPOSITION_ONTOPMOST);
-                }
-            }
-            else if (wParam == TIMER_TOOLTIP)
-            {
-                widget->m_Tooltip.CheckVisibility();
-                // If tooltip is no longer active after check, kill the timer
-                if (!widget->m_Tooltip.IsActive())
-                {
-                    KillTimer(hWnd, TIMER_TOOLTIP);
-
-                    // If we hid the tooltip, we likely lost mouse focus or are covered.
-                    // Reset mouse over element state so that when we return, we trigger a fresh enter.
-                    if (widget->m_MouseOverElement)
-                    {
-
-                        widget->m_MouseOverElement->m_IsMouseOver = false;
-
-                        int leaveId = widget->m_MouseOverElement->m_OnMouseLeaveCallbackId;
-                        if (leaveId != -1)
-                            JSEngine::CallEventCallback(leaveId);
-
-                        widget->m_MouseOverElement = nullptr;
-                    }
-                    widget->m_TooltipElement = nullptr;
                 }
             }
         }
@@ -949,6 +1163,27 @@ LRESULT CALLBACK Widget::WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
             }
         }
         return 0;
+    case WM_SIZE:
+        if (widget)
+        {
+            if (wParam == SIZE_MINIMIZED)
+            {
+                if (!widget->m_IsMinimized)
+                {
+                    widget->m_IsMinimized = true;
+                    JSEngine::TriggerWidgetEvent(widget, "minimize");
+                }
+            }
+            else
+            {
+                if (widget->m_IsMinimized)
+                {
+                    widget->m_IsMinimized = false;
+                    JSEngine::TriggerWidgetEvent(widget, "unMinimize");
+                }
+            }
+        }
+        return 0;
     case WM_EXITSIZEMOVE:
         if (widget)
         {
@@ -963,6 +1198,21 @@ LRESULT CALLBACK Widget::WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
             Settings::SaveWidget(widget->m_Options.id, widget->m_Options);
         }
         return 0;
+    case WM_CLOSE:
+        if (widget)
+        {
+            // Native close (taskbar/titlebar/system menu) must follow the same
+            // lifecycle as widget.close(): remove from registry and delete widget
+            // so "close"/"closed" events are triggered from the destructor.
+            auto it = std::find(widgets.begin(), widgets.end(), widget);
+            if (it != widgets.end())
+                widgets.erase(it);
+
+            SetWindowLongPtr(hWnd, GWLP_USERDATA, 0);
+            delete widget;
+            return 0;
+        }
+        break;
     case WM_DESTROY:
         if (widget)
         {
@@ -2303,6 +2553,9 @@ bool Widget::HandleMouseMessage(UINT message, WPARAM wParam, LPARAM lParam)
     int y = GET_Y_LPARAM(lParam);
     bool justEnteredWidget = false;
 
+    // Manual tracking for tooltips to support hybrid delayed moves
+    m_Tooltip.Move();
+
     if (message == WM_MOUSEMOVE)
     {
         if (!m_IsMouseOverWidget)
@@ -2310,7 +2563,6 @@ bool Widget::HandleMouseMessage(UINT message, WPARAM wParam, LPARAM lParam)
             m_IsMouseOverWidget = true;
             justEnteredWidget = true;
         }
-        m_Tooltip.Move();
     }
 
     // For mouse wheel, coordinates are screen relative
@@ -2541,16 +2793,6 @@ bool Widget::HandleMouseMessage(UINT message, WPARAM wParam, LPARAM lParam)
         {
             m_Tooltip.Update(nextToolTipElement);
             m_TooltipElement = nextToolTipElement;
-
-            // Start timer to periodically check if tooltip should be hidden (e.g., another window covers)
-            if (m_Tooltip.IsActive())
-            {
-                SetTimer(m_hWnd, TIMER_TOOLTIP, 100, nullptr); // Check every 100ms
-            }
-            else
-            {
-                KillTimer(m_hWnd, TIMER_TOOLTIP);
-            }
         }
 
         // Ensure we track mouse leave window events
@@ -2790,12 +3032,45 @@ void Widget::OnContextMenu()
             AppendMenu(hMenu, MF_SEPARATOR, 0, nullptr);
         }
 
-        HMENU hSubMenu = CreatePopupMenu();
-        AppendMenuW(hSubMenu, MF_STRING, 1001, L"Refresh");
-        AppendMenuW(hSubMenu, MF_STRING, 1003, L"Exit");
+        HMENU hManageMenu = CreatePopupMenu();
+
+        // 1. Zpos Submenu
+        HMENU hZPosMenu = CreatePopupMenu();
+        AppendMenuW(hZPosMenu, MF_STRING | (m_WindowZPosition == ZPOSITION_NORMAL ? MF_CHECKED : 0), CMD_MANAGE_ZPOS_NORMAL, L"Normal");
+        AppendMenuW(hZPosMenu, MF_STRING | (m_WindowZPosition == ZPOSITION_ONDESKTOP ? MF_CHECKED : 0), CMD_MANAGE_ZPOS_DESKTOP, L"OnDesktop");
+        AppendMenuW(hZPosMenu, MF_STRING | (m_WindowZPosition == ZPOSITION_ONTOP ? MF_CHECKED : 0), CMD_MANAGE_ZPOS_ONTOP, L"OnTop");
+        AppendMenuW(hZPosMenu, MF_STRING | (m_WindowZPosition == ZPOSITION_ONTOPMOST ? MF_CHECKED : 0), CMD_MANAGE_ZPOS_ONTOPMOST, L"OnTopMost");
+        AppendMenuW(hZPosMenu, MF_STRING | (m_WindowZPosition == ZPOSITION_ONBOTTOM ? MF_CHECKED : 0), CMD_MANAGE_ZPOS_BOTTOM, L"Bottom");
+        AppendMenuW(hManageMenu, MF_POPUP, (UINT_PTR)hZPosMenu, L"Zpos");
+
+        // 2. Opacity Submenu
+        HMENU hOpacityMenu = CreatePopupMenu();
+        for (int i = 0; i <= 100; i += 10)
+        {
+            BYTE targetOpacity = (BYTE)(i * 255 / 100);
+            std::wstring label = std::to_wstring(i) + L"%";
+            // Use a small range for check to account for rounding
+            bool isCurrent = abs((int)m_Options.windowOpacity - (int)targetOpacity) < 5;
+            AppendMenuW(hOpacityMenu, MF_STRING | (isCurrent ? MF_CHECKED : 0), CMD_MANAGE_OPACITY_START + (i / 10), label.c_str());
+        }
+        AppendMenuW(hManageMenu, MF_POPUP, (UINT_PTR)hOpacityMenu, L"Opacity");
+
+        AppendMenuW(hManageMenu, MF_SEPARATOR, 0, nullptr);
+
+        // 3. Toggles
+        AppendMenuW(hManageMenu, MF_STRING | (m_Options.draggable ? MF_CHECKED : 0), CMD_MANAGE_DRAGGABLE, L"Draggable");
+        AppendMenuW(hManageMenu, MF_STRING | (m_Options.clickThrough ? MF_CHECKED : 0), CMD_MANAGE_CLICKTHROUGH, L"Clickthrough");
+        AppendMenuW(hManageMenu, MF_STRING | (m_Options.snapEdges ? MF_CHECKED : 0), CMD_MANAGE_SNAPEDGES, L"Snap to Edges");
+        AppendMenuW(hManageMenu, MF_STRING | (m_Options.keepOnScreen ? MF_CHECKED : 0), CMD_MANAGE_KEEPOFFSCREEN, L"Keep On Screen");
+
+        AppendMenuW(hMenu, MF_POPUP, (UINT_PTR)hManageMenu, L"Manage");
+
+        HMENU hAppMenu = CreatePopupMenu();
+        AppendMenuW(hAppMenu, MF_STRING, CMD_REFRESH, L"Refresh");
+        AppendMenuW(hAppMenu, MF_STRING, CMD_EXIT, L"Exit");
 
         std::wstring appTitle = PathUtils::GetProductName();
-        AppendMenuW(hMenu, MF_POPUP, (UINT_PTR)hSubMenu, appTitle.c_str());
+        AppendMenuW(hMenu, MF_POPUP, (UINT_PTR)hAppMenu, appTitle.c_str());
     }
 
     SetForegroundWindow(m_hWnd);
@@ -2806,17 +3081,58 @@ void Widget::OnContextMenu()
     {
         JSEngine::OnWidgetContextCommand(m_Options.id, cmd);
     }
-    else if (cmd == 1001)
+    else if (cmd == CMD_REFRESH)
     {
         JSEngine::Reload();
     }
-    else if (cmd == 1002)
+    else if (cmd == CMD_CLOSE)
     {
         DestroyWindow(m_hWnd);
     }
-    else if (cmd == 1003)
+    else if (cmd == CMD_EXIT)
     {
         PostQuitMessage(0);
+    }
+    else if (cmd == CMD_MANAGE_ZPOS_NORMAL)
+    {
+        ChangeZPos(ZPOSITION_NORMAL);
+    }
+    else if (cmd == CMD_MANAGE_ZPOS_DESKTOP)
+    {
+        ChangeZPos(ZPOSITION_ONDESKTOP);
+    }
+    else if (cmd == CMD_MANAGE_ZPOS_BOTTOM)
+    {
+        ChangeZPos(ZPOSITION_ONBOTTOM);
+    }
+    else if (cmd == CMD_MANAGE_ZPOS_ONTOP)
+    {
+        ChangeZPos(ZPOSITION_ONTOP);
+    }
+    else if (cmd == CMD_MANAGE_ZPOS_ONTOPMOST)
+    {
+        ChangeZPos(ZPOSITION_ONTOPMOST);
+    }
+    else if (cmd >= CMD_MANAGE_OPACITY_START && cmd <= CMD_MANAGE_OPACITY_START + 10)
+    {
+        int percent = (cmd - CMD_MANAGE_OPACITY_START) * 10;
+        SetWindowOpacity((BYTE)(percent * 255 / 100));
+    }
+    else if (cmd == CMD_MANAGE_DRAGGABLE)
+    {
+        SetDraggable(!m_Options.draggable);
+    }
+    else if (cmd == CMD_MANAGE_CLICKTHROUGH)
+    {
+        SetClickThrough(!m_Options.clickThrough);
+    }
+    else if (cmd == CMD_MANAGE_SNAPEDGES)
+    {
+        SetSnapEdges(!m_Options.snapEdges);
+    }
+    else if (cmd == CMD_MANAGE_KEEPOFFSCREEN)
+    {
+        SetKeepOnScreen(!m_Options.keepOnScreen);
     }
 }
 

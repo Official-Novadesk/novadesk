@@ -56,6 +56,7 @@ int g_nextTrayId = 1;
 HWND g_trayMessageWindow = nullptr;
 static HANDLE g_singleInstanceMutex = nullptr;
 static std::wstring g_singleInstanceMutexName;
+static HHOOK g_trayMouseHook = nullptr;
 
 static BOOL WINAPI NovadeskConsoleCtrlHandler(DWORD ctrlType)
 {
@@ -85,6 +86,69 @@ void RemoveTrayIcon(int trayId);
 void RemoveAllTrayIcons();
 static TrayState *GetTrayState(int trayId);
 static void DispatchTrayMouseEvent(int trayId, const char *name);
+
+static RECT GetTrayIconRect(int trayId)
+{
+    TrayState *state = GetTrayState(trayId);
+    if (!state || !state->initialized)
+        return {0, 0, 0, 0};
+
+    NOTIFYICONIDENTIFIER identifier = {sizeof(NOTIFYICONIDENTIFIER)};
+    identifier.hWnd = state->hWnd;
+    identifier.uID = static_cast<UINT>(trayId);
+
+    // Dynamically load Shell_NotifyIconGetRect for compatibility with MinGW and older systems
+    typedef HRESULT(WINAPI * PFN_Shell_NotifyIconGetRect)(const NOTIFYICONIDENTIFIER *, RECT *);
+    static PFN_Shell_NotifyIconGetRect pfnGetRect = nullptr;
+    static bool pfnChecked = false;
+
+    if (!pfnChecked)
+    {
+        HMODULE hShell32 = GetModuleHandleW(L"shell32.dll");
+        if (hShell32)
+        {
+            pfnGetRect = (PFN_Shell_NotifyIconGetRect)GetProcAddress(hShell32, "Shell_NotifyIconGetRect");
+        }
+        pfnChecked = true;
+    }
+
+    RECT rc = {0};
+    if (pfnGetRect && pfnGetRect(&identifier, &rc) == S_OK)
+    {
+        return rc;
+    }
+    return {0, 0, 0, 0};
+}
+
+static LRESULT CALLBACK TrayMouseHookProc(int nCode, WPARAM wParam, LPARAM lParam)
+{
+    if (nCode == HC_ACTION && wParam == WM_MOUSEWHEEL)
+    {
+        MSLLHOOKSTRUCT *pMouseStruct = reinterpret_cast<MSLLHOOKSTRUCT *>(lParam);
+        POINT pt = pMouseStruct->pt;
+
+        for (auto &kv : g_trayStates)
+        {
+            if (kv.second.initialized)
+            {
+                RECT rc = GetTrayIconRect(kv.first);
+                if (PtInRect(&rc, pt))
+                {
+                    int zDelta = GET_WHEEL_DELTA_WPARAM(pMouseStruct->mouseData);
+                    if (zDelta > 0)
+                    {
+                        DispatchTrayMouseEvent(kv.first, "scroll-up");
+                    }
+                    else if (zDelta < 0)
+                    {
+                        DispatchTrayMouseEvent(kv.first, "scroll-down");
+                    }
+                }
+            }
+        }
+    }
+    return CallNextHookEx(g_trayMouseHook, nCode, wParam, lParam);
+}
 static void ShowTrayMenuInternal(int trayId, const std::vector<MenuItem> *menu, const POINT *position);
 
 static bool SendIpcCommand(HWND hWnd, const std::wstring &command, const std::wstring &path)
@@ -506,6 +570,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
             const int trayId = static_cast<int>(wParam);
             switch (lParam)
             {
+            case WM_LBUTTONDBLCLK:
+                DispatchTrayMouseEvent(trayId, "double-click");
+                break;
             case WM_LBUTTONUP:
                 DispatchTrayMouseEvent(trayId, "click");
                 break;
@@ -631,6 +698,11 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
             return TRUE;
         }
         case WM_DESTROY:
+            if (g_trayMouseHook)
+            {
+                UnhookWindowsHookEx(g_trayMouseHook);
+                g_trayMouseHook = nullptr;
+            }
             novadesk::scripting::quickjs::UnloadAllAddons();
             RemoveAllTrayIcons();
             PostQuitMessage(0);
@@ -657,6 +729,12 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     // Initialize JS message routing; tray icon is lazy-initialized on first use.
     JSEngine::SetMessageWindow(hWnd);
     g_trayMessageWindow = hWnd;
+
+    g_trayMouseHook = SetWindowsHookEx(WH_MOUSE_LL, TrayMouseHookProc, GetModuleHandle(nullptr), 0);
+    if (!g_trayMouseHook)
+    {
+        Logging::Log(LogLevel::Warn, L"Failed to install tray mouse hook (Error: %d)", GetLastError());
+    }
 
     // Scripting runtime context is handled by the migrated QuickJS path.
     ctx = nullptr;

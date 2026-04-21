@@ -17,8 +17,21 @@ function logEvent(name, event) {
 }
 
 // Primary tray event handlers
-mainTray.on("click", (event) => logEvent("Main Click", event));
+// mainTray.on("click", (event) => logEvent("Main Click", event));
 mainTray.on("right-click", (event) => logEvent("Main Right-Click", event));
+mainTray.on("scroll-up", (event) => {
+    console.log("Tray Scrolled UP!");
+});
+
+mainTray.on("scroll-down", (event) => {
+    console.log("Tray Scrolled DOWN!");
+});
+
+mainTray.on("double-click", () => {
+    console.log("Main Tray double-clicked!");
+});
+
+
 mainTray.setContextMenu([
     {
         text: "Exit Main",

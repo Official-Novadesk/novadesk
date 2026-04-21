@@ -23,7 +23,6 @@ public:
     bool Initialize(HWND parentHWnd, HINSTANCE hInstance);
     void Update(Element* element);
     void Move();
-    void CheckVisibility();  // Called by timer to check if tooltip should be hidden
     void Destroy();
     
     bool IsActive() const { return m_ActiveToolTipHWnd != nullptr; }
@@ -34,9 +33,15 @@ private:
     HWND m_ToolTipBalloonHWnd = nullptr;
     HWND m_ActiveToolTipHWnd = nullptr;
     DWORD m_LastMoveTime = 0;
+    UINT m_ToolInfoSize = 0;
+    POINT m_LastPos = { -1, -1 };
+    
+    // Hybrid tracking state
+    POINT m_PendingPos = { -1, -1 };
+    DWORD m_PendingMoveTime = 0;
+    bool m_IsMovePending = false;
 
     void InitializeToolTip(HWND hwnd);
-    void DeactivateCurrent();
 };
 
 #endif

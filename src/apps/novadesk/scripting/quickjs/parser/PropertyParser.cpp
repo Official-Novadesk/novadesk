@@ -730,6 +730,7 @@ namespace PropertyParser
         GetIntProp(ctx, obj, "tooltipMaxWidth", options.tooltipMaxWidth);
         GetIntProp(ctx, obj, "tooltipMaxHeight", options.tooltipMaxHeight);
         GetBoolProp(ctx, obj, "tooltipBalloon", options.tooltipBalloon);
+        GetBoolProp(ctx, obj, "tooltipDisabled", options.tooltipDisabled);
     }
 
     void ParseGeneralImageOptions(JSContext *ctx, JSValueConst obj, GeneralImageOptions &options)
@@ -1609,6 +1610,7 @@ namespace PropertyParser
                 options.tooltipMaxHeight,
                 options.tooltipBalloon);
         }
+        element->SetToolTipDisabled(options.tooltipDisabled);
     }
 
     void ApplyGeneralImageOptions(GeneralImage *image, const GeneralImageOptions &options)
@@ -1638,11 +1640,6 @@ namespace PropertyParser
         if (options.hasScaleMargins)
             element->SetScaleMargins(options.scaleMarginLeft, options.scaleMarginTop, options.scaleMarginRight, options.scaleMarginBottom);
         element->SetTile(options.tile);
-        
-        // This takes advantage of the fact that ImageElement exposes these methods 
-        // which delegate to its internal GeneralImage.
-        // We could also do: ApplyGeneralImageOptions(&element->GetImage(), options); 
-        // but ImageElement methods are public and easy.
         
         element->SetImageFlip(options.imageFlip);
         if (options.hasImageCrop)
@@ -1960,6 +1957,7 @@ namespace PropertyParser
             const float *m = element->GetTransformMatrix();
             for (int i = 0; i < 6; ++i) options.transformMatrix[i] = m[i];
         }
+        options.tooltipDisabled = element->GetToolTipDisabled();
     }
 
     void PreFillGeneralImageOptions(GeneralImageOptions &options, GeneralImage *image)
@@ -2177,48 +2175,8 @@ namespace PropertyParser
     {
         if (!element)
             return;
-        options.id = element->GetId();
-        options.x = element->GetX();
-        options.y = element->GetY();
-        options.width = element->IsWDefined() ? (element->GetWidth() - element->GetPaddingLeft() - element->GetPaddingRight()) : 0;
-        options.height = element->IsHDefined() ? (element->GetHeight() - element->GetPaddingTop() - element->GetPaddingBottom()) : 0;
+        PreFillElementOptions(options, element);
 
-        options.show = element->IsVisible();
-        options.containerId = element->GetContainerId();
-        options.groupId = element->GetGroupId();
-        options.mouseEventCursor = element->GetMouseEventCursor();
-        options.mouseEventCursorName = element->GetMouseEventCursorName();
-        options.cursorsDir = element->GetCursorsDir();
-        options.rotate = element->GetRotate();
-        options.antialias = element->GetAntiAlias();
-        options.solidColorRadius = element->GetCornerRadius();
-
-        options.paddingLeft = element->GetPaddingLeft();
-        options.paddingTop = element->GetPaddingTop();
-        options.paddingRight = element->GetPaddingRight();
-        options.paddingBottom = element->GetPaddingBottom();
-
-        if (element->HasSolidColor())
-        {
-            options.hasSolidColor = true;
-            options.solidColor = element->GetSolidColor();
-            options.solidAlpha = element->GetSolidAlpha();
-            options.solidGradient = element->GetSolidGradient();
-        }
-
-        options.bevelType = element->GetBevelType();
-        options.bevelWidth = element->GetBevelWidth();
-        options.bevelColor = element->GetBevelColor();
-        options.bevelAlpha = element->GetBevelAlpha();
-        options.bevelColor2 = element->GetBevelColor2();
-        options.bevelAlpha2 = element->GetBevelAlpha2();
-
-        if (element->HasTransformMatrix())
-        {
-            options.hasTransformMatrix = true;
-            const float *m = element->GetTransformMatrix();
-            for (int i = 0; i < 6; ++i) options.transformMatrix[i] = m[i];
-        }
         options.text = element->GetText();
         options.fontFace = element->GetFontFace();
         options.fontSize = element->GetFontSize();
@@ -2616,6 +2574,34 @@ namespace novadesk::scripting::quickjs::parser
         out.hasClickThrough = PropertyParser::GetBoolProp(ctx, options, "clickThrough", out.clickThrough);
         out.hasKeepOnScreen = PropertyParser::GetBoolProp(ctx, options, "keepOnScreen", out.keepOnScreen);
         out.hasSnapEdges = PropertyParser::GetBoolProp(ctx, options, "snapEdges", out.snapEdges);
+        out.hasShowInToolbar = PropertyParser::GetBoolProp(ctx, options, "showInToolbar", out.showInToolbar);
+
+        JSValue toolbarIconVal = JS_GetPropertyStr(ctx, options, "toolbarIcon");
+        if (!JS_IsUndefined(toolbarIconVal) && !JS_IsNull(toolbarIconVal))
+        {
+            const char *s = JS_ToCString(ctx, toolbarIconVal);
+            if (s)
+            {
+                out.toolbarIcon = Utils::ToWString(s);
+                out.hasToolbarIcon = true;
+                JS_FreeCString(ctx, s);
+            }
+        }
+        JS_FreeValue(ctx, toolbarIconVal);
+
+        JSValue toolbarTitleVal = JS_GetPropertyStr(ctx, options, "toolbarTitle");
+        if (!JS_IsUndefined(toolbarTitleVal) && !JS_IsNull(toolbarTitleVal))
+        {
+            const char *s = JS_ToCString(ctx, toolbarTitleVal);
+            if (s)
+            {
+                out.toolbarTitle = Utils::ToWString(s);
+                out.hasToolbarTitle = true;
+                JS_FreeCString(ctx, s);
+            }
+        }
+        JS_FreeValue(ctx, toolbarTitleVal);
+
         out.hasShow = PropertyParser::GetBoolProp(ctx, options, "show", out.show);
 
         std::wstring bg = PropertyParser::GetStringProp(ctx, options, "backgroundColor");

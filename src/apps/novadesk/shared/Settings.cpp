@@ -140,6 +140,9 @@ void Settings::SaveWidget(const std::wstring& id, const WidgetOptions& options)
     widgetData["clickthrough"] = options.clickThrough;
     widgetData["keeponscreen"] = options.keepOnScreen;
     widgetData["snapedges"] = options.snapEdges;
+    widgetData["showintoolbar"] = options.showInToolbar;
+    widgetData["toolbaricon"] = Utils::ToString(options.toolbarIcon);
+    widgetData["toolbartitle"] = Utils::ToString(options.toolbarTitle);
     
     // Only save if data has actually changed
     if (s_Data.contains("widgets") && s_Data["widgets"].contains(idStr))
@@ -187,6 +190,9 @@ bool Settings::LoadWidget(const std::wstring& id, WidgetOptions& outOptions)
         if (w.contains("clickthrough")) outOptions.clickThrough = w["clickthrough"];
         if (w.contains("keeponscreen")) outOptions.keepOnScreen = w["keeponscreen"];
         if (w.contains("snapedges")) outOptions.snapEdges = w["snapedges"];
+        if (w.contains("showintoolbar")) outOptions.showInToolbar = w["showintoolbar"];
+        if (w.contains("toolbaricon") && w["toolbaricon"].is_string()) outOptions.toolbarIcon = Utils::ToWString(w["toolbaricon"].get<std::string>());
+        if (w.contains("toolbartitle") && w["toolbartitle"].is_string()) outOptions.toolbarTitle = Utils::ToWString(w["toolbartitle"].get<std::string>());
         
         return true;
     } catch (std::exception& e) {

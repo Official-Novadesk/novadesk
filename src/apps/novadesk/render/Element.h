@@ -227,8 +227,10 @@ public:
     int GetToolTipMaxWidth() const { return m_ToolTipMaxWidth; }
     int GetToolTipMaxHeight() const { return m_ToolTipMaxHeight; }
     bool GetToolTipBalloon() const { return m_ToolTipBalloon; }
+    bool GetToolTipDisabled() const { return m_ToolTipDisabled; }
+    void SetToolTipDisabled(bool disabled) { m_ToolTipDisabled = disabled; }
 
-    bool HasToolTip() const { return !m_ToolTipText.empty(); }
+    bool HasToolTip() const { return !m_ToolTipText.empty() && !m_ToolTipDisabled; }
 
     // Mouse Actions
     
@@ -313,6 +315,7 @@ protected:
     int m_ToolTipMaxWidth = 0;
     int m_ToolTipMaxHeight = 0;
     bool m_ToolTipBalloon = false;
+    bool m_ToolTipDisabled = false;
 
     void RenderBackground(ID2D1DeviceContext* context);
     void RenderBevel(ID2D1DeviceContext* context);

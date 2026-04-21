@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "../../domain/Widget.h"
+#include "../../shared/PathUtils.h"
 #include "../../shared/Utils.h"
 #include "../engine/JSEngine.h"
 #include "../parser/PropertyParser.h"
@@ -93,6 +94,32 @@ namespace novadesk::scripting::quickjs
                 widget->SetKeepOnScreen(parsed.keepOnScreen);
             if (parsed.hasSnapEdges)
                 widget->SetSnapEdges(parsed.snapEdges);
+            if (parsed.hasShowInToolbar)
+                widget->SetShowInToolbar(parsed.showInToolbar);
+            if (parsed.hasToolbarTitle)
+                widget->SetToolbarTitle(parsed.toolbarTitle);
+            if (parsed.hasToolbarIcon)
+            {
+                std::wstring iconPath = parsed.toolbarIcon;
+                if (!iconPath.empty())
+                {
+                    if (PathUtils::IsPathRelative(iconPath))
+                    {
+                        std::wstring base = JSEngine::GetCurrentScriptDir();
+                        if (base.empty())
+                            base = JSEngine::GetEntryScriptDir();
+                        if (!base.empty())
+                            iconPath = PathUtils::ResolvePath(iconPath, base);
+                        else
+                            iconPath = PathUtils::ResolvePath(iconPath, PathUtils::GetWidgetsDir());
+                    }
+                    else
+                    {
+                        iconPath = PathUtils::NormalizePath(iconPath);
+                    }
+                }
+                widget->SetToolbarIcon(iconPath);
+            }
             if (parsed.hasShow)
             {
                 if (parsed.show)
@@ -123,6 +150,9 @@ namespace novadesk::scripting::quickjs
             JS_SetPropertyStr(ctx, out, "clickThrough", JS_NewBool(ctx, o.clickThrough ? 1 : 0));
             JS_SetPropertyStr(ctx, out, "keepOnScreen", JS_NewBool(ctx, o.keepOnScreen ? 1 : 0));
             JS_SetPropertyStr(ctx, out, "snapEdges", JS_NewBool(ctx, o.snapEdges ? 1 : 0));
+            JS_SetPropertyStr(ctx, out, "showInToolbar", JS_NewBool(ctx, o.showInToolbar ? 1 : 0));
+            JS_SetPropertyStr(ctx, out, "toolbarIcon", JS_NewString(ctx, Utils::ToString(o.toolbarIcon).c_str()));
+            JS_SetPropertyStr(ctx, out, "toolbarTitle", JS_NewString(ctx, Utils::ToString(o.toolbarTitle).c_str()));
             JS_SetPropertyStr(ctx, out, "show", JS_NewBool(ctx, IsWindowVisible(widget->GetWindow()) ? 1 : 0));
             JS_SetPropertyStr(ctx, out, "windowOpacity", JS_NewInt32(ctx, static_cast<int>(o.windowOpacity)));
             JS_SetPropertyStr(ctx, out, "backgroundColor", JS_NewString(ctx, Utils::ToString(o.backgroundColor).c_str()));
@@ -170,6 +200,24 @@ namespace novadesk::scripting::quickjs
             if (!widget)
                 return JS_EXCEPTION;
             widget->UnFocus();
+            return JS_UNDEFINED;
+        }
+
+        JSValue JsWidgetWindowMinimize(JSContext *ctx, JSValueConst thisVal, int, JSValueConst *)
+        {
+            Widget *widget = GetWidget(ctx, thisVal);
+            if (!widget)
+                return JS_EXCEPTION;
+            widget->Minimize();
+            return JS_UNDEFINED;
+        }
+
+        JSValue JsWidgetWindowUnMinimize(JSContext *ctx, JSValueConst thisVal, int, JSValueConst *)
+        {
+            Widget *widget = GetWidget(ctx, thisVal);
+            if (!widget)
+                return JS_EXCEPTION;
+            widget->UnMinimize();
             return JS_UNDEFINED;
         }
 
@@ -337,6 +385,8 @@ namespace novadesk::scripting::quickjs
             JS_CFUNC_DEF("refresh", 0, JsWidgetWindowRefresh),
             JS_CFUNC_DEF("setFocus", 0, JsWidgetWindowSetFocus),
             JS_CFUNC_DEF("unFocus", 0, JsWidgetWindowUnFocus),
+            JS_CFUNC_DEF("minimize", 0, JsWidgetWindowMinimize),
+            JS_CFUNC_DEF("unMinimize", 0, JsWidgetWindowUnMinimize),
             JS_CFUNC_DEF("getHandle", 0, JsWidgetWindowGetHandle),
             JS_CFUNC_DEF("getInternalPointer", 0, JsWidgetWindowGetInternalPointer),
             JS_CFUNC_DEF("getTitle", 0, JsWidgetWindowGetTitle),

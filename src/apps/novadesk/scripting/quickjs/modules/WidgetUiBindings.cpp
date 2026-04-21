@@ -635,6 +635,21 @@ namespace novadesk::scripting::quickjs
                 return arr;
             }
 
+            if (prop == "tooltipText")
+                return JS_NewString(ctx, Utils::ToString(element->GetToolTipText()).c_str());
+            if (prop == "tooltipTitle")
+                return JS_NewString(ctx, Utils::ToString(element->GetToolTipTitle()).c_str());
+            if (prop == "tooltipIcon")
+                return JS_NewString(ctx, Utils::ToString(element->GetToolTipIcon()).c_str());
+            if (prop == "tooltipMaxWidth")
+                return JS_NewInt32(ctx, element->GetToolTipMaxWidth());
+            if (prop == "tooltipMaxHeight")
+                return JS_NewInt32(ctx, element->GetToolTipMaxHeight());
+            if (prop == "tooltipBalloon")
+                return JS_NewBool(ctx, element->GetToolTipBalloon() ? 1 : 0);
+            if (prop == "tooltipDisabled")
+                return JS_NewBool(ctx, element->GetToolTipDisabled() ? 1 : 0);
+
             if (element->GetType() == ELEMENT_TEXT)
             {
                 auto *t = static_cast<TextElement *>(element);
@@ -1565,6 +1580,12 @@ namespace novadesk::scripting::quickjs
             options.keepOnScreen = parsed.keepOnScreen;
         if (parsed.hasSnapEdges)
             options.snapEdges = parsed.snapEdges;
+        if (parsed.hasShowInToolbar)
+            options.showInToolbar = parsed.showInToolbar;
+        if (parsed.hasToolbarTitle)
+            options.toolbarTitle = parsed.toolbarTitle;
+        if (parsed.hasToolbarIcon)
+            options.toolbarIcon = parsed.toolbarIcon;
         if (parsed.hasBackgroundColor)
         {
             options.backgroundColor = parsed.backgroundColor;
@@ -1577,6 +1598,30 @@ namespace novadesk::scripting::quickjs
         if (parsed.hasZPos)
         {
             options.zPos = static_cast<ZPOSITION>(parsed.zPos);
+        }
+
+        if (!options.toolbarIcon.empty())
+        {
+            if (PathUtils::IsPathRelative(options.toolbarIcon))
+            {
+                std::wstring base = JSEngine::GetCurrentScriptDir();
+                if (base.empty())
+                {
+                    base = JSEngine::GetEntryScriptDir();
+                }
+                if (!base.empty())
+                {
+                    options.toolbarIcon = PathUtils::ResolvePath(options.toolbarIcon, base);
+                }
+                else
+                {
+                    options.toolbarIcon = PathUtils::ResolvePath(options.toolbarIcon, PathUtils::GetWidgetsDir());
+                }
+            }
+            else
+            {
+                options.toolbarIcon = PathUtils::NormalizePath(options.toolbarIcon);
+            }
         }
 
         Widget *widget = new Widget(options);

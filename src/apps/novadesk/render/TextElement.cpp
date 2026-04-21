@@ -138,62 +138,6 @@ namespace
         }
     }
 
-    bool HitTestRenderedTextAlpha(IDWriteTextLayout *layout, float relX, float relY, float layoutW, float layoutH, bool antiAlias)
-    {
-        if (!layout)
-            return false;
-        if (relX < 0.0f || relY < 0.0f)
-            return false;
-
-        const UINT bitmapW = (UINT)(std::max)(1.0f, std::ceil(layoutW));
-        const UINT bitmapH = (UINT)(std::max)(1.0f, std::ceil(layoutH));
-        if ((UINT)relX >= bitmapW || (UINT)relY >= bitmapH)
-            return false;
-
-        IWICImagingFactory *wicFactory = Direct2D::GetWICFactory();
-        ID2D1Factory1 *d2dFactory = Direct2D::GetFactory();
-        if (!wicFactory || !d2dFactory)
-            return false;
-
-        Microsoft::WRL::ComPtr<IWICBitmap> wicBitmap;
-        HRESULT hr = wicFactory->CreateBitmap(bitmapW, bitmapH, GUID_WICPixelFormat32bppPBGRA, WICBitmapCacheOnLoad, wicBitmap.GetAddressOf());
-        if (FAILED(hr))
-            return false;
-
-        D2D1_RENDER_TARGET_PROPERTIES props = D2D1::RenderTargetProperties(
-            D2D1_RENDER_TARGET_TYPE_SOFTWARE,
-            D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_PREMULTIPLIED),
-            96.0f,
-            96.0f);
-
-        Microsoft::WRL::ComPtr<ID2D1RenderTarget> renderTarget;
-        hr = d2dFactory->CreateWicBitmapRenderTarget(wicBitmap.Get(), props, renderTarget.GetAddressOf());
-        if (FAILED(hr))
-            return false;
-
-        Microsoft::WRL::ComPtr<ID2D1SolidColorBrush> brush;
-        hr = renderTarget->CreateSolidColorBrush(D2D1::ColorF(1.0f, 1.0f, 1.0f, 1.0f), brush.GetAddressOf());
-        if (FAILED(hr))
-            return false;
-
-        renderTarget->BeginDraw();
-        renderTarget->Clear(D2D1::ColorF(0, 0.0f));
-        renderTarget->SetTextAntialiasMode(antiAlias ? D2D1_TEXT_ANTIALIAS_MODE_GRAYSCALE : D2D1_TEXT_ANTIALIAS_MODE_ALIASED);
-        renderTarget->DrawTextLayout(D2D1::Point2F(0.0f, 0.0f), layout, brush.Get(), D2D1_DRAW_TEXT_OPTIONS_NONE);
-        hr = renderTarget->EndDraw();
-        if (FAILED(hr))
-            return false;
-
-        const INT pixelX = (INT)relX;
-        const INT pixelY = (INT)relY;
-        WICRect rect = {pixelX, pixelY, 1, 1};
-        BYTE pixel[4] = {};
-        hr = wicBitmap->CopyPixels(&rect, 4, 4, pixel);
-        if (FAILED(hr))
-            return false;
-
-        return pixel[3] > (antiAlias ? 8 : 0);
-    }
 }
 
 TextElement::TextElement(const std::wstring &id, int x, int y, int w, int h,
@@ -574,77 +518,8 @@ GfxRect TextElement::GetBounds()
 
 bool TextElement::HitTest(int x, int y)
 {
-    // Bounding box check first (Element's bounds)
-    if (!Element::HitTest(x, y))
-        return false;
-
-    // If we have a background or gradient, the entire element is clickable
-    if ((m_HasSolidColor && m_SolidAlpha > 0) || (m_SolidGradient.type != GRADIENT_NONE))
-        return true;
-
-    // Use DirectWrite for precise hit testing
-    std::wstring fontFace = m_FontFace.empty() ? L"Arial" : m_FontFace;
-
-    Microsoft::WRL::ComPtr<IDWriteFontCollection> pCollection;
-    if (!m_FontPath.empty())
-    {
-        pCollection = FontManager::GetFontCollection(m_FontPath);
-        if (pCollection)
-        {
-            UINT32 index;
-            BOOL exists;
-            if (FAILED(pCollection->FindFamilyName(fontFace.c_str(), &index, &exists)) || !exists)
-            {
-                pCollection = nullptr;
-            }
-        }
-    }
-
-    Microsoft::WRL::ComPtr<IDWriteTextFormat> pTextFormat;
-    HRESULT hr = Direct2D::GetWriteFactory()->CreateTextFormat(
-        fontFace.c_str(), pCollection.Get(),
-        (DWRITE_FONT_WEIGHT)m_FontWeight,
-        m_Italic ? DWRITE_FONT_STYLE_ITALIC : DWRITE_FONT_STYLE_NORMAL,
-        DWRITE_FONT_STRETCH_NORMAL, (float)m_FontSize, L"",
-        pTextFormat.GetAddressOf());
-    if (FAILED(hr))
-        return false;
-
-    GfxRect bounds = GetBounds();
-    float layoutW = (float)bounds.Width - m_PaddingLeft - m_PaddingRight;
-    float layoutH = (float)bounds.Height - m_PaddingTop - m_PaddingBottom;
-    if (layoutW < 0)
-        layoutW = 1;
-    if (layoutH < 0)
-        layoutH = 1;
-
-    ApplyTextAlignment(pTextFormat.Get(), m_TextAlign);
-    ApplyClipSettings(pTextFormat.Get(), m_textClip, m_WDefined);
-
-    std::wstring processedText = GetProcessedText();
-    if (processedText.empty())
-        return false;
-    Microsoft::WRL::ComPtr<IDWriteTextLayout> pLayout;
-    hr = Direct2D::GetWriteFactory()->CreateTextLayout(
-        processedText.c_str(), (UINT32)processedText.length(), pTextFormat.Get(),
-        layoutW, layoutH, pLayout.GetAddressOf());
-    if (FAILED(hr))
-        return false;
-
-    ApplyInlineTextStyles(pLayout.Get(), m_Segments, processedText, m_LetterSpacing, m_UnderLine, m_StrikeThrough);
-
-    // Get point relative to layout area
-    float relX = (float)x - (bounds.X + m_PaddingLeft);
-    float relY = (float)y - (bounds.Y + m_PaddingTop);
-
-    BOOL isTrailingHit = FALSE;
-    BOOL isInside = FALSE;
-    DWRITE_HIT_TEST_METRICS hitMetrics = {};
-    pLayout->HitTestPoint(relX, relY, &isTrailingHit, &isInside, &hitMetrics);
-    if (!isInside)
-        return false;
-
-    return HitTestRenderedTextAlpha(pLayout.Get(), relX, relY, layoutW, layoutH, m_AntiAlias);
+    // Like Rainmeter, if it hits the bounding box, it's considered a hit
+    return Element::HitTest(x, y);
 }
 
 std::wstring TextElement::GetProcessedText() const

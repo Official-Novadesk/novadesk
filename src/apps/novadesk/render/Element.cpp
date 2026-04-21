@@ -17,6 +17,7 @@ Element::Element(ElementType type, const std::wstring& id, int x, int y, int wid
     m_Height = (height > 0) ? height : 0;
     m_WDefined = (width > 0);
     m_HDefined = (height > 0);
+    m_ToolTipDisabled = false;
 }
 
 /*

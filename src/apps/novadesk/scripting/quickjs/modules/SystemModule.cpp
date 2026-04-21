@@ -424,7 +424,16 @@ namespace novadesk::scripting::quickjs
             JS_FreeCString(ctx, s);
             if (!PathUtils::IsPathRelative(path))
                 return PathUtils::NormalizePath(path);
-            return PathUtils::ResolvePath(path, JSEngine::GetEntryScriptDir());
+            std::wstring base = JSEngine::GetCurrentScriptDir();
+            if (base.empty())
+            {
+                base = JSEngine::GetEntryScriptDir();
+            }
+            if (base.empty())
+            {
+                base = PathUtils::GetWidgetsDir();
+            }
+            return PathUtils::ResolvePath(path, base);
         }
 
         JSValue JsJsonParse(JSContext *ctx, JSValueConst, int argc, JSValueConst *argv)

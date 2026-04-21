@@ -65,6 +65,9 @@ struct WidgetOptions
     bool clickThrough = false;
     bool keepOnScreen = false;
     bool snapEdges = true;
+    bool showInToolbar = false;
+    std::wstring toolbarIcon;
+    std::wstring toolbarTitle;
     bool m_WDefined = false;
     bool m_HDefined = false;
     bool show = true;
@@ -85,6 +88,8 @@ public:
     void Refresh();
     void SetFocus();
     void UnFocus();
+    void Minimize();
+    void UnMinimize();
     std::wstring GetTitle() const;
 
     void ChangeZPos(ZPOSITION zPos, bool all = false);
@@ -92,10 +97,13 @@ public:
     void SetWindowPosition(int x, int y, int w, int h);
     void SetWindowOpacity(BYTE opacity);
     void SetBackgroundColor(const std::wstring& colorStr);
-    void SetDraggable(bool enable) { m_Options.draggable = enable; }
+    void SetDraggable(bool enable);
     void SetClickThrough(bool enable);
-    void SetKeepOnScreen(bool enable) { m_Options.keepOnScreen = enable; }
-    void SetSnapEdges(bool enable) { m_Options.snapEdges = enable; }
+    void SetKeepOnScreen(bool enable);
+    void SetSnapEdges(bool enable);
+    void SetShowInToolbar(bool enable);
+    void SetToolbarIcon(const std::wstring& path);
+    void SetToolbarTitle(const std::wstring& title);
 
     const WidgetOptions& GetOptions() const { return m_Options; }
     HWND GetWindow() const { return m_hWnd; }
@@ -187,7 +195,15 @@ private:
     POINT m_DragStartCursor = { 0, 0 };
     POINT m_DragStartWindow = { 0, 0 };
     bool m_IsMouseOverWidget = false;
+    bool m_IsMinimized = false;
     CursorManager m_CursorManager;
+    HICON m_ToolbarIconHandle = nullptr;
+    bool m_ToolbarIconOwned = false;
+
+    void ApplyToolbarStyle();
+    void ApplyToolbarIcon();
+    void ApplyToolbarTitle();
+    void DestroyToolbarIcon();
     
     // Rendering
     Microsoft::WRL::ComPtr<ID2D1DeviceContext> m_pContext;

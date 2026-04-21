@@ -886,6 +886,9 @@ namespace novadesk::scripting::quickjs
             static const std::unordered_set<std::string> kNames = {
                 "click",
                 "right-click",
+                "double-click",
+                "scroll-up",
+                "scroll-down",
             };
             return kNames.find(name) != kNames.end();
         }

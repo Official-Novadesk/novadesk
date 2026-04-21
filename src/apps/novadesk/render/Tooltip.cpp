@@ -9,6 +9,7 @@
 #include "Element.h"
 #include "../shared/Logging.h"
 #include <algorithm>
+#include <windowsx.h>
 
 Tooltip::Tooltip()
 {
@@ -23,27 +24,25 @@ bool Tooltip::Initialize(HWND parentHWnd, HINSTANCE hInstance)
 {
     m_ParentHWnd = parentHWnd;
 
-    // Create standard tooltip control
-    m_ToolTipHWnd = CreateWindowExW(WS_EX_TOPMOST, TOOLTIPS_CLASSW, nullptr,
+    m_ToolTipHWnd = CreateWindowExW(WS_EX_TOPMOST | WS_EX_TRANSPARENT | WS_EX_LAYERED, TOOLTIPS_CLASSW, nullptr,
         WS_POPUP | TTS_NOPREFIX | TTS_ALWAYSTIP,
         CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
-        parentHWnd, nullptr, hInstance, nullptr);
+        nullptr, nullptr, hInstance, nullptr);
 
-    // Create balloon tooltip control
-    m_ToolTipBalloonHWnd = CreateWindowExW(WS_EX_TOPMOST, TOOLTIPS_CLASSW, nullptr,
+    m_ToolTipBalloonHWnd = CreateWindowExW(WS_EX_TOPMOST | WS_EX_TRANSPARENT | WS_EX_LAYERED, TOOLTIPS_CLASSW, nullptr,
         WS_POPUP | TTS_NOPREFIX | TTS_ALWAYSTIP | TTS_BALLOON,
         CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
-        parentHWnd, nullptr, hInstance, nullptr);
+        nullptr, nullptr, hInstance, nullptr);
 
     InitializeToolTip(m_ToolTipHWnd);
     InitializeToolTip(m_ToolTipBalloonHWnd);
 
     if (m_ToolTipHWnd || m_ToolTipBalloonHWnd)
     {
-        // Logging::Log(LogLevel::Debug, L"Tooltip controls created successfully");
         return true;
     }
 
+    Logging::Log(LogLevel::Error, L"Tooltip::Initialize failed to create tooltip controls");
     return false;
 }
 
@@ -51,46 +50,57 @@ void Tooltip::InitializeToolTip(HWND hwnd)
 {
     if (!hwnd) return;
 
-    TOOLINFOW ti = { sizeof(TOOLINFOW) };
-    ti.uFlags = TTF_TRACK | TTF_ABSOLUTE;
+    TOOLINFOW ti = { 0 };
+    ti.uFlags = TTF_TRACK | TTF_ABSOLUTE | TTF_TRANSPARENT;
     ti.hwnd = m_ParentHWnd;
     ti.uId = 0;
-    ti.lpszText = nullptr;
+    ti.lpszText = (LPWSTR)L" ";
+    ti.rect = { 0, 0, 0, 0 };
 
-    SendMessageW(hwnd, TTM_ADDTOOLW, 0, (LPARAM)&ti);
+    UINT sizes[] = { sizeof(TOOLINFOW), 44 , 48  };
+    BOOL added = FALSE;
+    UINT appliedSize = 0;
+
+    for (UINT size : sizes)
+    {
+        ti.cbSize = size;
+        if (SendMessageW(hwnd, TTM_ADDTOOLW, 0, (LPARAM)&ti))
+        {
+            added = TRUE;
+            appliedSize = size;
+            m_ToolInfoSize = size;
+            break;
+        }
+    }
+
+    DWORD lastError = 0;
+    if (!added) lastError = GetLastError();
+
     SendMessageW(hwnd, TTM_SETDELAYTIME, TTDT_INITIAL, 0);
 
-    // Ensure it's topmost without affecting owner Z-order
+    SetLayeredWindowAttributes(hwnd, 0, 255, LWA_ALPHA);
+
     SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOOWNERZORDER);
 }
 
 void Tooltip::Update(Element* element)
 {
-    // Deactivate current tooltip if any
-    DeactivateCurrent();
-
     if (element && element->HasToolTip())
     {
-        Logging::Log(LogLevel::Debug, L"Tooltip::Update - Showing tooltip for element: %s", element->GetId().c_str());
 
-        // Choose which tooltip control to use
         HWND targetTT = element->GetToolTipBalloon() ? m_ToolTipBalloonHWnd : m_ToolTipHWnd;
         if (!targetTT) return;
 
         m_ActiveToolTipHWnd = targetTT;
 
-        TOOLINFOW ti = { sizeof(TOOLINFOW) };
+        TOOLINFOW ti = { 0 };
+        ti.cbSize = m_ToolInfoSize;
         ti.hwnd = m_ParentHWnd;
         ti.uId = 0;
 
-        // Logging::Log(LogLevel::Debug, L"UpdateToolTip: id=%s, text=%s, balloon=%d",
-        //     element->GetId().c_str(), element->GetToolTipText().c_str(), element->GetToolTipBalloon());
-
-        // Update Text
         ti.lpszText = (LPWSTR)element->GetToolTipText().c_str();
         SendMessageW(m_ActiveToolTipHWnd, TTM_UPDATETIPTEXTW, 0, (LPARAM)&ti);
 
-        // Update Title and Icon
         HICON hIcon = nullptr;
         std::wstring tipIcon = element->GetToolTipIcon();
 
@@ -99,18 +109,48 @@ void Tooltip::Update(Element* element)
         else if (tipIcon == L"warning") hIcon = (HICON)TTI_WARNING;
 
         SendMessageW(m_ActiveToolTipHWnd, TTM_SETTITLEW, (WPARAM)hIcon, (LPARAM)element->GetToolTipTitle().c_str());
-        
-        // Set max width and height
+
         int maxWidth = element->GetToolTipMaxWidth() > 0 ? element->GetToolTipMaxWidth() : 1000;
         SendMessageW(m_ActiveToolTipHWnd, TTM_SETMAXTIPWIDTH, 0, maxWidth);
-        
-        // Note: TTM_SETMAXHEIGHT doesn't exist in standard tooltip API
-        // Height is automatically calculated based on content and width
 
-        // Position and Show
-        Move();
+        POINT pt;
+        if (GetCursorPos(&pt))
+        {
+            SendMessageW(targetTT, TTM_TRACKPOSITION, 0, MAKELPARAM(pt.x + 20, pt.y + 20));
+            m_LastPos = pt;
+        }
 
-        SendMessageW(m_ActiveToolTipHWnd, TTM_TRACKACTIVATE, TRUE, (LPARAM)&ti);
+        m_IsMovePending = false; 
+
+        BOOL visible = IsWindowVisible(targetTT);
+
+        LRESULT activated = 0;
+
+        if (m_ActiveToolTipHWnd != targetTT || !visible)
+        {
+            activated = SendMessageW(targetTT, TTM_TRACKACTIVATE, TRUE, (LPARAM)&ti);
+            ShowWindow(targetTT, SW_SHOWNA);
+        }
+
+        m_ActiveToolTipHWnd = targetTT;
+    }
+    else
+    {
+        if (m_ToolTipHWnd) {
+            TOOLINFOW ti = { 0 };
+            ti.cbSize = m_ToolInfoSize;
+            ti.hwnd = m_ParentHWnd;
+            ti.uId = 0;
+            SendMessageW(m_ToolTipHWnd, TTM_TRACKACTIVATE, FALSE, (LPARAM)&ti);
+        }
+        if (m_ToolTipBalloonHWnd) {
+            TOOLINFOW ti = { 0 };
+            ti.cbSize = m_ToolInfoSize;
+            ti.hwnd = m_ParentHWnd;
+            ti.uId = 0;
+            SendMessageW(m_ToolTipBalloonHWnd, TTM_TRACKACTIVATE, FALSE, (LPARAM)&ti);
+        }
+        m_ActiveToolTipHWnd = nullptr;
     }
 }
 
@@ -120,63 +160,38 @@ void Tooltip::Move()
     {
         POINT pt;
         GetCursorPos(&pt);
-        
-        // Check if another window is covering our widget at the cursor position
-        HWND hwndUnderCursor = WindowFromPoint(pt);
-        
-        if (hwndUnderCursor != m_ParentHWnd && hwndUnderCursor != m_ActiveToolTipHWnd)
+
+        int dx = pt.x - m_LastPos.x;
+        int dy = pt.y - m_LastPos.y;
+        DWORD now = GetTickCount();
+
+        if (dx * dx + dy * dy >= 10)
         {
-            // Another window is on top at this position, hide tooltip
+            if (!m_IsMovePending)
+            {
+                m_IsMovePending = true;
+                m_PendingPos = pt;
+                m_PendingMoveTime = now;
+            }
+            else
+            {
 
-            DeactivateCurrent();
-            return;
+                if (now - m_PendingMoveTime > 50)
+                {
+                    SendMessageW(m_ActiveToolTipHWnd, TTM_TRACKPOSITION, 0, MAKELPARAM(pt.x + 20, pt.y + 20));
+                    m_LastPos = pt;
+                    m_IsMovePending = false;
+                }
+            }
         }
-        
-        DWORD currentTime = GetTickCount();
-        if (currentTime - m_LastMoveTime < 200)
+        else
         {
-            return;
         }
-        m_LastMoveTime = currentTime;
-        
-        SendMessageW(m_ActiveToolTipHWnd, TTM_TRACKPOSITION, 0, MAKELPARAM(pt.x + 15, pt.y + 15));
-    }
-}
-
-void Tooltip::DeactivateCurrent()
-{
-    if (m_ActiveToolTipHWnd)
-    {
-
-        TOOLINFOW ti = { sizeof(TOOLINFOW) };
-        ti.hwnd = m_ParentHWnd;
-        ti.uId = 0;
-        SendMessageW(m_ActiveToolTipHWnd, TTM_TRACKACTIVATE, FALSE, (LPARAM)&ti);
-        m_ActiveToolTipHWnd = nullptr;
-    }
-}
-
-void Tooltip::CheckVisibility()
-{
-    if (!m_ActiveToolTipHWnd) return;
-    
-    POINT pt;
-    GetCursorPos(&pt);
-    
-    // Check if another window is covering our widget at the cursor position
-    HWND hwndUnderCursor = WindowFromPoint(pt);
-    
-    if (hwndUnderCursor != m_ParentHWnd && hwndUnderCursor != m_ActiveToolTipHWnd && GetParent(hwndUnderCursor) != m_ParentHWnd)
-    {
-
-        DeactivateCurrent();
     }
 }
 
 void Tooltip::Destroy()
 {
-    DeactivateCurrent();
-
     if (m_ToolTipHWnd)
     {
         DestroyWindow(m_ToolTipHWnd);
@@ -188,3 +203,4 @@ void Tooltip::Destroy()
         m_ToolTipBalloonHWnd = nullptr;
     }
 }
+

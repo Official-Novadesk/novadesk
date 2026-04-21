@@ -39,6 +39,7 @@ namespace JSEngine
         JSRuntime *g_runtime = nullptr;
         JSContext *g_context = nullptr;
         std::wstring g_lastScriptPath;
+        std::wstring g_mainScriptPath;
         std::wstring g_currentScriptDir;
         std::wstring g_currentScriptPath;
         std::vector<std::wstring> g_loadedScriptPaths;
@@ -365,6 +366,9 @@ namespace JSEngine
             JS_SetPropertyStr(g_context, global, "ipcMain", JS_DupValue(g_context, mainIpc));
             JS_SetPropertyStr(g_context, global, "__filename", JS_NewString(g_context, fileName.c_str()));
             JS_SetPropertyStr(g_context, global, "__dirname", JS_NewString(g_context, dirName.c_str()));
+            const std::wstring effectiveMainScriptPath = g_mainScriptPath.empty() ? finalScriptPath : g_mainScriptPath;
+            const std::wstring effectiveMainScriptDirPath = PathUtils::GetParentDir(effectiveMainScriptPath);
+            JS_SetPropertyStr(g_context, global, "__mainScriptDirPath", JS_NewString(g_context, Utils::ToString(effectiveMainScriptDirPath).c_str()));
             JS_SetPropertyStr(g_context, global, "__widgetDir", JS_NewString(g_context, Utils::ToString(PathUtils::GetWidgetsDir()).c_str()));
             JS_SetPropertyStr(g_context, global, "__addonsPath", JS_NewString(g_context, Utils::ToString(PathUtils::GetAddonsDir()).c_str()));
             JS_FreeValue(g_context, mainIpc);
@@ -374,6 +378,7 @@ namespace JSEngine
                 "const ipcMain = globalThis.ipcMain;\n"
                 "const __filename = globalThis.__filename;\n"
                 "const __dirname = globalThis.__dirname;\n"
+                "const __mainScriptDirPath = globalThis.__mainScriptDirPath;\n"
                 "const __widgetDir = globalThis.__widgetDir;\n"
                 "const __addonsPath = globalThis.__addonsPath;\n"
                 "const path = globalThis.path;\n";
@@ -1344,6 +1349,7 @@ namespace JSEngine
         }
 
         std::vector<std::wstring> loadedPaths;
+        g_mainScriptPath = resolved.empty() ? L"" : resolved.front();
 
         for (size_t i = 1; i < g_eventCallbacks.size(); ++i)
         {
