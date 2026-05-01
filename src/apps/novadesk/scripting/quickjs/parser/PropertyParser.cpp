@@ -725,6 +725,9 @@ namespace PropertyParser
         GetEventCallbackProp(ctx, obj, "onScrollRight", options.onScrollRightCallbackId);
         GetEventCallbackProp(ctx, obj, "onMouseOver", options.onMouseOverCallbackId);
         GetEventCallbackProp(ctx, obj, "onMouseLeave", options.onMouseLeaveCallbackId);
+        GetEventCallbackProp(ctx, obj, "onDragStart", options.onDragStartCallbackId);
+        GetEventCallbackProp(ctx, obj, "onDrag", options.onDragCallbackId);
+        GetEventCallbackProp(ctx, obj, "onDragEnd", options.onDragEndCallbackId);
 
         options.tooltipText = GetStringProp(ctx, obj, "tooltipText");
         options.tooltipTitle = GetStringProp(ctx, obj, "tooltipTitle");
@@ -1603,6 +1606,12 @@ namespace PropertyParser
             element->m_OnMouseOverCallbackId = options.onMouseOverCallbackId;
         if (options.onMouseLeaveCallbackId != -1)
             element->m_OnMouseLeaveCallbackId = options.onMouseLeaveCallbackId;
+        if (options.onDragStartCallbackId != -1)
+            element->m_OnDragStartCallbackId = options.onDragStartCallbackId;
+        if (options.onDragCallbackId != -1)
+            element->m_OnDragCallbackId = options.onDragCallbackId;
+        if (options.onDragEndCallbackId != -1)
+            element->m_OnDragEndCallbackId = options.onDragEndCallbackId;
 
         if (!options.tooltipText.empty())
         {

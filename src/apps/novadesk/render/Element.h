@@ -212,6 +212,7 @@ public:
 
     bool HasAction(UINT message, WPARAM wParam) const;
     bool HasMouseAction() const;
+    bool HasDragAction() const;
 
     // Tooltip properties
     void SetToolTip(const std::wstring& text, const std::wstring& title = L"", const std::wstring& icon = L"", int maxWidth = 0, int maxHeight = 0, bool balloon = false) {
@@ -258,6 +259,9 @@ public:
     int m_OnScrollRightCallbackId = -1;
     int m_OnMouseOverCallbackId = -1;
     int m_OnMouseLeaveCallbackId = -1;
+    int m_OnDragStartCallbackId = -1;
+    int m_OnDragCallbackId = -1;
+    int m_OnDragEndCallbackId = -1;
 
     bool m_IsMouseOver = false;
 

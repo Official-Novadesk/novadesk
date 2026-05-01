@@ -21,6 +21,7 @@
 #include <iphlpapi.h>
 #include <wininet.h>
 #include <shellapi.h>
+#include <pdh.h>
 
 #ifndef __IAudioMeterInformation_INTERFACE_DEFINED__
 #define __IAudioMeterInformation_INTERFACE_DEFINED__
@@ -47,6 +48,7 @@ static const IID IID_IAudioMeterInformation_Local =
 #pragma comment(lib, "PowrProf.lib")
 #pragma comment(lib, "Iphlpapi.lib")
 #pragma comment(lib, "Wininet.lib")
+#pragma comment(lib, "Pdh.lib")
 
 namespace novadesk::shared::system
 {
@@ -75,6 +77,15 @@ namespace novadesk::shared::system
     ULONGLONG g_lastTotalIn = 0;
     ULONGLONG g_lastTotalOut = 0;
     std::chrono::steady_clock::time_point g_lastNetworkSample = std::chrono::steady_clock::time_point::min();
+
+    // *********************************************
+    //  Disk IO Metrics (PDH)
+
+    std::mutex g_diskIoMutex;
+    PDH_HQUERY g_diskIoQuery = nullptr;
+    PDH_HCOUNTER g_diskReadCounter = nullptr;
+    PDH_HCOUNTER g_diskWriteCounter = nullptr;
+    bool g_diskIoPrimed = false;
 
     // *********************************************
     //  Power
@@ -347,6 +358,75 @@ namespace novadesk::shared::system
         outStats.percent = (outStats.total > 0.0)
                                ? static_cast<int>((outStats.used * 100.0) / outStats.total + 0.5)
                                : 0;
+        return true;
+    }
+
+    bool GetDiskIoStats(DiskIoStats &outStats)
+    {
+        std::lock_guard<std::mutex> lock(g_diskIoMutex);
+
+        if (!g_diskIoQuery)
+        {
+            if (PdhOpenQueryW(nullptr, 0, &g_diskIoQuery) != ERROR_SUCCESS)
+            {
+                return false;
+            }
+
+            if (PdhAddEnglishCounterW(g_diskIoQuery, L"\\PhysicalDisk(_Total)\\Disk Read Bytes/sec", 0, &g_diskReadCounter) != ERROR_SUCCESS ||
+                PdhAddEnglishCounterW(g_diskIoQuery, L"\\PhysicalDisk(_Total)\\Disk Write Bytes/sec", 0, &g_diskWriteCounter) != ERROR_SUCCESS)
+            {
+                if (g_diskIoQuery)
+                {
+                    PdhCloseQuery(g_diskIoQuery);
+                }
+                g_diskIoQuery = nullptr;
+                g_diskReadCounter = nullptr;
+                g_diskWriteCounter = nullptr;
+                g_diskIoPrimed = false;
+                return false;
+            }
+
+            if (PdhCollectQueryData(g_diskIoQuery) != ERROR_SUCCESS)
+            {
+                PdhCloseQuery(g_diskIoQuery);
+                g_diskIoQuery = nullptr;
+                g_diskReadCounter = nullptr;
+                g_diskWriteCounter = nullptr;
+                g_diskIoPrimed = false;
+                return false;
+            }
+            g_diskIoPrimed = true;
+        }
+
+        if (!g_diskIoPrimed)
+        {
+            if (PdhCollectQueryData(g_diskIoQuery) != ERROR_SUCCESS)
+            {
+                return false;
+            }
+            g_diskIoPrimed = true;
+        }
+
+        if (PdhCollectQueryData(g_diskIoQuery) != ERROR_SUCCESS)
+        {
+            return false;
+        }
+
+        PDH_FMT_COUNTERVALUE readValue{};
+        PDH_FMT_COUNTERVALUE writeValue{};
+        if (PdhGetFormattedCounterValue(g_diskReadCounter, PDH_FMT_DOUBLE, nullptr, &readValue) != ERROR_SUCCESS ||
+            PdhGetFormattedCounterValue(g_diskWriteCounter, PDH_FMT_DOUBLE, nullptr, &writeValue) != ERROR_SUCCESS)
+        {
+            return false;
+        }
+
+        outStats.readSpeed = (readValue.CStatus == ERROR_SUCCESS) ? readValue.doubleValue : 0.0;
+        outStats.writeSpeed = (writeValue.CStatus == ERROR_SUCCESS) ? writeValue.doubleValue : 0.0;
+
+        if (outStats.readSpeed < 0.0)
+            outStats.readSpeed = 0.0;
+        if (outStats.writeSpeed < 0.0)
+            outStats.writeSpeed = 0.0;
         return true;
     }
 

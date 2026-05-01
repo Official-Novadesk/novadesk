@@ -47,7 +47,9 @@ const std::unordered_set<std::string> DEFAULT_ADDONS = {
     "nowplaying",
     "nowplaying.dll",
     "blurbehind",
-    "blurbehind.dll"
+    "blurbehind.dll",
+    "inputbox",
+    "inputbox.dll"
 };
 
 struct SetupOptions {

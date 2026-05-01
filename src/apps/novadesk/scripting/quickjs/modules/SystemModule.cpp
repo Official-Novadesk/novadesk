@@ -20,6 +20,8 @@ namespace novadesk::scripting::quickjs
     {
         shared::system::NetworkStats g_cachedNetworkStats{};
         std::chrono::steady_clock::time_point g_cachedNetworkAt = std::chrono::steady_clock::time_point::min();
+        shared::system::DiskIoStats g_cachedDiskIoStats{};
+        std::chrono::steady_clock::time_point g_cachedDiskIoAt = std::chrono::steady_clock::time_point::min();
         uint64_t g_nextWebFetchId = 1;
 
         struct WebFetchRequest
@@ -111,6 +113,25 @@ namespace novadesk::scripting::quickjs
             }
 
             out = g_cachedNetworkStats;
+            return true;
+        }
+
+        bool ReadDiskIoCached(shared::system::DiskIoStats &out)
+        {
+            const auto now = std::chrono::steady_clock::now();
+            constexpr auto kMinResample = std::chrono::milliseconds(400);
+
+            if (g_cachedDiskIoAt == std::chrono::steady_clock::time_point::min() ||
+                (now - g_cachedDiskIoAt) >= kMinResample)
+            {
+                if (!shared::system::GetDiskIoStats(g_cachedDiskIoStats))
+                {
+                    return false;
+                }
+                g_cachedDiskIoAt = now;
+            }
+
+            out = g_cachedDiskIoStats;
             return true;
         }
 
@@ -300,6 +321,22 @@ namespace novadesk::scripting::quickjs
             if (!shared::system::GetDiskStats(ReadOptionalPathArg(ctx, argc, argv), stats))
                 return JS_NewInt32(ctx, 0);
             return JS_NewInt32(ctx, stats.percent);
+        }
+
+        JSValue JsDiskReadSpeed(JSContext *ctx, JSValueConst, int, JSValueConst *)
+        {
+            shared::system::DiskIoStats stats;
+            if (!ReadDiskIoCached(stats))
+                return JS_NewFloat64(ctx, 0.0);
+            return JS_NewFloat64(ctx, stats.readSpeed);
+        }
+
+        JSValue JsDiskWriteSpeed(JSContext *ctx, JSValueConst, int, JSValueConst *)
+        {
+            shared::system::DiskIoStats stats;
+            if (!ReadDiskIoCached(stats))
+                return JS_NewFloat64(ctx, 0.0);
+            return JS_NewFloat64(ctx, stats.writeSpeed);
         }
 
         JSValue JsRecycleBinOpenBin(JSContext *ctx, JSValueConst, int, JSValueConst *)
@@ -837,6 +874,8 @@ namespace novadesk::scripting::quickjs
             JS_SetPropertyStr(ctx, disk, "availableBytes", JS_NewCFunction(ctx, JsDiskAvailableBytes, "availableBytes", 1));
             JS_SetPropertyStr(ctx, disk, "usedBytes", JS_NewCFunction(ctx, JsDiskUsedBytes, "usedBytes", 1));
             JS_SetPropertyStr(ctx, disk, "usagePercent", JS_NewCFunction(ctx, JsDiskUsagePercent, "usagePercent", 1));
+            JS_SetPropertyStr(ctx, disk, "readSpeed", JS_NewCFunction(ctx, JsDiskReadSpeed, "readSpeed", 0));
+            JS_SetPropertyStr(ctx, disk, "writeSpeed", JS_NewCFunction(ctx, JsDiskWriteSpeed, "writeSpeed", 0));
             JS_SetModuleExport(ctx, m, "disk", disk);
 
             JSValue recycleBin = JS_NewObject(ctx);

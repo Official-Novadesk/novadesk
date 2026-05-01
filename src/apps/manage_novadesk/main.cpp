@@ -147,7 +147,7 @@ static const UINT_PTR kStartupSyncTimerId = 3;
 static const UINT kStartupSyncDelayMs = 120;
 static const UINT kAutoUpdateIntervalMs = 60 * 1000; // 1 minute
 static const int kMaxLogRows = 2000;
-static const wchar_t *kCurrentVersion = L"0.9.2.0";
+static const wchar_t *kCurrentVersion = L"0.9.3.0";
 static const wchar_t *kSingleInstanceLockArg = L"--request-single-instance-lock";
 static const wchar_t *kManageWindowClassName = L"NovadeskManagerWindow";
 static const wchar_t *kManageCloseMessageName = L"Novadesk.Manage.RequestClose";
@@ -2328,7 +2328,7 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
                                          WS_CHILD | SS_LEFT,
                                          pageRect.left + 120, pageRect.top, pageRect.right - pageRect.left - 140, 32,
                                          hWnd, nullptr, GetModuleHandleW(nullptr), nullptr);
-        g_aboutVersion = CreateWindowExW(0, L"STATIC", L"Version 0.9.2.0 (Beta)",
+        g_aboutVersion = CreateWindowExW(0, L"STATIC", L"Version 0.9.3.0 (Beta)",
                                          WS_CHILD | SS_LEFT,
                                          pageRect.left + 120, pageRect.top + 34, pageRect.right - pageRect.left - 140, 22,
                                          hWnd, nullptr, GetModuleHandleW(nullptr), nullptr);

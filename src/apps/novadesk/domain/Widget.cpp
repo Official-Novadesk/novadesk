@@ -104,7 +104,10 @@ Widget::Widget(const WidgetOptions &options)
 */
 Widget::~Widget()
 {
-    JSEngine::TriggerWidgetEvent(this, "close");
+    if (!m_SkipCloseEventOnDestroy)
+    {
+        JSEngine::TriggerWidgetEvent(this, "close");
+    }
 
     DestroyToolbarIcon();
 
@@ -774,7 +777,7 @@ LRESULT CALLBACK Widget::WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
             }
 
             const bool ctrlHeld = (GetAsyncKeyState(VK_CONTROL) & 0x8000) != 0;
-            if (widget->m_Options.draggable || ctrlHeld)
+            if (!widget->m_IsElementDragging && (widget->m_Options.draggable || ctrlHeld))
             {
                 SetCapture(hWnd);
                 widget->m_IsDragging = true;
@@ -2640,6 +2643,48 @@ bool Widget::HandleMouseMessage(UINT message, WPARAM wParam, LPARAM lParam)
     int y = GET_Y_LPARAM(lParam);
     bool justEnteredWidget = false;
 
+    auto isTrackedElement = [&](Element *el) -> bool
+    {
+        if (!el)
+            return false;
+        return std::find(m_Elements.begin(), m_Elements.end(), el) != m_Elements.end();
+    };
+
+    if (!isTrackedElement(m_DragElement))
+    {
+        m_DragElement = nullptr;
+        m_IsElementDragging = false;
+    }
+
+    auto buildElementEventData = [&](Element *el) -> JSEngine::MouseEventData
+    {
+        JSEngine::MouseEventData eventData;
+        eventData.clientX = x;
+        eventData.clientY = y;
+
+        POINT screenPt = {x, y};
+        ClientToScreen(m_hWnd, &screenPt);
+        eventData.screenX = screenPt.x;
+        eventData.screenY = screenPt.y;
+
+        const int elementX = el ? el->GetX() : 0;
+        const int elementY = el ? el->GetY() : 0;
+        eventData.offsetX = x - elementX;
+        eventData.offsetY = y - elementY;
+
+        const int elementW = el ? el->GetWidth() : 0;
+        const int elementH = el ? el->GetHeight() : 0;
+        if (elementW > 0)
+        {
+            eventData.offsetXPercent = (int)(((eventData.offsetX + 1) / (double)elementW) * 100.0);
+        }
+        if (elementH > 0)
+        {
+            eventData.offsetYPercent = (int)(((eventData.offsetY + 1) / (double)elementH) * 100.0);
+        }
+        return eventData;
+    };
+
     // Manual tracking for tooltips to support hybrid delayed moves
     m_Tooltip.Move();
 
@@ -2837,35 +2882,6 @@ bool Widget::HandleMouseMessage(UINT message, WPARAM wParam, LPARAM lParam)
 
         if (hoverElement != m_MouseOverElement)
         {
-            auto buildElementEventData = [&](Element *el)
-            {
-                JSEngine::MouseEventData eventData;
-                eventData.clientX = x;
-                eventData.clientY = y;
-
-                POINT screenPt = {x, y};
-                ClientToScreen(m_hWnd, &screenPt);
-                eventData.screenX = screenPt.x;
-                eventData.screenY = screenPt.y;
-
-                const int elementX = el ? el->GetX() : 0;
-                const int elementY = el ? el->GetY() : 0;
-                eventData.offsetX = x - elementX;
-                eventData.offsetY = y - elementY;
-
-                const int elementW = el ? el->GetWidth() : 0;
-                const int elementH = el ? el->GetHeight() : 0;
-                if (elementW > 0)
-                {
-                    eventData.offsetXPercent = (int)(((eventData.offsetX + 1) / (double)elementW) * 100.0);
-                }
-                if (elementH > 0)
-                {
-                    eventData.offsetYPercent = (int)(((eventData.offsetY + 1) / (double)elementH) * 100.0);
-                }
-                return eventData;
-            };
-
             if (m_MouseOverElement)
             {
 
@@ -3119,6 +3135,55 @@ bool Widget::HandleMouseMessage(UINT message, WPARAM wParam, LPARAM lParam)
             // Execute function callback with mouse position aliases.
             JSEngine::CallEventCallback(actionId, this, &eventData);
             handled = true;
+        }
+    }
+
+    // Dispatch drag actions (for slider-like interactions on any element).
+    if (message == WM_LBUTTONDOWN)
+    {
+        Element *dragTarget = actionElement ? actionElement : hitElement;
+        if (dragTarget && dragTarget->HasDragAction())
+        {
+            m_DragElement = dragTarget;
+            m_IsElementDragging = true;
+            SetCapture(m_hWnd);
+
+            if (m_DragElement->m_OnDragStartCallbackId != -1)
+            {
+                JSEngine::MouseEventData eventData = buildElementEventData(m_DragElement);
+                JSEngine::CallEventCallback(m_DragElement->m_OnDragStartCallbackId, this, &eventData);
+                handled = true;
+            }
+        }
+    }
+    else if (message == WM_MOUSEMOVE)
+    {
+        if (m_IsElementDragging && isTrackedElement(m_DragElement))
+        {
+            if (m_DragElement->m_OnDragCallbackId != -1)
+            {
+                JSEngine::MouseEventData eventData = buildElementEventData(m_DragElement);
+                JSEngine::CallEventCallback(m_DragElement->m_OnDragCallbackId, this, &eventData);
+                handled = true;
+            }
+        }
+    }
+    else if (message == WM_LBUTTONUP)
+    {
+        if (m_IsElementDragging && isTrackedElement(m_DragElement))
+        {
+            if (m_DragElement->m_OnDragEndCallbackId != -1)
+            {
+                JSEngine::MouseEventData eventData = buildElementEventData(m_DragElement);
+                JSEngine::CallEventCallback(m_DragElement->m_OnDragEndCallbackId, this, &eventData);
+                handled = true;
+            }
+        }
+        m_DragElement = nullptr;
+        m_IsElementDragging = false;
+        if (GetCapture() == m_hWnd && !m_IsDragging)
+        {
+            ReleaseCapture();
         }
     }
 

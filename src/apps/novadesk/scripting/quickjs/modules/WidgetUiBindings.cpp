@@ -512,6 +512,51 @@ namespace novadesk::scripting::quickjs
             return JS_UNDEFINED;
         }
 
+        JSValue JsWidgetSetElementProperty(JSContext *ctx, JSValueConst thisVal, int argc, JSValueConst *argv)
+        {
+            // Backward compatible path: setElementProperty(id, optionsObject)
+            if (argc >= 2 && JS_IsObject(argv[1]))
+            {
+                return JsWidgetSetElementProperties(ctx, thisVal, argc, argv);
+            }
+
+            // New API: setElementProperty(id, key, value)
+            if (argc < 3)
+            {
+                return ThrowTypeError(ctx, "setElementProperty", "expected (id, key, value)");
+            }
+
+            const char *keyUtf8 = JS_ToCString(ctx, argv[1]);
+            if (!keyUtf8)
+                return JS_EXCEPTION;
+
+            JSValue options = JS_NewObject(ctx);
+            JS_SetPropertyStr(ctx, options, keyUtf8, JS_DupValue(ctx, argv[2]));
+            JS_FreeCString(ctx, keyUtf8);
+
+            JSValue args[2] = {argv[0], options};
+            JSValue ret = JsWidgetSetElementProperties(ctx, thisVal, 2, args);
+            JS_FreeValue(ctx, options);
+            return ret;
+        }
+
+        JSValue JsWidgetIsElementExist(JSContext *ctx, JSValueConst thisVal, int argc, JSValueConst *argv)
+        {
+            Widget *widget = GetAnyWidget(ctx, thisVal);
+            if (!widget)
+                return JS_NewBool(ctx, 0);
+            if (argc < 1)
+                return ThrowTypeError(ctx, "isElementExist", "expected (id)");
+
+            const char *idUtf8 = JS_ToCString(ctx, argv[0]);
+            if (!idUtf8)
+                return JS_EXCEPTION;
+            std::wstring id = Utils::ToWString(idUtf8);
+            JS_FreeCString(ctx, idUtf8);
+
+            return JS_NewBool(ctx, widget->FindElementById(id) ? 1 : 0);
+        }
+
         JSValue JsWidgetSetElementPropertiesByGroup(JSContext *ctx, JSValueConst thisVal, int argc, JSValueConst *argv)
         {
             Widget *widget = GetAnyWidget(ctx, thisVal);
@@ -1322,11 +1367,12 @@ namespace novadesk::scripting::quickjs
             JS_CFUNC_DEF("addBitmap", 1, JsWidgetAddBitmap),
             JS_CFUNC_DEF("addRotator", 1, JsWidgetAddRotator),
             JS_CFUNC_DEF("addAreaGraph", 1, JsWidgetAddAreaGraph),
-            JS_CFUNC_DEF("setElementProperty", 2, JsWidgetSetElementProperties),
+            JS_CFUNC_DEF("setElementProperty", 3, JsWidgetSetElementProperty),
             JS_CFUNC_DEF("setElementProperties", 2, JsWidgetSetElementProperties),
             JS_CFUNC_DEF("setElementPropertyByGroup", 2, JsWidgetSetElementPropertiesByGroup),
             JS_CFUNC_DEF("setElementPropertiesByGroup", 2, JsWidgetSetElementPropertiesByGroup),
             JS_CFUNC_DEF("getElementProperty", 2, JsWidgetGetElementProperty),
+            JS_CFUNC_DEF("isElementExist", 1, JsWidgetIsElementExist),
             JS_CFUNC_DEF("removeElements", 1, JsWidgetRemoveElements),
             JS_CFUNC_DEF("removeElementsByGroup", 1, JsWidgetRemoveElementsByGroup),
             JS_CFUNC_DEF("beginUpdate", 0, JsWidgetBeginUpdate),

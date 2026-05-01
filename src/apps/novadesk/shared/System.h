@@ -76,6 +76,12 @@ namespace novadesk::shared::system
         int percent = 0;
     };
 
+    struct DiskIoStats
+    {
+        double readSpeed = 0.0;  // bytes/sec
+        double writeSpeed = 0.0; // bytes/sec
+    };
+
     struct RecycleBinStats
     {
         double count = 0.0;
@@ -107,6 +113,7 @@ namespace novadesk::shared::system
     bool GetMemoryStats(MemoryStats &outStats);
     bool GetNetworkStats(NetworkStats &outStats);
     bool GetDiskStats(const std::wstring &path, DiskStats &outStats);
+    bool GetDiskIoStats(DiskIoStats &outStats);
     bool GetRecycleBinStats(RecycleBinStats &outStats);
     bool OpenRecycleBin();
     bool EmptyRecycleBin(bool silent);

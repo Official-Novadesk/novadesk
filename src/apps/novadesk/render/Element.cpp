@@ -150,7 +150,17 @@ bool Element::HasMouseAction() const {
            m_OnScrollLeftCallbackId != -1 ||
            m_OnScrollRightCallbackId != -1 ||
            m_OnMouseOverCallbackId != -1 ||
-           m_OnMouseLeaveCallbackId != -1;
+           m_OnMouseLeaveCallbackId != -1 ||
+           m_OnDragStartCallbackId != -1 ||
+           m_OnDragCallbackId != -1 ||
+           m_OnDragEndCallbackId != -1;
+}
+
+bool Element::HasDragAction() const
+{
+    return m_OnDragStartCallbackId != -1 ||
+           m_OnDragCallbackId != -1 ||
+           m_OnDragEndCallbackId != -1;
 }
 
 /*

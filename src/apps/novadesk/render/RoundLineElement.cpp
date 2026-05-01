@@ -72,12 +72,14 @@ bool RoundLineElement::HitTest(int x, int y)
     ID2D1Factory1* factory = Direct2D::GetFactory();
     if (!factory) return false;
 
-    float cx = (float)m_X + (float)m_Width / 2.0f;
-    float cy = (float)m_Y + (float)m_Height / 2.0f;
+    const int effectiveW = GetWidth();
+    const int effectiveH = GetHeight();
+    float cx = (float)m_X + (float)effectiveW / 2.0f;
+    float cy = (float)m_Y + (float)effectiveH / 2.0f;
     float radius = (float)m_Radius;
 
     if (radius <= 0) {
-        radius = (std::min((float)m_Width, (float)m_Height) - (float)m_Thickness) / 2.0f;
+        radius = (std::min((float)effectiveW, (float)effectiveH) - (float)m_Thickness) / 2.0f;
     }
     if (radius <= 0) return false;
 
@@ -195,12 +197,14 @@ void RoundLineElement::Render(ID2D1DeviceContext* context)
 
     RenderBackground(context);
 
-    float centerX = (float)m_X + (float)m_Width / 2.0f;
-    float centerY = (float)m_Y + (float)m_Height / 2.0f;
+    const int effectiveW = GetWidth();
+    const int effectiveH = GetHeight();
+    float centerX = (float)m_X + (float)effectiveW / 2.0f;
+    float centerY = (float)m_Y + (float)effectiveH / 2.0f;
     float radius = (float)m_Radius;
 
     if (radius <= 0) {
-        radius = (std::min((float)m_Width, (float)m_Height) - (float)m_Thickness) / 2.0f;
+        radius = (std::min((float)effectiveW, (float)effectiveH) - (float)m_Thickness) / 2.0f;
     }
 
     if (radius <= 0) {
@@ -266,7 +270,7 @@ void RoundLineElement::Render(ID2D1DeviceContext* context)
 
     if (m_HasLineColorBg || m_LineGradientBg.type != GRADIENT_NONE) {
         Microsoft::WRL::ComPtr<ID2D1Brush> pBgBrush;
-        D2D1_RECT_F rect = D2D1::RectF((float)m_X, (float)m_Y, (float)m_X + m_Width, (float)m_Y + m_Height);
+        D2D1_RECT_F rect = D2D1::RectF((float)m_X, (float)m_Y, (float)m_X + effectiveW, (float)m_Y + effectiveH);
         Direct2D::CreateBrushFromGradientOrColor(
             context,
             rect,
@@ -279,7 +283,7 @@ void RoundLineElement::Render(ID2D1DeviceContext* context)
     }
 
     Microsoft::WRL::ComPtr<ID2D1Brush> pBrush;
-    D2D1_RECT_F rect = D2D1::RectF((float)m_X, (float)m_Y, (float)m_X + m_Width, (float)m_Y + m_Height);
+    D2D1_RECT_F rect = D2D1::RectF((float)m_X, (float)m_Y, (float)m_X + effectiveW, (float)m_Y + effectiveH);
     Direct2D::CreateBrushFromGradientOrColor(
         context,
         rect,

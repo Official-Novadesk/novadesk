@@ -32,6 +32,24 @@ namespace novadesk::scripting::quickjs
             return Widget::IsValid(widget) ? widget : nullptr;
         }
 
+        Widget *GetWidgetRaw(JSValueConst thisVal)
+        {
+            return static_cast<Widget *>(JS_GetOpaque(thisVal, g_widgetWindowClassId));
+        }
+
+        bool DestroyWidgetInstance(Widget *widget, bool skipCloseEvent)
+        {
+            if (!widget)
+                return false;
+            auto it = std::find(widgets.begin(), widgets.end(), widget);
+            if (it == widgets.end())
+                return false;
+            widget->SetSkipCloseEventOnDestroy(skipCloseEvent);
+            widgets.erase(it);
+            delete widget;
+            return true;
+        }
+
         JSValue JsWidgetWindowOn(JSContext *ctx, JSValueConst thisVal, int argc, JSValueConst *argv)
         {
             Widget *widget = GetWidget(ctx, thisVal);
@@ -169,13 +187,218 @@ namespace novadesk::scripting::quickjs
             if (!widget)
                 return JS_UNDEFINED;
 
-            auto it = std::find(widgets.begin(), widgets.end(), widget);
-            if (it != widgets.end())
-            {
-                widgets.erase(it);
-                delete widget;
-            }
+            DestroyWidgetInstance(widget, false);
             return JS_UNDEFINED;
+        }
+
+        JSValue JsWidgetWindowDestroy(JSContext *ctx, JSValueConst thisVal, int, JSValueConst *)
+        {
+            Widget *widget = GetWidget(ctx, thisVal);
+            if (!widget)
+                return JS_UNDEFINED;
+            DestroyWidgetInstance(widget, true);
+            return JS_UNDEFINED;
+        }
+
+        JSValue JsWidgetWindowShow(JSContext *ctx, JSValueConst thisVal, int, JSValueConst *)
+        {
+            Widget *widget = GetWidget(ctx, thisVal);
+            if (!widget)
+                return JS_UNDEFINED;
+            widget->Show();
+            return JS_DupValue(ctx, thisVal);
+        }
+
+        JSValue JsWidgetWindowHide(JSContext *ctx, JSValueConst thisVal, int, JSValueConst *)
+        {
+            Widget *widget = GetWidget(ctx, thisVal);
+            if (!widget)
+                return JS_UNDEFINED;
+            widget->Hide();
+            return JS_DupValue(ctx, thisVal);
+        }
+
+        JSValue JsWidgetWindowIsFocused(JSContext *ctx, JSValueConst thisVal, int, JSValueConst *)
+        {
+            Widget *widget = GetWidget(ctx, thisVal);
+            if (!widget)
+                return JS_NewBool(ctx, 0);
+            HWND hWnd = widget->GetWindow();
+            return JS_NewBool(ctx, (hWnd && GetFocus() == hWnd) ? 1 : 0);
+        }
+
+        JSValue JsWidgetWindowIsVisible(JSContext *ctx, JSValueConst thisVal, int, JSValueConst *)
+        {
+            Widget *widget = GetWidget(ctx, thisVal);
+            if (!widget)
+                return JS_NewBool(ctx, 0);
+            HWND hWnd = widget->GetWindow();
+            return JS_NewBool(ctx, (hWnd && IsWindowVisible(hWnd)) ? 1 : 0);
+        }
+
+        JSValue JsWidgetWindowIsDestroyed(JSContext *ctx, JSValueConst thisVal, int, JSValueConst *)
+        {
+            Widget *raw = GetWidgetRaw(thisVal);
+            const bool destroyed = !(raw && Widget::IsValid(raw));
+            return JS_NewBool(ctx, destroyed ? 1 : 0);
+        }
+
+        JSValue JsWidgetWindowSetBounds(JSContext *ctx, JSValueConst thisVal, int argc, JSValueConst *argv)
+        {
+            Widget *widget = GetWidget(ctx, thisVal);
+            if (!widget)
+                return JS_UNDEFINED;
+            if (argc < 1 || !JS_IsObject(argv[0]))
+            {
+                return ThrowTypeError(ctx, "setBounds", "expected bounds object");
+            }
+
+            int x = CW_USEDEFAULT;
+            int y = CW_USEDEFAULT;
+            int w = -1;
+            int h = -1;
+
+            int32_t v = 0;
+            JSValue xv = JS_GetPropertyStr(ctx, argv[0], "x");
+            if (!JS_IsUndefined(xv) && !JS_IsNull(xv) && JS_ToInt32(ctx, &v, xv) == 0) x = static_cast<int>(v);
+            JS_FreeValue(ctx, xv);
+
+            JSValue yv = JS_GetPropertyStr(ctx, argv[0], "y");
+            if (!JS_IsUndefined(yv) && !JS_IsNull(yv) && JS_ToInt32(ctx, &v, yv) == 0) y = static_cast<int>(v);
+            JS_FreeValue(ctx, yv);
+
+            JSValue wv = JS_GetPropertyStr(ctx, argv[0], "width");
+            if (!JS_IsUndefined(wv) && !JS_IsNull(wv) && JS_ToInt32(ctx, &v, wv) == 0) w = static_cast<int>(v);
+            JS_FreeValue(ctx, wv);
+
+            JSValue hv = JS_GetPropertyStr(ctx, argv[0], "height");
+            if (!JS_IsUndefined(hv) && !JS_IsNull(hv) && JS_ToInt32(ctx, &v, hv) == 0) h = static_cast<int>(v);
+            JS_FreeValue(ctx, hv);
+
+            widget->SetWindowPosition(x, y, w, h);
+            return JS_DupValue(ctx, thisVal);
+        }
+
+        JSValue JsWidgetWindowGetBounds(JSContext *ctx, JSValueConst thisVal, int, JSValueConst *)
+        {
+            Widget *widget = GetWidget(ctx, thisVal);
+            if (!widget)
+                return JS_NULL;
+            HWND hWnd = widget->GetWindow();
+            if (!hWnd)
+                return JS_NULL;
+
+            RECT rc{};
+            if (!GetWindowRect(hWnd, &rc))
+                return JS_NULL;
+
+            JSValue out = JS_NewObject(ctx);
+            JS_SetPropertyStr(ctx, out, "x", JS_NewInt32(ctx, rc.left));
+            JS_SetPropertyStr(ctx, out, "y", JS_NewInt32(ctx, rc.top));
+            JS_SetPropertyStr(ctx, out, "width", JS_NewInt32(ctx, rc.right - rc.left));
+            JS_SetPropertyStr(ctx, out, "height", JS_NewInt32(ctx, rc.bottom - rc.top));
+            return out;
+        }
+
+        JSValue JsWidgetWindowSetSize(JSContext *ctx, JSValueConst thisVal, int argc, JSValueConst *argv)
+        {
+            Widget *widget = GetWidget(ctx, thisVal);
+            if (!widget)
+                return JS_UNDEFINED;
+            if (argc < 2)
+            {
+                return ThrowTypeError(ctx, "setSize", "expected (width, height)");
+            }
+
+            int32_t w = 0;
+            int32_t h = 0;
+            if (JS_ToInt32(ctx, &w, argv[0]) != 0 || JS_ToInt32(ctx, &h, argv[1]) != 0)
+            {
+                return ThrowTypeError(ctx, "setSize", "width/height must be numbers");
+            }
+
+            widget->SetWindowPosition(CW_USEDEFAULT, CW_USEDEFAULT, static_cast<int>(w), static_cast<int>(h));
+            return JS_DupValue(ctx, thisVal);
+        }
+
+        JSValue JsWidgetWindowGetSize(JSContext *ctx, JSValueConst thisVal, int, JSValueConst *)
+        {
+            Widget *widget = GetWidget(ctx, thisVal);
+            if (!widget)
+                return JS_NULL;
+            HWND hWnd = widget->GetWindow();
+            if (!hWnd)
+                return JS_NULL;
+
+            RECT rc{};
+            if (!GetWindowRect(hWnd, &rc))
+                return JS_NULL;
+
+            JSValue out = JS_NewObject(ctx);
+            JS_SetPropertyStr(ctx, out, "width", JS_NewInt32(ctx, rc.right - rc.left));
+            JS_SetPropertyStr(ctx, out, "height", JS_NewInt32(ctx, rc.bottom - rc.top));
+            return out;
+        }
+
+        JSValue JsWidgetWindowGetBackgroundColor(JSContext *ctx, JSValueConst thisVal, int, JSValueConst *)
+        {
+            Widget *widget = GetWidget(ctx, thisVal);
+            if (!widget)
+                return JS_NULL;
+            return JS_NewString(ctx, Utils::ToString(widget->GetOptions().backgroundColor).c_str());
+        }
+
+        JSValue JsWidgetWindowSetBackgroundColor(JSContext *ctx, JSValueConst thisVal, int argc, JSValueConst *argv)
+        {
+            Widget *widget = GetWidget(ctx, thisVal);
+            if (!widget)
+                return JS_UNDEFINED;
+            if (argc < 1)
+            {
+                return ThrowTypeError(ctx, "setBackgroundColor", "expected color string");
+            }
+            const char *colorUtf8 = JS_ToCString(ctx, argv[0]);
+            if (!colorUtf8)
+                return JS_EXCEPTION;
+            std::wstring color = Utils::ToWString(colorUtf8);
+            JS_FreeCString(ctx, colorUtf8);
+            widget->SetBackgroundColor(color);
+            return JS_DupValue(ctx, thisVal);
+        }
+
+        JSValue JsWidgetWindowSetOpacity(JSContext *ctx, JSValueConst thisVal, int argc, JSValueConst *argv)
+        {
+            Widget *widget = GetWidget(ctx, thisVal);
+            if (!widget)
+                return JS_UNDEFINED;
+            if (argc < 1)
+            {
+                return ThrowTypeError(ctx, "setOpacity", "expected value");
+            }
+
+            double d = 0.0;
+            if (JS_ToFloat64(ctx, &d, argv[0]) != 0)
+            {
+                return ThrowTypeError(ctx, "setOpacity", "value must be number");
+            }
+
+            int opacity = 255;
+            if (d <= 1.0)
+            {
+                opacity = static_cast<int>(d * 255.0);
+            }
+            else if (d <= 100.0)
+            {
+                opacity = static_cast<int>((d / 100.0) * 255.0);
+            }
+            else
+            {
+                opacity = static_cast<int>(d);
+            }
+
+            opacity = std::clamp(opacity, 0, 255);
+            widget->SetWindowOpacity(static_cast<BYTE>(opacity));
+            return JS_DupValue(ctx, thisVal);
         }
 
         JSValue JsWidgetWindowRefresh(JSContext *ctx, JSValueConst thisVal, int, JSValueConst *)
@@ -384,6 +607,19 @@ namespace novadesk::scripting::quickjs
             JS_CFUNC_DEF("setProperties", 1, JsWidgetWindowSetProperties),
             JS_CFUNC_DEF("getProperties", 0, JsWidgetWindowGetProperties),
             JS_CFUNC_DEF("close", 0, JsWidgetWindowClose),
+            JS_CFUNC_DEF("destroy", 0, JsWidgetWindowDestroy),
+            JS_CFUNC_DEF("show", 0, JsWidgetWindowShow),
+            JS_CFUNC_DEF("hide", 0, JsWidgetWindowHide),
+            JS_CFUNC_DEF("isFocused", 0, JsWidgetWindowIsFocused),
+            JS_CFUNC_DEF("isVisible", 0, JsWidgetWindowIsVisible),
+            JS_CFUNC_DEF("isDestroyed", 0, JsWidgetWindowIsDestroyed),
+            JS_CFUNC_DEF("setBounds", 1, JsWidgetWindowSetBounds),
+            JS_CFUNC_DEF("getBounds", 0, JsWidgetWindowGetBounds),
+            JS_CFUNC_DEF("setSize", 2, JsWidgetWindowSetSize),
+            JS_CFUNC_DEF("getSize", 0, JsWidgetWindowGetSize),
+            JS_CFUNC_DEF("getBackgroundColor", 0, JsWidgetWindowGetBackgroundColor),
+            JS_CFUNC_DEF("setBackgroundColor", 1, JsWidgetWindowSetBackgroundColor),
+            JS_CFUNC_DEF("setOpacity", 1, JsWidgetWindowSetOpacity),
             JS_CFUNC_DEF("refresh", 0, JsWidgetWindowRefresh),
             JS_CFUNC_DEF("setFocus", 0, JsWidgetWindowSetFocus),
             JS_CFUNC_DEF("unFocus", 0, JsWidgetWindowUnFocus),
