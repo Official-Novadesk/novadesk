@@ -647,6 +647,10 @@ void SetInstallingUiState(AppState* state, bool installing) {
 }
 
 bool RequestManageQuit() {
+    constexpr int kPollIntervalMs = 50;
+    constexpr int kInitialWaitIters = 24;   // ~1.2s
+    constexpr int kFallbackWaitIters = 36;  // ~1.8s
+
     HWND manageWindow = FindWindowW(kManageWindowClassName, nullptr);
     if (!manageWindow) return true;
 
@@ -663,11 +667,52 @@ bool RequestManageQuit() {
         1500,
         &result);
 
-    for (int i = 0; i < 80; ++i) {
+    for (int i = 0; i < kInitialWaitIters; ++i) {
         if (!FindWindowW(kManageWindowClassName, nullptr)) {
             return true;
         }
-        Sleep(100);
+        Sleep(kPollIntervalMs);
+    }
+    if (!FindWindowW(kManageWindowClassName, nullptr)) {
+        return true;
+    }
+
+    // Fallback for elevation mismatch (non-admin installer vs admin Manage/Novadesk):
+    // invoke manage_novadesk with elevation so it can request close at same integrity level.
+    wchar_t exePath[MAX_PATH]{};
+    GetModuleFileNameW(nullptr, exePath, MAX_PATH);
+    fs::path exeDir = fs::path(exePath).parent_path();
+    fs::path manageExe = exeDir / "manage_novadesk.exe";
+    if (!fs::exists(manageExe)) {
+        fs::path parentCandidate = exeDir.parent_path() / "manage_novadesk.exe";
+        if (fs::exists(parentCandidate)) {
+            manageExe = parentCandidate;
+        } else {
+            return false;
+        }
+    }
+
+    SHELLEXECUTEINFOW sei{};
+    sei.cbSize = sizeof(sei);
+    sei.fMask = SEE_MASK_NOCLOSEPROCESS;
+    sei.lpVerb = L"runas";
+    sei.lpFile = manageExe.c_str();
+    sei.lpParameters = L"--request-close";
+    sei.nShow = SW_HIDE;
+    if (!ShellExecuteExW(&sei)) {
+        return false;
+    }
+
+    if (sei.hProcess) {
+        WaitForSingleObject(sei.hProcess, 1000);
+        CloseHandle(sei.hProcess);
+    }
+
+    for (int i = 0; i < kFallbackWaitIters; ++i) {
+        if (!FindWindowW(kManageWindowClassName, nullptr)) {
+            return true;
+        }
+        Sleep(kPollIntervalMs);
     }
     return !FindWindowW(kManageWindowClassName, nullptr);
 }
