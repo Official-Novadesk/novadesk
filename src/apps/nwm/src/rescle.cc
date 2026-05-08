@@ -8,7 +8,6 @@
 #include "rescle.h"
 
 #include <assert.h>
-#include <atlstr.h>
 #include <sstream> // wstringstream
 #include <iomanip> // setw, setfill
 #include <fstream>
@@ -893,10 +892,13 @@ BOOL CALLBACK ResourceUpdater::OnEnumResourceLanguage(HANDLE hModule, LPCWSTR lp
         UINT id = static_cast<UINT>(reinterpret_cast<ptrdiff_t>(lpszName)) - 1;
         auto& vector = instance->stringTableMap_[wIDLanguage][id];
         for (UINT k = 0; k < 16; k++) {
-          CStringW buf;
-
-          buf.LoadStringW(instance->module_, id * 16 + k, wIDLanguage);
-          vector.push_back(buf.GetBuffer());
+          wchar_t buf[4096] = {};
+          const int len = LoadStringW(instance->module_, id * 16 + k, buf, static_cast<int>(std::size(buf)));
+          if (len > 0) {
+            vector.emplace_back(buf, static_cast<size_t>(len));
+          } else {
+            vector.emplace_back();
+          }
         }
         break;
       }

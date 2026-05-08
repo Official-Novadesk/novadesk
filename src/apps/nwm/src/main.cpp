@@ -16,8 +16,7 @@
 #include <shlobj.h>
 #include <shobjidl.h>
 #include <objbase.h>
-#include <atlbase.h>
-#include <atlcomcli.h>
+#include <wrl/client.h>
 #include "rescle.h"
 #include "../../../third_party/zlib/minizip/zip.h"
 #include "../../../third_party/json/json.hpp"
@@ -28,7 +27,7 @@
 #pragma comment(lib, "advapi32.lib")
 
 namespace fs = std::filesystem;
-using ATL::CComPtr;
+using Microsoft::WRL::ComPtr;
 
 // Constants
 const std::string NOVADESK_EXE = "Novadesk.exe";
@@ -262,7 +261,7 @@ bool RelaunchAsAdmin(const std::wstring& arguments) {
 }
 
 bool CreateShortcut(const std::wstring& targetPath, const std::wstring& shortcutPath, const std::wstring& workingDir, const std::wstring& description) {
-    CComPtr<IShellLinkW> shellLink;
+    ComPtr<IShellLinkW> shellLink;
     HRESULT hr = CoCreateInstance(CLSID_ShellLink, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&shellLink));
     if (FAILED(hr)) return false;
 
@@ -271,7 +270,7 @@ bool CreateShortcut(const std::wstring& targetPath, const std::wstring& shortcut
     shellLink->SetDescription(description.c_str());
     shellLink->SetIconLocation(targetPath.c_str(), 0);
 
-    CComPtr<IPersistFile> persistFile;
+    ComPtr<IPersistFile> persistFile;
     hr = shellLink->QueryInterface(IID_PPV_ARGS(&persistFile));
     if (FAILED(hr)) return false;
 
