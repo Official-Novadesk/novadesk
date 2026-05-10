@@ -12,6 +12,8 @@
 #include <queue>
 #include <condition_variable>
 #include <fstream>
+#include <thread>
+#include <atomic>
 #include <ctime>
 #include <sstream>
 #include <iomanip>
@@ -90,6 +92,8 @@ namespace novadesk::shared::system
     PDH_HCOUNTER g_diskReadCounter = nullptr;
     PDH_HCOUNTER g_diskWriteCounter = nullptr;
     bool g_diskIoPrimed = false;
+    std::atomic<bool> g_diskIoInitStarted{false};
+    std::atomic<bool> g_diskIoReady{false};
 
     // *********************************************
     //  Power
@@ -367,48 +371,67 @@ namespace novadesk::shared::system
 
     bool GetDiskIoStats(DiskIoStats &outStats)
     {
-        std::lock_guard<std::mutex> lock(g_diskIoMutex);
-
-        if (!g_diskIoQuery)
+        // Avoid blocking UI/window startup on expensive first PDH initialization.
+        if (!g_diskIoReady.load(std::memory_order_acquire))
         {
-            if (PdhOpenQueryW(nullptr, 0, &g_diskIoQuery) != ERROR_SUCCESS)
+            bool expected = false;
+            if (g_diskIoInitStarted.compare_exchange_strong(expected, true, std::memory_order_acq_rel))
             {
-                return false;
-            }
+                std::thread([]()
+                            {
+                                std::lock_guard<std::mutex> lock(g_diskIoMutex);
 
-            if (PdhAddEnglishCounterW(g_diskIoQuery, L"\\PhysicalDisk(_Total)\\Disk Read Bytes/sec", 0, &g_diskReadCounter) != ERROR_SUCCESS ||
-                PdhAddEnglishCounterW(g_diskIoQuery, L"\\PhysicalDisk(_Total)\\Disk Write Bytes/sec", 0, &g_diskWriteCounter) != ERROR_SUCCESS)
-            {
-                if (g_diskIoQuery)
-                {
-                    PdhCloseQuery(g_diskIoQuery);
-                }
-                g_diskIoQuery = nullptr;
-                g_diskReadCounter = nullptr;
-                g_diskWriteCounter = nullptr;
-                g_diskIoPrimed = false;
-                return false;
-            }
+                                if (g_diskIoQuery)
+                                {
+                                    g_diskIoReady.store(true, std::memory_order_release);
+                                    return;
+                                }
 
-            if (PdhCollectQueryData(g_diskIoQuery) != ERROR_SUCCESS)
-            {
-                PdhCloseQuery(g_diskIoQuery);
-                g_diskIoQuery = nullptr;
-                g_diskReadCounter = nullptr;
-                g_diskWriteCounter = nullptr;
-                g_diskIoPrimed = false;
-                return false;
+                                if (PdhOpenQueryW(nullptr, 0, &g_diskIoQuery) != ERROR_SUCCESS)
+                                {
+                                    g_diskIoInitStarted.store(false, std::memory_order_release);
+                                    return;
+                                }
+
+                                if (PdhAddEnglishCounterW(g_diskIoQuery, L"\\PhysicalDisk(_Total)\\Disk Read Bytes/sec", 0, &g_diskReadCounter) != ERROR_SUCCESS ||
+                                    PdhAddEnglishCounterW(g_diskIoQuery, L"\\PhysicalDisk(_Total)\\Disk Write Bytes/sec", 0, &g_diskWriteCounter) != ERROR_SUCCESS)
+                                {
+                                    if (g_diskIoQuery)
+                                    {
+                                        PdhCloseQuery(g_diskIoQuery);
+                                    }
+                                    g_diskIoQuery = nullptr;
+                                    g_diskReadCounter = nullptr;
+                                    g_diskWriteCounter = nullptr;
+                                    g_diskIoPrimed = false;
+                                    g_diskIoInitStarted.store(false, std::memory_order_release);
+                                    return;
+                                }
+
+                                if (PdhCollectQueryData(g_diskIoQuery) != ERROR_SUCCESS)
+                                {
+                                    PdhCloseQuery(g_diskIoQuery);
+                                    g_diskIoQuery = nullptr;
+                                    g_diskReadCounter = nullptr;
+                                    g_diskWriteCounter = nullptr;
+                                    g_diskIoPrimed = false;
+                                    g_diskIoInitStarted.store(false, std::memory_order_release);
+                                    return;
+                                }
+
+                                g_diskIoPrimed = true;
+                                g_diskIoReady.store(true, std::memory_order_release); })
+                    .detach();
             }
-            g_diskIoPrimed = true;
+            return false;
         }
 
-        if (!g_diskIoPrimed)
+        std::lock_guard<std::mutex> lock(g_diskIoMutex);
+        if (!g_diskIoQuery)
         {
-            if (PdhCollectQueryData(g_diskIoQuery) != ERROR_SUCCESS)
-            {
-                return false;
-            }
-            g_diskIoPrimed = true;
+            g_diskIoReady.store(false, std::memory_order_release);
+            g_diskIoInitStarted.store(false, std::memory_order_release);
+            return false;
         }
 
         if (PdhCollectQueryData(g_diskIoQuery) != ERROR_SUCCESS)
