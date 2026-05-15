@@ -911,10 +911,10 @@ namespace PropertyParser
         ParseElementOptions(ctx, obj, options, baseDir);
         ParseGeneralImageOptions(ctx, obj, options);
         
-        options.buttonImageName = GetStringProp(ctx, obj, "buttonImageName");
-        if (!options.buttonImageName.empty())
+        std::wstring buttonImageName = GetStringProp(ctx, obj, "buttonImageName");
+        if (!buttonImageName.empty())
         {
-            options.buttonImageName = PathUtils::ResolvePath(options.buttonImageName, baseDir);
+            options.buttonImageName = PathUtils::ResolvePath(buttonImageName, baseDir);
         }
 
         GetEventCallbackProp(ctx, obj, "buttonAction", options.onLeftMouseUpCallbackId);
@@ -944,10 +944,10 @@ namespace PropertyParser
         }
         JS_FreeValue(ctx, v);
 
-        options.bitmapImageName = GetStringProp(ctx, obj, "bitmapImageName");
-        if (!options.bitmapImageName.empty())
+        std::wstring bitmapImageName = GetStringProp(ctx, obj, "bitmapImageName");
+        if (!bitmapImageName.empty())
         {
-            options.bitmapImageName = PathUtils::ResolvePath(options.bitmapImageName, baseDir);
+            options.bitmapImageName = PathUtils::ResolvePath(bitmapImageName, baseDir);
         }
 
         GetIntProp(ctx, obj, "bitmapFrames", options.bitmapFrames);
@@ -955,18 +955,24 @@ namespace PropertyParser
         GetBoolProp(ctx, obj, "bitmapExtend", options.bitmapExtend);
         { float tmp = static_cast<float>(options.minValue); if (GetFloatProp(ctx, obj, "minValue", tmp)) options.minValue = static_cast<double>(tmp); }
         { float tmp = static_cast<float>(options.maxValue); if (GetFloatProp(ctx, obj, "maxValue", tmp)) options.maxValue = static_cast<double>(tmp); }
-        options.bitmapOrientation = GetStringProp(ctx, obj, "bitmapOrientation");
+        std::wstring bitmapOrientation = GetStringProp(ctx, obj, "bitmapOrientation");
+        if (!bitmapOrientation.empty())
+            options.bitmapOrientation = bitmapOrientation;
+
         GetIntProp(ctx, obj, "bitmapDigits", options.bitmapDigits);
         GetIntProp(ctx, obj, "bitmapSeparation", options.bitmapSeparation);
 
         std::wstring align = GetStringProp(ctx, obj, "bitmapAlign");
-        std::transform(align.begin(), align.end(), align.begin(), ::towlower);
-        if (align == L"center")
-            options.bitmapAlign = BITMAP_ALIGN_CENTER;
-        else if (align == L"right")
-            options.bitmapAlign = BITMAP_ALIGN_RIGHT;
-        else if (align == L"left")
-            options.bitmapAlign = BITMAP_ALIGN_LEFT;
+        if (!align.empty())
+        {
+            std::transform(align.begin(), align.end(), align.begin(), ::towlower);
+            if (align == L"center")
+                options.bitmapAlign = BITMAP_ALIGN_CENTER;
+            else if (align == L"right")
+                options.bitmapAlign = BITMAP_ALIGN_RIGHT;
+            else if (align == L"left")
+                options.bitmapAlign = BITMAP_ALIGN_LEFT;
+        }
     }
 
     void ParseRotatorOptions(JSContext *ctx, JSValueConst obj, RotatorOptions &options, const std::wstring &baseDir)
@@ -988,10 +994,10 @@ namespace PropertyParser
         }
         JS_FreeValue(ctx, v);
 
-        options.rotatorImageName = GetStringProp(ctx, obj, "rotatorImageName");
-        if (!options.rotatorImageName.empty())
+        std::wstring rotatorImageName = GetStringProp(ctx, obj, "rotatorImageName");
+        if (!rotatorImageName.empty())
         {
-            options.rotatorImageName = PathUtils::ResolvePath(options.rotatorImageName, baseDir);
+            options.rotatorImageName = PathUtils::ResolvePath(rotatorImageName, baseDir);
         }
 
         { float tmp = static_cast<float>(options.offsetX); if (GetFloatProp(ctx, obj, "offsetX", tmp)) options.offsetX = static_cast<double>(tmp); }
@@ -1515,7 +1521,9 @@ namespace PropertyParser
     {
         ParseElementOptions(ctx, obj, options, baseDir);
 
-        options.shapeType = GetStringProp(ctx, obj, "type");
+        std::wstring shapeType = GetStringProp(ctx, obj, "type");
+        if (!shapeType.empty())
+            options.shapeType = shapeType;
         GetFloatProp(ctx, obj, "strokeWidth", options.strokeWidth);
 
         std::wstring stroke = GetStringProp(ctx, obj, "strokeColor");
@@ -1541,7 +1549,9 @@ namespace PropertyParser
         GetFloatProp(ctx, obj, "startY", options.startY);
         GetFloatProp(ctx, obj, "endX", options.endX);
         GetFloatProp(ctx, obj, "endY", options.endY);
-        options.curveType = GetStringProp(ctx, obj, "curveType");
+        std::wstring curveType = GetStringProp(ctx, obj, "curveType");
+        if (!curveType.empty())
+            options.curveType = curveType;
         GetFloatProp(ctx, obj, "controlX", options.controlX);
         GetFloatProp(ctx, obj, "controlY", options.controlY);
         GetFloatProp(ctx, obj, "control2X", options.control2X);
@@ -1549,7 +1559,9 @@ namespace PropertyParser
         GetFloatProp(ctx, obj, "startAngle", options.startArcAngle);
         GetFloatProp(ctx, obj, "endAngle", options.endArcAngle);
         GetBoolProp(ctx, obj, "clockwise", options.arcClockwise);
-        options.pathData = GetStringProp(ctx, obj, "pathData");
+        std::wstring pathData = GetStringProp(ctx, obj, "pathData");
+        if (!pathData.empty())
+            options.pathData = pathData;
 
         std::wstring cap = GetStringProp(ctx, obj, "strokeStartCap");
         if (!cap.empty())
@@ -1571,7 +1583,9 @@ namespace PropertyParser
         std::wstring lowerType = options.shapeType;
         std::transform(lowerType.begin(), lowerType.end(), lowerType.begin(), ::towlower);
         options.isCombine = (lowerType == L"combine");
-        options.combineBaseId = GetStringProp(ctx, obj, "base");
+        std::wstring combineBaseId = GetStringProp(ctx, obj, "base");
+        if (!combineBaseId.empty())
+            options.combineBaseId = combineBaseId;
         options.hasCombineConsumeAll = GetBoolProp(ctx, obj, "consume", options.combineConsumeAll);
 
         JSValue ops = JS_GetPropertyStr(ctx, obj, "ops");
@@ -2798,8 +2812,12 @@ namespace novadesk::scripting::quickjs::parser
             out.hasZPos = true;
         }
 
-        out.scriptPath = PropertyParser::GetStringProp(ctx, options, "script");
-        out.hasScriptPath = !out.scriptPath.empty();
+        std::wstring scriptPath = PropertyParser::GetStringProp(ctx, options, "script");
+        if (!scriptPath.empty())
+        {
+            out.scriptPath = scriptPath;
+            out.hasScriptPath = true;
+        }
     }
 
     void ParseWidgetWindowSize(JSContext *ctx, JSValueConst options, int &width, int &height)

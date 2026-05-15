@@ -1672,7 +1672,9 @@ namespace JSEngine
 
         const std::wstring ownerScriptPath = GetWidgetOwnerScriptPathById(widgetId);
         ScriptExecutionScope scope(ownerScriptPath);
-        JSValue ret = JS_Call(g_context, cit->second, JS_UNDEFINED, 0, nullptr);
+        JSValue callback = JS_DupValue(g_context, cit->second);
+        JSValue ret = JS_Call(g_context, callback, JS_UNDEFINED, 0, nullptr);
+        JS_FreeValue(g_context, callback);
         if (JS_IsException(ret))
         {
             LogQuickJsException(g_context);
