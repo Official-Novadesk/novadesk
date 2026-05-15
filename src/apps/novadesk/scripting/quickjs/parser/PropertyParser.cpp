@@ -321,6 +321,59 @@ namespace PropertyParser
                 out.hasColorMatrix = hasComponents;
             }
         }
+        void ParseTextShadows(JSContext *ctx, JSValueConst obj, std::vector<TextShadow> &shadows)
+        {
+            JSValue val = JS_GetPropertyStr(ctx, obj, "fontShadow");
+            if (JS_IsException(val) || JS_IsUndefined(val) || JS_IsNull(val))
+            {
+                JS_FreeValue(ctx, val);
+                return;
+            }
+
+            shadows.clear();
+
+            if (JS_IsArray(val))
+            {
+                uint32_t len = 0;
+                JSValue lenV = JS_GetPropertyStr(ctx, val, "length");
+                JS_ToUint32(ctx, &len, lenV);
+                JS_FreeValue(ctx, lenV);
+
+                for (uint32_t i = 0; i < len; ++i)
+                {
+                    JSValue item = JS_GetPropertyUint32(ctx, val, i);
+                    if (JS_IsObject(item))
+                    {
+                        TextShadow s;
+                        GetFloatProp(ctx, item, "x", s.offsetX);
+                        GetFloatProp(ctx, item, "y", s.offsetY);
+                        GetFloatProp(ctx, item, "blur", s.blur);
+                        std::wstring colorStr = GetStringProp(ctx, item, "color");
+                        if (!colorStr.empty())
+                        {
+                            ColorUtil::ParseRGBA(colorStr, s.color, s.alpha);
+                        }
+                        shadows.push_back(s);
+                    }
+                    JS_FreeValue(ctx, item);
+                }
+            }
+            else if (JS_IsObject(val))
+            {
+                TextShadow s;
+                GetFloatProp(ctx, val, "x", s.offsetX);
+                GetFloatProp(ctx, val, "y", s.offsetY);
+                GetFloatProp(ctx, val, "blur", s.blur);
+                std::wstring colorStr = GetStringProp(ctx, val, "color");
+                if (!colorStr.empty())
+                {
+                    ColorUtil::ParseRGBA(colorStr, s.color, s.alpha);
+                }
+                shadows.push_back(s);
+            }
+
+            JS_FreeValue(ctx, val);
+        }
     } // namespace
 
     bool ParseGradientString(const std::wstring &str, GradientInfo &out)
@@ -1161,6 +1214,8 @@ namespace PropertyParser
             else if (clip == L"ellipsis")
                 options.clip = TEXT_CLIP_ELLIPSIS;
         }
+
+        ParseTextShadows(ctx, obj, options.shadows);
     }
 
     void ParseBarOptions(JSContext *ctx, JSValueConst obj, BarOptions &options, const std::wstring &baseDir)
