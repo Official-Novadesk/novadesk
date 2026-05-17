@@ -1,4 +1,4 @@
-﻿/* Copyright (C) 2026 OfficialNovadesk
+/* Copyright (C) 2026 OfficialNovadesk
  *
  * This Source Code Form is subject to the terms of the GNU General Public
  * License; either version 2 of the License, or (at your option) any later
@@ -470,8 +470,8 @@ namespace
                 return -1;
             int b = s->o.borderVisible ? clampi(s->o.border, 0, 12) : 0;
             int mg = b, top = mg, eh = s->o.h - top - mg;
-            if (eh < 24)
-                eh = 24;
+            if (eh < 1)
+                eh = 1;
             HDC dc = GetDC(h);
             int fh = -MulDiv(s->o.fontSize, GetDeviceCaps(dc, LOGPIXELSY), 72);
             ReleaseDC(h, dc);
@@ -646,19 +646,19 @@ namespace
         if (!getInt(c, 0, "width", iv, f))
             return false;
         if (f)
-            o.w = clampi(iv, 120, 1200);
+            o.w = clampi(iv, 1, 2000);
         if (!getInt(c, 0, "w", iv, f))
             return false;
         if (f)
-            o.w = clampi(iv, 120, 1200);
+            o.w = clampi(iv, 1, 2000);
         if (!getInt(c, 0, "height", iv, f))
             return false;
         if (f)
-            o.h = clampi(iv, 28, 800);
+            o.h = clampi(iv, 1, 2000);
         if (!getInt(c, 0, "h", iv, f))
             return false;
         if (f)
-            o.h = clampi(iv, 28, 800);
+            o.h = clampi(iv, 1, 2000);
         if (!getNum(c, 0, "widgetHwnd", dv, f))
             return false;
         if (f)
