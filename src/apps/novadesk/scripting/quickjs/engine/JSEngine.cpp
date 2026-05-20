@@ -980,11 +980,41 @@ namespace JSEngine
             return true;
         }
 
+        std::wstring GetCurrentListenerOwner(JSContext *ctx)
+        {
+            // Prefer the script currently being evaluated/executed.
+            // For UI scripts this is reliably set to the .ui.js __filename.
+            JSValue global = JS_GetGlobalObject(ctx);
+            JSValue filenameVal = JS_GetPropertyStr(ctx, global, "__filename");
+            JS_FreeValue(ctx, global);
+
+            if (!JS_IsUndefined(filenameVal) && !JS_IsNull(filenameVal))
+            {
+                const char *fileUtf8 = JS_ToCString(ctx, filenameVal);
+                if (fileUtf8 && *fileUtf8)
+                {
+                    std::wstring owner = Utils::ToWString(fileUtf8);
+                    JS_FreeCString(ctx, fileUtf8);
+                    JS_FreeValue(ctx, filenameVal);
+                    return PathUtils::NormalizePath(owner);
+                }
+                if (fileUtf8)
+                    JS_FreeCString(ctx, fileUtf8);
+            }
+            JS_FreeValue(ctx, filenameVal);
+
+            if (!g_currentScriptPath.empty())
+            {
+                return g_currentScriptPath;
+            }
+            return L"";
+        }
+
         void RegisterChannelListener(std::unordered_map<std::string, std::vector<IpcListener>> &map, JSContext *ctx, const std::string &channel, JSValueConst fn)
         {
             IpcListener entry{};
             entry.callback = JS_DupValue(ctx, fn);
-            entry.owner = g_currentScriptPath;
+            entry.owner = GetCurrentListenerOwner(ctx);
             map[channel].push_back(std::move(entry));
         }
 
@@ -1902,11 +1932,25 @@ namespace JSEngine
         {
             return false;
         }
-        const std::wstring &scriptPath = widget->GetOptions().scriptPath;
-        if (scriptPath.empty())
+        const std::wstring &rawScriptPath = widget->GetOptions().scriptPath;
+        if (rawScriptPath.empty())
         {
             return false;
         }
+
+        std::wstring scriptPath = rawScriptPath;
+        if (PathUtils::IsPathRelative(scriptPath))
+        {
+            scriptPath = PathUtils::ResolvePath(scriptPath, GetEntryScriptDir());
+        }
+        else
+        {
+            scriptPath = PathUtils::NormalizePath(scriptPath);
+        }
+
+        // Ensure ipcRenderer.on listener ownership is bound to the UI script path
+        // during widget refresh script execution, so stale listeners can be removed.
+        ScriptExecutionScope scope(scriptPath);
         return novadesk::scripting::quickjs::ExecuteWidgetUiScript(g_context, widget, scriptPath);
     }
 
