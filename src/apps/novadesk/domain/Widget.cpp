@@ -1795,6 +1795,10 @@ void Widget::UpdateContainerForElement(Element *element, const std::wstring &new
         if (currentContainer)
         {
             currentContainer->RemoveContainerItem(element);
+            if (IsLayoutContainer(currentContainer->GetId()))
+            {
+                ApplyLayoutForContainer(currentContainer);
+            }
             element->SetContainer(nullptr);
         }
         element->SetContainerId(L"");
@@ -1835,12 +1839,127 @@ void Widget::UpdateContainerForElement(Element *element, const std::wstring &new
     if (currentContainer != newContainer)
     {
         if (currentContainer)
+        {
             currentContainer->RemoveContainerItem(element);
+            if (IsLayoutContainer(currentContainer->GetId()))
+            {
+                ApplyLayoutForContainer(currentContainer);
+            }
+        }
         newContainer->AddContainerItem(element);
         element->SetContainer(newContainer);
     }
 
     element->SetContainerId(newContainerId);
+    if (IsLayoutContainer(newContainer->GetId()))
+    {
+        ApplyLayoutForContainer(newContainer);
+    }
+}
+
+void Widget::SetLayoutConfig(const std::wstring &id, const LayoutConfig &config)
+{
+    if (id.empty())
+        return;
+    m_LayoutConfigs[id] = config;
+    ReflowLayout(id);
+}
+
+bool Widget::IsLayoutContainer(const std::wstring &id) const
+{
+    return !id.empty() && m_LayoutConfigs.find(id) != m_LayoutConfigs.end();
+}
+
+void Widget::ReflowLayout(const std::wstring &id)
+{
+    if (id.empty())
+        return;
+    Element *container = FindElementById(id);
+    if (!container)
+        return;
+    ApplyLayoutForContainer(container);
+}
+
+void Widget::ApplyLayoutForContainer(Element *container)
+{
+    if (!container)
+        return;
+
+    auto cfgIt = m_LayoutConfigs.find(container->GetId());
+    if (cfgIt == m_LayoutConfigs.end())
+        return;
+
+    const LayoutConfig &cfg = cfgIt->second;
+    const auto &items = container->GetContainerItems();
+    if (items.empty())
+        return;
+
+    GfxRect bounds = container->GetBounds();
+    int innerW = bounds.Width - cfg.paddingLeft - cfg.paddingRight;
+    int innerH = bounds.Height - cfg.paddingTop - cfg.paddingBottom;
+    if (innerW < 0) innerW = 0;
+    if (innerH < 0) innerH = 0;
+
+    std::wstring dir = cfg.direction;
+    std::transform(dir.begin(), dir.end(), dir.begin(), ::towlower);
+    const bool isRow = (dir == L"row");
+
+    int mainTotal = 0;
+    for (Element *child : items)
+    {
+        if (!child) continue;
+        mainTotal += isRow ? child->GetWidth() : child->GetHeight();
+    }
+    if (items.size() > 1)
+    {
+        mainTotal += cfg.gap * static_cast<int>(items.size() - 1);
+    }
+
+    int mainAvail = isRow ? innerW : innerH;
+    int mainStart = 0;
+    std::wstring justify = cfg.justify;
+    std::transform(justify.begin(), justify.end(), justify.begin(), ::towlower);
+    if (justify == L"center")
+    {
+        mainStart = (mainAvail - mainTotal) / 2;
+    }
+    else if (justify == L"end")
+    {
+        mainStart = (mainAvail - mainTotal);
+    }
+    if (mainStart < 0) mainStart = 0;
+
+    int cursor = mainStart;
+    for (Element *child : items)
+    {
+        if (!child) continue;
+
+        int childW = child->GetWidth();
+        int childH = child->GetHeight();
+
+        std::wstring align = cfg.align;
+        std::transform(align.begin(), align.end(), align.begin(), ::towlower);
+
+        int crossPos = 0;
+        if (isRow)
+        {
+            if (align == L"center") crossPos = (innerH - childH) / 2;
+            else if (align == L"end") crossPos = (innerH - childH);
+            else crossPos = 0;
+
+            child->SetPosition(cfg.paddingLeft + cursor, cfg.paddingTop + (crossPos < 0 ? 0 : crossPos));
+            cursor += childW + cfg.gap;
+        }
+        else
+        {
+            if (align == L"center") crossPos = (innerW - childW) / 2;
+            else if (align == L"end") crossPos = (innerW - childW);
+            else crossPos = 0;
+
+            child->SetPosition(cfg.paddingLeft + (crossPos < 0 ? 0 : crossPos), cfg.paddingTop + cursor);
+            cursor += childH + cfg.gap;
+        }
+    }
 }
 
 bool Widget::WouldCreateContainerCycle(Element *element, Element *container) const
@@ -1877,8 +1996,11 @@ void Widget::RenderContainerChildren(Element *container)
 
     Microsoft::WRL::ComPtr<ID2D1BitmapBrush> opacityBrush;
     bool hasOpacityMask = false;
+    const bool isLayoutContainer = IsLayoutContainer(container->GetId());
 
-    if (bounds.Width > 0 && bounds.Height > 0)
+    // Layout containers are structural wrappers; they should clip children,
+    // but must not apply alpha masking from their own fill/stroke.
+    if (!isLayoutContainer && bounds.Width > 0 && bounds.Height > 0)
     {
         Microsoft::WRL::ComPtr<ID2D1BitmapRenderTarget> maskTarget;
         HRESULT hr = m_pContext->CreateCompatibleRenderTarget(
@@ -2273,6 +2395,7 @@ bool Widget::RemoveElements(const std::wstring &id)
             delete el;
         }
         m_Elements.clear();
+        m_LayoutConfigs.clear();
         m_MouseOverElement = nullptr;
         m_TooltipElement = nullptr;
         Redraw();
@@ -2309,6 +2432,7 @@ bool Widget::RemoveElements(const std::wstring &id)
             }
             
             UpdateContainerForElement(element, L"");
+            m_LayoutConfigs.erase(id);
             delete element;
             it = m_Elements.erase(it);
             changed = true;
@@ -2359,6 +2483,7 @@ void Widget::RemoveElements(const std::vector<std::wstring> &ids)
                     (*it)->ClearContainerItems();
                 }
                 UpdateContainerForElement(*it, L"");
+                m_LayoutConfigs.erase(id);
                 delete *it;
                 m_Elements.erase(it);
                 changed = true;

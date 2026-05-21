@@ -12,6 +12,7 @@
 #include <commctrl.h>
 #include <string>
 #include <vector>
+#include <unordered_map>
 #include <d2d1_1.h>
 #include <wrl/client.h>
 #include "DesktopManager.h"
@@ -77,6 +78,18 @@ struct WidgetOptions
 class Widget
 {
 public:
+    struct LayoutConfig
+    {
+        std::wstring direction = L"column"; // "row" | "column"
+        int gap = 0;
+        std::wstring align = L"start";   // "start" | "center" | "end" | "stretch"
+        std::wstring justify = L"start"; // currently used as start/center/end for main axis
+        int paddingLeft = 0;
+        int paddingTop = 0;
+        int paddingRight = 0;
+        int paddingBottom = 0;
+    };
+
     Widget(const WidgetOptions& options);
 
     ~Widget();
@@ -142,6 +155,9 @@ public:
     static std::vector<Widget *> &GetAllWidgets();
     static void ClearAllWidgets();
     static bool IsValid(Widget* pWidget);
+    void SetLayoutConfig(const std::wstring &id, const LayoutConfig &config);
+    bool IsLayoutContainer(const std::wstring &id) const;
+    void ReflowLayout(const std::wstring &id);
 
 private:
     static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
@@ -160,6 +176,7 @@ private:
     void ApplyParsedPropertiesToElement(Element* element, duk_context* ctx);
     void UpdateContainerForElement(Element* element, const std::wstring& newContainerId);
     bool WouldCreateContainerCycle(Element* element, Element* container) const;
+    void ApplyLayoutForContainer(Element *container);
     void RenderContainerChildren(Element* container);
     bool HitTestContainerChildren(Element* container, int x, int y, Element*& outElement);
     bool HitTestContainerChildrenDetailed(
@@ -181,6 +198,7 @@ private:
     Tooltip m_Tooltip;
     ZPOSITION m_WindowZPosition;
     std::vector<Element*> m_Elements;
+    std::unordered_map<std::wstring, LayoutConfig> m_LayoutConfigs;
     Element* m_MouseOverElement = nullptr;
     Element* m_TooltipElement = nullptr;
     int m_IsBatchUpdating = 0;

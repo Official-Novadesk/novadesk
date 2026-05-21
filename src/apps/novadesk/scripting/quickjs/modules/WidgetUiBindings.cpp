@@ -335,6 +335,136 @@ namespace novadesk::scripting::quickjs
             return JS_UNDEFINED;
         }
 
+        JSValue JsWidgetAddLayout(JSContext *ctx, JSValueConst thisVal, int argc, JSValueConst *argv)
+        {
+            Widget *widget = GetAnyWidget(ctx, thisVal);
+            if (!widget)
+                return JS_UNDEFINED;
+            if (argc < 1 || !JS_IsObject(argv[0]))
+                return ThrowTypeError(ctx, "addLayout", "expected options object");
+
+            PropertyParser::ShapeOptions shapeOptions;
+            PropertyParser::ParseShapeOptions(ctx, argv[0], shapeOptions, GetWidgetScriptBaseDir(widget));
+            if (shapeOptions.id.empty())
+                return ThrowTypeError(ctx, "addLayout", "id is required");
+
+            // Layout is a non-visual wrapper by default.
+            shapeOptions.shapeType = L"rectangle";
+            shapeOptions.fillAlpha = 0;
+            shapeOptions.strokeAlpha = 0;
+            shapeOptions.strokeWidth = 0.0f;
+            shapeOptions.hasSolidColor = false;
+            shapeOptions.solidGradient.type = GRADIENT_NONE;
+
+            widget->AddShape(shapeOptions);
+
+            auto readString = [&](const char *key) -> std::wstring
+            {
+                JSValue v = JS_GetPropertyStr(ctx, argv[0], key);
+                if (JS_IsException(v) || JS_IsUndefined(v) || JS_IsNull(v))
+                {
+                    JS_FreeValue(ctx, v);
+                    return L"";
+                }
+                const char *s = JS_ToCString(ctx, v);
+                std::wstring out;
+                if (s)
+                {
+                    out = Utils::ToWString(s);
+                    JS_FreeCString(ctx, s);
+                }
+                JS_FreeValue(ctx, v);
+                return out;
+            };
+            auto readInt = [&](const char *key, int &out) -> bool
+            {
+                JSValue v = JS_GetPropertyStr(ctx, argv[0], key);
+                if (JS_IsException(v) || JS_IsUndefined(v) || JS_IsNull(v))
+                {
+                    JS_FreeValue(ctx, v);
+                    return false;
+                }
+                int32_t tmp = 0;
+                bool ok = (JS_ToInt32(ctx, &tmp, v) == 0);
+                JS_FreeValue(ctx, v);
+                if (ok)
+                    out = static_cast<int>(tmp);
+                return ok;
+            };
+
+            Widget::LayoutConfig cfg;
+            std::wstring direction = readString("direction");
+            if (direction.empty())
+                direction = L"column";
+            std::transform(direction.begin(), direction.end(), direction.begin(), ::towlower);
+            cfg.direction = (direction == L"row") ? L"row" : L"column";
+
+            int gap = 0;
+            if (readInt("gap", gap))
+                cfg.gap = gap;
+
+            std::wstring align = readString("align");
+            if (!align.empty())
+            {
+                std::transform(align.begin(), align.end(), align.begin(), ::towlower);
+                cfg.align = align;
+            }
+
+            std::wstring justify = readString("justify");
+            if (!justify.empty())
+            {
+                std::transform(justify.begin(), justify.end(), justify.begin(), ::towlower);
+                cfg.justify = justify;
+            }
+
+            int pad = 0;
+            if (readInt("padding", pad))
+            {
+                cfg.paddingLeft = cfg.paddingTop = cfg.paddingRight = cfg.paddingBottom = pad;
+            }
+
+            JSValue paddingVal = JS_GetPropertyStr(ctx, argv[0], "padding");
+            if (JS_IsArray(paddingVal))
+            {
+                uint32_t len = 0;
+                JSValue lenV = JS_GetPropertyStr(ctx, paddingVal, "length");
+                JS_ToUint32(ctx, &len, lenV);
+                JS_FreeValue(ctx, lenV);
+
+                std::vector<int> values;
+                values.reserve(len);
+                for (uint32_t i = 0; i < len; ++i)
+                {
+                    JSValue iv = JS_GetPropertyUint32(ctx, paddingVal, i);
+                    int32_t pv = 0;
+                    if (JS_ToInt32(ctx, &pv, iv) == 0)
+                        values.push_back(static_cast<int>(pv));
+                    JS_FreeValue(ctx, iv);
+                }
+
+                if (values.size() == 1)
+                {
+                    cfg.paddingLeft = cfg.paddingTop = cfg.paddingRight = cfg.paddingBottom = values[0];
+                }
+                else if (values.size() == 2)
+                {
+                    cfg.paddingLeft = cfg.paddingRight = values[0];
+                    cfg.paddingTop = cfg.paddingBottom = values[1];
+                }
+                else if (values.size() >= 4)
+                {
+                    cfg.paddingLeft = values[0];
+                    cfg.paddingTop = values[1];
+                    cfg.paddingRight = values[2];
+                    cfg.paddingBottom = values[3];
+                }
+            }
+            JS_FreeValue(ctx, paddingVal);
+
+            widget->SetLayoutConfig(shapeOptions.id, cfg);
+            return JS_UNDEFINED;
+        }
+
         JSValue JsWidgetRemoveElements(JSContext *ctx, JSValueConst thisVal, int argc, JSValueConst *argv)
         {
             Widget *widget = GetAnyWidget(ctx, thisVal);
@@ -1383,6 +1513,7 @@ namespace novadesk::scripting::quickjs
             JS_CFUNC_DEF("addBitmap", 1, JsWidgetAddBitmap),
             JS_CFUNC_DEF("addRotator", 1, JsWidgetAddRotator),
             JS_CFUNC_DEF("addAreaGraph", 1, JsWidgetAddAreaGraph),
+            JS_CFUNC_DEF("addLayout", 1, JsWidgetAddLayout),
             JS_CFUNC_DEF("setElementProperty", 3, JsWidgetSetElementProperty),
             JS_CFUNC_DEF("setElementProperties", 2, JsWidgetSetElementProperties),
             JS_CFUNC_DEF("setElementPropertyByGroup", 2, JsWidgetSetElementPropertiesByGroup),

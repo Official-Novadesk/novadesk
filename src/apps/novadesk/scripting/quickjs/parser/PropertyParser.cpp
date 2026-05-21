@@ -743,6 +743,11 @@ namespace PropertyParser
             options.hasPixelHitTest = true;
         GetBoolProp(ctx, obj, "show", options.show);
         std::wstring containerId = GetStringProp(ctx, obj, "container");
+        if (containerId.empty())
+        {
+            // Alias for new layout API usage.
+            containerId = GetStringProp(ctx, obj, "parentId");
+        }
         if (!containerId.empty())
             options.containerId = containerId;
 
