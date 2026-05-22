@@ -33,6 +33,7 @@
 #include "ShapeElement.h"
 #include "ColorUtil.h"
 #include "AnimationEasing.h"
+#include "WidgetWindowChromeHelper.h"
 #include "ButtonElement.h"
 #include "BitmapElement.h"
 #include "WidgetContextMenuHelper.h"
@@ -613,90 +614,22 @@ void Widget::SetToolbarTitle(const std::wstring &title)
 
 void Widget::ApplyToolbarStyle()
 {
-    if (!m_hWnd)
-        return;
-
-    LONG_PTR exStyle = GetWindowLongPtrW(m_hWnd, GWL_EXSTYLE);
-    if (m_Options.showInToolbar)
-    {
-        exStyle &= ~static_cast<LONG_PTR>(WS_EX_TOOLWINDOW);
-        exStyle |= WS_EX_APPWINDOW;
-    }
-    else
-    {
-        exStyle &= ~static_cast<LONG_PTR>(WS_EX_APPWINDOW);
-        exStyle |= WS_EX_TOOLWINDOW;
-    }
-
-    SetWindowLongPtrW(m_hWnd, GWL_EXSTYLE, exStyle);
-    SetWindowPos(
-        m_hWnd,
-        nullptr,
-        0, 0, 0, 0,
-        SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
-
-    if (IsWindowVisible(m_hWnd))
-    {
-        ShowWindow(m_hWnd, SW_HIDE);
-        ShowWindow(m_hWnd, SW_SHOWNOACTIVATE);
-    }
+    WidgetWindowChromeHelper::ApplyToolbarStyle(m_hWnd, m_Options.showInToolbar);
 }
 
 void Widget::DestroyToolbarIcon()
 {
-    if (m_ToolbarIconOwned && m_ToolbarIconHandle)
-    {
-        DestroyIcon(m_ToolbarIconHandle);
-    }
-    m_ToolbarIconHandle = nullptr;
-    m_ToolbarIconOwned = false;
+    WidgetWindowChromeHelper::DestroyToolbarIcon(m_ToolbarIconHandle, m_ToolbarIconOwned);
 }
 
 void Widget::ApplyToolbarIcon()
 {
-    if (!m_hWnd)
-        return;
-
-    DestroyToolbarIcon();
-
-    HICON icon = nullptr;
-    if (!m_Options.toolbarIcon.empty())
-    {
-        icon = reinterpret_cast<HICON>(LoadImageW(
-            nullptr,
-            m_Options.toolbarIcon.c_str(),
-            IMAGE_ICON,
-            0,
-            0,
-            LR_LOADFROMFILE | LR_DEFAULTSIZE));
-
-        if (icon)
-        {
-            m_ToolbarIconHandle = icon;
-            m_ToolbarIconOwned = true;
-        }
-        else
-        {
-            Logging::Log(LogLevel::Warn, L"Widget '%s': failed to load toolbarIcon '%s'", m_Options.id.c_str(), m_Options.toolbarIcon.c_str());
-        }
-    }
-
-    if (!icon)
-    {
-        icon = LoadIcon(GetModuleHandle(nullptr), MAKEINTRESOURCE(IDI_NOVADESK));
-    }
-
-    SendMessageW(m_hWnd, WM_SETICON, ICON_SMALL, reinterpret_cast<LPARAM>(icon));
-    SendMessageW(m_hWnd, WM_SETICON, ICON_BIG, reinterpret_cast<LPARAM>(icon));
+    WidgetWindowChromeHelper::ApplyToolbarIcon(m_hWnd, m_Options, m_ToolbarIconHandle, m_ToolbarIconOwned);
 }
 
 void Widget::ApplyToolbarTitle()
 {
-    if (!m_hWnd)
-        return;
-
-    const std::wstring title = m_Options.toolbarTitle.empty() ? m_Options.id : m_Options.toolbarTitle;
-    SetWindowTextW(m_hWnd, title.c_str());
+    WidgetWindowChromeHelper::ApplyToolbarTitle(m_hWnd, m_Options);
 }
 
 /*
