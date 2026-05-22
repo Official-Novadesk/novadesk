@@ -12,8 +12,8 @@
 #include <d2d1effects.h>
 #include <cmath>
 
-ShapeElement::ShapeElement(const std::wstring& id, int x, int y, int width, int height)
-    : Element(ELEMENT_SHAPE, id, x, y, width, height)
+ShapeElement::ShapeElement(const std::wstring& id, int x, int y, int width, int height, ElementType type)
+    : Element(type, id, x, y, width, height)
 {
 }
 

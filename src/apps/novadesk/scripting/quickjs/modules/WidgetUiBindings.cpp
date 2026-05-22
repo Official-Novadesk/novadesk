@@ -20,6 +20,7 @@
 #include "../../render/CurveShape.h"
 #include "../../render/PathShape.h"
 #include "../../render/TextElement.h"
+#include "../../render/ElementLayoutBox.h"
 #include "../../shared/FileUtils.h"
 #include "../../shared/Logging.h"
 #include "../../shared/PathUtils.h"
@@ -335,82 +336,319 @@ namespace novadesk::scripting::quickjs
             return JS_UNDEFINED;
         }
 
-        JSValue JsWidgetAddLayout(JSContext *ctx, JSValueConst thisVal, int argc, JSValueConst *argv)
+        static std::wstring ReadObjectString(JSContext *ctx, JSValueConst obj, const char *key)
+        {
+            JSValue v = JS_GetPropertyStr(ctx, obj, key);
+            if (JS_IsException(v) || JS_IsUndefined(v) || JS_IsNull(v))
+            {
+                JS_FreeValue(ctx, v);
+                return L"";
+            }
+            const char *s = JS_ToCString(ctx, v);
+            std::wstring out;
+            if (s)
+            {
+                out = Utils::ToWString(s);
+                JS_FreeCString(ctx, s);
+            }
+            JS_FreeValue(ctx, v);
+            return out;
+        }
+
+        static bool ReadObjectInt(JSContext *ctx, JSValueConst obj, const char *key, int &out)
+        {
+            JSValue v = JS_GetPropertyStr(ctx, obj, key);
+            if (JS_IsException(v) || JS_IsUndefined(v) || JS_IsNull(v))
+            {
+                JS_FreeValue(ctx, v);
+                return false;
+            }
+            int32_t tmp = 0;
+            const bool ok = (JS_ToInt32(ctx, &tmp, v) == 0);
+            JS_FreeValue(ctx, v);
+            if (ok)
+                out = static_cast<int>(tmp);
+            return ok;
+        }
+
+        static JSValue CreateTypedElementObject(JSContext *ctx, JSValueConst srcOptions, const char *typeName)
+        {
+            JSValue obj = JS_NewObject(ctx);
+            JS_SetPropertyStr(ctx, obj, "type", JS_NewString(ctx, typeName));
+            if (JS_IsObject(srcOptions))
+            {
+                JSPropertyEnum *tab = nullptr;
+                uint32_t len = 0;
+                if (JS_GetOwnPropertyNames(ctx, &tab, &len, srcOptions, JS_GPN_STRING_MASK | JS_GPN_ENUM_ONLY) == 0)
+                {
+                    for (uint32_t i = 0; i < len; ++i)
+                    {
+                        JSValue keyV = JS_AtomToString(ctx, tab[i].atom);
+                        const char *key = JS_ToCString(ctx, keyV);
+                        if (key)
+                        {
+                            if (std::strcmp(key, "type") != 0)
+                            {
+                                JSValue val = JS_GetProperty(ctx, srcOptions, tab[i].atom);
+                                JS_SetPropertyStr(ctx, obj, key, val);
+                            }
+                            JS_FreeCString(ctx, key);
+                        }
+                        JS_FreeValue(ctx, keyV);
+                        JS_FreeAtom(ctx, tab[i].atom);
+                    }
+                    js_free(ctx, tab);
+                }
+            }
+            return obj;
+        }
+
+        static JSValue CallAddByType(JSContext *ctx, Widget *widget, JSValueConst thisVal, JSValue obj)
+        {
+            (void)thisVal;
+            if (!widget || !JS_IsObject(obj))
+                return JS_UNDEFINED;
+            std::wstring type = ReadObjectString(ctx, obj, "type");
+            std::transform(type.begin(), type.end(), type.begin(), ::towlower);
+
+            JSValue argvLocal[1] = { obj };
+            if (type == L"text")
+                return JsWidgetAddText(ctx, thisVal, 1, argvLocal);
+            if (type == L"image")
+                return JsWidgetAddImage(ctx, thisVal, 1, argvLocal);
+            if (type == L"shape")
+                return JsWidgetAddShape(ctx, thisVal, 1, argvLocal);
+            if (type == L"button")
+                return JsWidgetAddButton(ctx, thisVal, 1, argvLocal);
+            if (type == L"bitmap")
+                return JsWidgetAddBitmap(ctx, thisVal, 1, argvLocal);
+            if (type == L"rotator")
+                return JsWidgetAddRotator(ctx, thisVal, 1, argvLocal);
+            if (type == L"bar")
+                return JsWidgetAddBar(ctx, thisVal, 1, argvLocal);
+            if (type == L"line")
+                return JsWidgetAddLine(ctx, thisVal, 1, argvLocal);
+            if (type == L"histogram")
+                return JsWidgetAddHistogram(ctx, thisVal, 1, argvLocal);
+            if (type == L"roundline")
+                return JsWidgetAddRoundLine(ctx, thisVal, 1, argvLocal);
+            if (type == L"areagraph")
+                return JsWidgetAddAreaGraph(ctx, thisVal, 1, argvLocal);
+            if (type == L"layoutbox")
+                return JS_UNDEFINED;
+            return ThrowTypeError(ctx, "addLayoutBox", "children item has unsupported type");
+        }
+
+        static JSValue JsWidgetAddLayoutBox(JSContext *ctx, JSValueConst thisVal, int argc, JSValueConst *argv);
+
+        static JSValue AddLayoutBoxChildren(JSContext *ctx, Widget *widget, JSValueConst thisVal, JSValueConst layoutObj, const std::wstring &layoutId)
+        {
+            JSValue childrenVal = JS_GetPropertyStr(ctx, layoutObj, "children");
+            if (!JS_IsArray(childrenVal))
+            {
+                JS_FreeValue(ctx, childrenVal);
+                return JS_UNDEFINED;
+            }
+
+            JSValue lenV = JS_GetPropertyStr(ctx, childrenVal, "length");
+            uint32_t len = 0;
+            JS_ToUint32(ctx, &len, lenV);
+            JS_FreeValue(ctx, lenV);
+
+            for (uint32_t i = 0; i < len; ++i)
+            {
+                JSValue child = JS_GetPropertyUint32(ctx, childrenVal, i);
+                if (!JS_IsObject(child))
+                {
+                    JS_FreeValue(ctx, child);
+                    continue;
+                }
+
+                JS_SetPropertyStr(ctx, child, "container", JS_NewString(ctx, Utils::ToString(layoutId).c_str()));
+                std::wstring type = ReadObjectString(ctx, child, "type");
+                std::transform(type.begin(), type.end(), type.begin(), ::towlower);
+                JSValue res = JS_UNDEFINED;
+                if (type == L"layoutbox")
+                {
+                    JSValue childArgv[1] = { child };
+                    res = JsWidgetAddLayoutBox(ctx, thisVal, 1, childArgv);
+                }
+                else
+                {
+                    res = CallAddByType(ctx, widget, thisVal, child);
+                }
+
+                JS_FreeValue(ctx, child);
+                if (JS_IsException(res))
+                {
+                    JS_FreeValue(ctx, childrenVal);
+                    return res;
+                }
+                JS_FreeValue(ctx, res);
+            }
+
+            JS_FreeValue(ctx, childrenVal);
+            return JS_UNDEFINED;
+        }
+
+        static JSValue JsWidgetAddLayoutBox(JSContext *ctx, JSValueConst thisVal, int argc, JSValueConst *argv)
         {
             Widget *widget = GetAnyWidget(ctx, thisVal);
             if (!widget)
                 return JS_UNDEFINED;
             if (argc < 1 || !JS_IsObject(argv[0]))
-                return ThrowTypeError(ctx, "addLayout", "expected options object");
+                return ThrowTypeError(ctx, "addLayoutBox", "expected options object");
 
             PropertyParser::ShapeOptions shapeOptions;
             PropertyParser::ParseShapeOptions(ctx, argv[0], shapeOptions, GetWidgetScriptBaseDir(widget));
             if (shapeOptions.id.empty())
-                return ThrowTypeError(ctx, "addLayout", "id is required");
+                return ThrowTypeError(ctx, "addLayoutBox", "id is required");
 
-            // Layout is a non-visual wrapper by default.
+            // LayoutBox is a container element. By default it is non-visual.
             shapeOptions.shapeType = L"rectangle";
             shapeOptions.fillAlpha = 0;
+            shapeOptions.solidAlpha = 0;
             shapeOptions.strokeAlpha = 0;
             shapeOptions.strokeWidth = 0.0f;
             shapeOptions.hasSolidColor = false;
             shapeOptions.solidGradient.type = GRADIENT_NONE;
 
-            widget->AddShape(shapeOptions);
-
-            auto readString = [&](const char *key) -> std::wstring
-            {
-                JSValue v = JS_GetPropertyStr(ctx, argv[0], key);
-                if (JS_IsException(v) || JS_IsUndefined(v) || JS_IsNull(v))
-                {
-                    JS_FreeValue(ctx, v);
-                    return L"";
-                }
-                const char *s = JS_ToCString(ctx, v);
-                std::wstring out;
-                if (s)
-                {
-                    out = Utils::ToWString(s);
-                    JS_FreeCString(ctx, s);
-                }
-                JS_FreeValue(ctx, v);
-                return out;
-            };
             auto readInt = [&](const char *key, int &out) -> bool
             {
-                JSValue v = JS_GetPropertyStr(ctx, argv[0], key);
-                if (JS_IsException(v) || JS_IsUndefined(v) || JS_IsNull(v))
-                {
-                    JS_FreeValue(ctx, v);
-                    return false;
-                }
-                int32_t tmp = 0;
-                bool ok = (JS_ToInt32(ctx, &tmp, v) == 0);
-                JS_FreeValue(ctx, v);
-                if (ok)
-                    out = static_cast<int>(tmp);
-                return ok;
+                return ReadObjectInt(ctx, argv[0], key, out);
+            };
+            auto readString = [&](const char *key) -> std::wstring
+            {
+                return ReadObjectString(ctx, argv[0], key);
             };
 
+            int styleWidth = 0;
+            int styleHeight = 0;
+            if (readInt("width", styleWidth) && styleWidth > 0)
+                shapeOptions.width = styleWidth;
+            if (readInt("height", styleHeight) && styleHeight > 0)
+                shapeOptions.height = styleHeight;
+
+            std::wstring bg = readString("backgroundColor");
+            if (!bg.empty())
+            {
+                COLORREF c = RGB(0, 0, 0);
+                BYTE a = 255;
+                if (ColorUtil::ParseRGBA(bg, c, a))
+                {
+                    shapeOptions.solidColor = c;
+                    shapeOptions.solidAlpha = a;
+                    shapeOptions.fillColor = c;
+                    shapeOptions.fillAlpha = a;
+                    shapeOptions.hasSolidColor = true;
+                    shapeOptions.solidGradient.type = GRADIENT_NONE;
+                }
+            }
+
+            std::wstring borderColor = readString("borderColor");
+            if (!borderColor.empty())
+            {
+                COLORREF c = RGB(0, 0, 0);
+                BYTE a = 255;
+                if (ColorUtil::ParseRGBA(borderColor, c, a))
+                {
+                    shapeOptions.strokeColor = c;
+                    shapeOptions.strokeAlpha = a;
+                    shapeOptions.strokeGradient.type = GRADIENT_NONE;
+                }
+            }
+
+            int borderWidth = 0;
+            if (readInt("borderWidth", borderWidth))
+                shapeOptions.strokeWidth = static_cast<float>(borderWidth);
+
+            int radius = 0;
+            if (readInt("borderRadius", radius))
+            {
+                const float r = static_cast<float>(radius);
+                shapeOptions.radiusX = r;
+                shapeOptions.radiusY = r;
+            }
+
+            JSValue opacityV = JS_GetPropertyStr(ctx, argv[0], "opacity");
+            if (!JS_IsUndefined(opacityV) && !JS_IsNull(opacityV))
+            {
+                double opacity = 1.0;
+                if (JS_ToFloat64(ctx, &opacity, opacityV) == 0)
+                {
+                    if (opacity <= 1.0)
+                        opacity *= 255.0;
+                    if (opacity < 0.0) opacity = 0.0;
+                    if (opacity > 255.0) opacity = 255.0;
+                    const BYTE a = static_cast<BYTE>(opacity);
+                    shapeOptions.solidAlpha = a;
+                    shapeOptions.fillAlpha = a;
+                    shapeOptions.strokeAlpha = a;
+                }
+            }
+            JS_FreeValue(ctx, opacityV);
+
+            std::wstring borderPosition = readString("borderPosition");
+            std::transform(borderPosition.begin(), borderPosition.end(), borderPosition.begin(), ::towlower);
+
+            {
+            }
+
+            widget->AddLayoutBox(shapeOptions);
+            if (!borderPosition.empty())
+            {
+                Element *layoutElement = widget->FindElementById(shapeOptions.id);
+                if (auto *lb = dynamic_cast<ElementLayoutBox *>(layoutElement))
+                {
+                    if (borderPosition == L"inside")
+                        lb->SetBorderPosition(ElementLayoutBox::BorderPosition::Inside);
+                    else if (borderPosition == L"center")
+                        lb->SetBorderPosition(ElementLayoutBox::BorderPosition::Center);
+                    else
+                        lb->SetBorderPosition(ElementLayoutBox::BorderPosition::Outside);
+                }
+            }
+
             Widget::LayoutConfig cfg;
-            std::wstring direction = readString("direction");
+            std::wstring direction = ReadObjectString(ctx, argv[0], "direction");
+            if (direction.empty())
+            {
+                JSValue styleDir = JS_GetPropertyStr(ctx, argv[0], "style");
+                if (JS_IsObject(styleDir))
+                    direction = ReadObjectString(ctx, styleDir, "direction");
+                JS_FreeValue(ctx, styleDir);
+            }
             if (direction.empty())
                 direction = L"column";
             std::transform(direction.begin(), direction.end(), direction.begin(), ::towlower);
             cfg.direction = (direction == L"row") ? L"row" : L"column";
 
             int gap = 0;
-            if (readInt("gap", gap))
+            if (ReadObjectInt(ctx, argv[0], "gap", gap))
                 cfg.gap = gap;
+            else
+            {
+                JSValue styleGap = JS_GetPropertyStr(ctx, argv[0], "style");
+                if (JS_IsObject(styleGap))
+                {
+                    if (ReadObjectInt(ctx, styleGap, "gap", gap))
+                        cfg.gap = gap;
+                }
+                JS_FreeValue(ctx, styleGap);
+            }
 
-            std::wstring align = readString("align");
+            std::wstring align = ReadObjectString(ctx, argv[0], "align");
+            if (align.empty())
+                align = ReadObjectString(ctx, argv[0], "alignItems");
             if (!align.empty())
             {
                 std::transform(align.begin(), align.end(), align.begin(), ::towlower);
                 cfg.align = align;
             }
 
-            std::wstring justify = readString("justify");
+            std::wstring justify = ReadObjectString(ctx, argv[0], "justify");
+            if (justify.empty())
+                justify = ReadObjectString(ctx, argv[0], "justifyContent");
             if (!justify.empty())
             {
                 std::transform(justify.begin(), justify.end(), justify.begin(), ::towlower);
@@ -418,7 +656,7 @@ namespace novadesk::scripting::quickjs
             }
 
             int pad = 0;
-            if (readInt("padding", pad))
+            if (ReadObjectInt(ctx, argv[0], "padding", pad))
             {
                 cfg.paddingLeft = cfg.paddingTop = cfg.paddingRight = cfg.paddingBottom = pad;
             }
@@ -461,8 +699,77 @@ namespace novadesk::scripting::quickjs
             }
             JS_FreeValue(ctx, paddingVal);
 
+            JSValue stylePadding = JS_GetPropertyStr(ctx, argv[0], "style");
+            if (JS_IsObject(stylePadding))
+            {
+                int padX = 0;
+                int padY = 0;
+                int minWidth = 0;
+                int minHeight = 0;
+                if (ReadObjectInt(ctx, stylePadding, "padding", pad))
+                {
+                    cfg.paddingLeft = cfg.paddingTop = cfg.paddingRight = cfg.paddingBottom = pad;
+                }
+                if (ReadObjectInt(ctx, stylePadding, "paddingX", padX))
+                {
+                    cfg.paddingLeft = cfg.paddingRight = padX;
+                }
+                if (ReadObjectInt(ctx, stylePadding, "paddingY", padY))
+                {
+                    cfg.paddingTop = cfg.paddingBottom = padY;
+                }
+                std::wstring alignItems = ReadObjectString(ctx, stylePadding, "alignItems");
+                if (!alignItems.empty())
+                {
+                    std::transform(alignItems.begin(), alignItems.end(), alignItems.begin(), ::towlower);
+                    cfg.align = alignItems;
+                }
+                std::wstring justifyContent = ReadObjectString(ctx, stylePadding, "justifyContent");
+                if (!justifyContent.empty())
+                {
+                    std::transform(justifyContent.begin(), justifyContent.end(), justifyContent.begin(), ::towlower);
+                    cfg.justify = justifyContent;
+                }
+                if (ReadObjectInt(ctx, stylePadding, "minWidth", minWidth) && minWidth > 0)
+                    cfg.minWidth = minWidth;
+                if (ReadObjectInt(ctx, stylePadding, "minHeight", minHeight) && minHeight > 0)
+                    cfg.minHeight = minHeight;
+            }
+            JS_FreeValue(ctx, stylePadding);
+
             widget->SetLayoutConfig(shapeOptions.id, cfg);
+            JSValue childRes = AddLayoutBoxChildren(ctx, widget, thisVal, argv[0], shapeOptions.id);
+            if (JS_IsException(childRes))
+                return childRes;
             return JS_UNDEFINED;
+        }
+
+        JSValue JsWidgetAddLayout(JSContext *ctx, JSValueConst thisVal, int argc, JSValueConst *argv)
+        {
+            return JsWidgetAddLayoutBox(ctx, thisVal, argc, argv);
+        }
+
+        JSValue JsWidgetElementFactory(JSContext *ctx, JSValueConst, int argc, JSValueConst *argv, int magic)
+        {
+            if (argc < 1 || !JS_IsObject(argv[0]))
+                return JS_ThrowTypeError(ctx, "element factory expects options object");
+            const char *typeName = "shape";
+            switch (magic)
+            {
+            case 0: typeName = "text"; break;
+            case 1: typeName = "image"; break;
+            case 2: typeName = "shape"; break;
+            case 3: typeName = "button"; break;
+            case 4: typeName = "bitmap"; break;
+            case 5: typeName = "rotator"; break;
+            case 6: typeName = "bar"; break;
+            case 7: typeName = "line"; break;
+            case 8: typeName = "histogram"; break;
+            case 9: typeName = "roundLine"; break;
+            case 10: typeName = "areaGraph"; break;
+            case 11: typeName = "layoutBox"; break;
+            }
+            return CreateTypedElementObject(ctx, argv[0], typeName);
         }
 
         JSValue JsWidgetAnimate(JSContext *ctx, JSValueConst thisVal, int argc, JSValueConst *argv)
@@ -1386,7 +1693,7 @@ namespace novadesk::scripting::quickjs
                     return JS_NewString(ctx, Utils::ToString(c).c_str());
                 }
             }
-            else if (element->GetType() == ELEMENT_SHAPE)
+            else if (element->GetType() == ELEMENT_SHAPE || element->GetType() == ELEMENT_LAYOUT_BOX)
             {
                 auto *shape = static_cast<ShapeElement *>(element);
 
@@ -1596,6 +1903,19 @@ namespace novadesk::scripting::quickjs
             JS_CFUNC_DEF("addRotator", 1, JsWidgetAddRotator),
             JS_CFUNC_DEF("addAreaGraph", 1, JsWidgetAddAreaGraph),
             JS_CFUNC_DEF("addLayout", 1, JsWidgetAddLayout),
+            JS_CFUNC_DEF("addLayoutBox", 1, JsWidgetAddLayoutBox),
+            JS_CFUNC_MAGIC_DEF("text", 1, JsWidgetElementFactory, 0),
+            JS_CFUNC_MAGIC_DEF("image", 1, JsWidgetElementFactory, 1),
+            JS_CFUNC_MAGIC_DEF("shape", 1, JsWidgetElementFactory, 2),
+            JS_CFUNC_MAGIC_DEF("button", 1, JsWidgetElementFactory, 3),
+            JS_CFUNC_MAGIC_DEF("bitmap", 1, JsWidgetElementFactory, 4),
+            JS_CFUNC_MAGIC_DEF("rotator", 1, JsWidgetElementFactory, 5),
+            JS_CFUNC_MAGIC_DEF("bar", 1, JsWidgetElementFactory, 6),
+            JS_CFUNC_MAGIC_DEF("line", 1, JsWidgetElementFactory, 7),
+            JS_CFUNC_MAGIC_DEF("histogram", 1, JsWidgetElementFactory, 8),
+            JS_CFUNC_MAGIC_DEF("roundLine", 1, JsWidgetElementFactory, 9),
+            JS_CFUNC_MAGIC_DEF("areaGraph", 1, JsWidgetElementFactory, 10),
+            JS_CFUNC_MAGIC_DEF("layoutBox", 1, JsWidgetElementFactory, 11),
             JS_CFUNC_DEF("animate", 1, JsWidgetAnimate),
             JS_CFUNC_DEF("setElementProperty", 3, JsWidgetSetElementProperty),
             JS_CFUNC_DEF("setElementProperties", 2, JsWidgetSetElementProperties),

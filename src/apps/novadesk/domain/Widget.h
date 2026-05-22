@@ -21,6 +21,7 @@
 #include "../render/ImageElement.h"
 #include "../render/BitmapElement.h"
 #include "../render/RotatorElement.h"
+#include "../render/ElementLayoutBox.h"
 #include "../render/HistogramElement.h"
 #include "../render/ButtonElement.h"
 #include "../render/BarElement.h"
@@ -88,6 +89,8 @@ public:
         int paddingTop = 0;
         int paddingRight = 0;
         int paddingBottom = 0;
+        int minWidth = 0;
+        int minHeight = 0;
     };
     struct AnimationTarget
     {
@@ -147,6 +150,7 @@ public:
     void AddRoundLine(const PropertyParser::RoundLineOptions& options);
     void AddShape(const PropertyParser::ShapeOptions& options);
     void AddAreaGraph(const PropertyParser::AreaGraphOptions& options);
+    void AddLayoutBox(const PropertyParser::ShapeOptions& options);
 
     void SetElementProperties(const std::wstring& id, duk_context* ctx);
     void SetGroupProperties(const std::wstring& group, duk_context* ctx);

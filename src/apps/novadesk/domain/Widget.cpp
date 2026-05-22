@@ -1525,6 +1525,26 @@ void Widget::AddAreaGraph(const PropertyParser::AreaGraphOptions &options)
     Redraw();
 }
 
+void Widget::AddLayoutBox(const PropertyParser::ShapeOptions &options)
+{
+    if (options.id.empty())
+    {
+        Logging::Log(LogLevel::Error, L"AddLayoutBox failed: Element ID cannot be empty.");
+        return;
+    }
+
+    if (FindElementById(options.id))
+    {
+        RemoveElements(options.id);
+    }
+
+    ElementLayoutBox *element = new ElementLayoutBox(options.id, options.x, options.y, options.width, options.height);
+    PropertyParser::ApplyShapeOptions(element, options);
+    m_Elements.push_back(element);
+    UpdateContainerForElement(element, options.containerId);
+    Redraw();
+}
+
 bool Widget::BuildCombinedShapeGeometry(PathShape *target, const PropertyParser::ShapeOptions &options)
 {
     if (!target)
@@ -1745,7 +1765,9 @@ void Widget::UpdateContainerForElement(Element *element, const std::wstring &new
         return;
     }
 
-    if (newContainer->IsContained())
+    // Allow nested layout containers (LayoutBox tree). Keep legacy protection
+    // for non-layout containers to avoid behavior changes in older widgets.
+    if (newContainer->IsContained() && !IsLayoutContainer(newContainer->GetId()))
     {
         Logging::Log(LogLevel::Error, L"Nested containers are not allowed: %s", newContainerId.c_str());
         return;
@@ -1915,6 +1937,18 @@ void Widget::ApplyLayoutForContainer(Element *container)
     const auto &items = container->GetContainerItems();
     if (items.empty())
         return;
+
+    if (cfg.minWidth > 0 || cfg.minHeight > 0)
+    {
+        const int currentW = container->GetWidth();
+        const int currentH = container->GetHeight();
+        const int targetW = (cfg.minWidth > 0 && currentW < cfg.minWidth) ? cfg.minWidth : currentW;
+        const int targetH = (cfg.minHeight > 0 && currentH < cfg.minHeight) ? cfg.minHeight : currentH;
+        if (targetW != currentW || targetH != currentH)
+        {
+            container->SetSize(targetW, targetH);
+        }
+    }
 
     GfxRect bounds = container->GetBounds();
     int innerW = bounds.Width - cfg.paddingLeft - cfg.paddingRight;
@@ -2249,7 +2283,7 @@ void Widget::ApplyParsedPropertiesToElement(Element *element, duk_context *ctx)
         PropertyParser::ApplyRoundLineOptions(static_cast<RoundLineElement *>(element), options);
         UpdateContainerForElement(element, options.containerId);
     }
-    else if (element->GetType() == ELEMENT_SHAPE)
+    else if (element->GetType() == ELEMENT_SHAPE || element->GetType() == ELEMENT_LAYOUT_BOX)
     {
         PropertyParser::ShapeOptions options;
         PropertyParser::PreFillShapeOptions(options, static_cast<ShapeElement *>(element));
@@ -2704,6 +2738,11 @@ void Widget::UpdateLayeredWindowContent()
                     continue;
                 if (!element->IsContainer())
                 {
+                    element->Render(m_pContext.Get());
+                }
+                else if (element->GetType() == ELEMENT_LAYOUT_BOX)
+                {
+                    // LayoutBox is both structural and visual; render box chrome first.
                     element->Render(m_pContext.Get());
                 }
                 if (element->IsContainer())

@@ -14,7 +14,7 @@
 class ShapeElement : public Element
 {
 public:
-    ShapeElement(const std::wstring& id, int x, int y, int width, int height);
+    ShapeElement(const std::wstring& id, int x, int y, int width, int height, ElementType type = ELEMENT_SHAPE);
     virtual ~ShapeElement();
 
     virtual void Render(ID2D1DeviceContext* context) = 0;
