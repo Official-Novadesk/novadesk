@@ -1,4 +1,4 @@
-const styles = ["dashed", ];
+const styles = ["double"];
 const perSideStyles = [
   ["solid", "dotted"],
   ["dashed", "double", "solid"],
@@ -11,12 +11,12 @@ for (let i = 0; i < styles.length; i++) {
   let style = styles[i];
   ui.addLayoutBox({
     id: "box_" + style,
-    x: 40 + (i % 5) * 150,
-    y: 40 + Math.floor(i / 5) * 150,
-    width: 512,
+    x: 80 + (i % 5) * 150,
+    y: 80 + Math.floor(i / 5) * 150,
+    width: 200,
     height: 200,
     backgroundColor: "rgb(102, 255, 0)",
-    borderWidth: 8,
+    borderWidth: 50,
     borderColor: "rgb(100, 100, 200)",
     borderStyle: style,
     children: [{

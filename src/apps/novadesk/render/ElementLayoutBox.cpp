@@ -102,12 +102,15 @@ void ElementLayoutBox::Render(ID2D1DeviceContext *context)
         if (m_BorderPosition == BorderPosition::Outside)
         {
             const float half = m_StrokeWidth * 0.5f;
-            borderRect.rect.left -= half;
-            borderRect.rect.top -= half;
-            borderRect.rect.right += half;
+            borderRect.rect.left   -= half;
+            borderRect.rect.top    -= half;
+            borderRect.rect.right  += half;
             borderRect.rect.bottom += half;
-            radiusX += half;
-            radiusY += half;
+            // Only expand the corner radius when the element actually has one.
+            // Adding half when m_RadiusX == 0 would make DrawRoundedRectangle
+            // curve the outer corners of an otherwise square-cornered box.
+            if (m_RadiusX > 0.0f) radiusX += half;
+            if (m_RadiusY > 0.0f) radiusY += half;
         }
         else if (m_BorderPosition == BorderPosition::Inside)
         {
@@ -314,40 +317,197 @@ void ElementLayoutBox::RenderBorderWithStyle(ID2D1DeviceContext *context, const 
             D2D1_ROUNDED_RECT r2 = r;
             r1.rect.left -= third; r1.rect.top -= third; r1.rect.right += third; r1.rect.bottom += third;
             r2.rect.left += third; r2.rect.top += third; r2.rect.right -= third; r2.rect.bottom -= third;
-            context->DrawRoundedRectangle(r1, brush, third, sstyle.Get());
-            context->DrawRoundedRectangle(r2, brush, third, sstyle.Get());
-        } else if (style == BorderStyle::Groove || style == BorderStyle::Ridge || 
-                   style == BorderStyle::Inset || style == BorderStyle::Outset) {
-            float half = width / 2.0f;
-            D2D1_ROUNDED_RECT rOuter = r;
-            D2D1_ROUNDED_RECT rInner = r;
-            rOuter.rect.left -= half/2; rOuter.rect.top -= half/2; rOuter.rect.right += half/2; rOuter.rect.bottom += half/2;
-            rInner.rect.left += half/2; rInner.rect.top += half/2; rInner.rect.right -= half/2; rInner.rect.bottom -= half/2;
+            if (r.radiusX == 0.0f && r.radiusY == 0.0f) {
+                context->DrawRectangle(r1.rect, brush, third, sstyle.Get());
+                context->DrawRectangle(r2.rect, brush, third, sstyle.Get());
+            } else {
+                context->DrawRoundedRectangle(r1, brush, third, sstyle.Get());
+                context->DrawRoundedRectangle(r2, brush, third, sstyle.Get());
+            }
+        } else if (style == BorderStyle::Groove || style == BorderStyle::Ridge ||
+                   style == BorderStyle::Inset  || style == BorderStyle::Outset) {
 
-            Microsoft::WRL::ComPtr<ID2D1SolidColorBrush> lightBrush;
-            Microsoft::WRL::ComPtr<ID2D1SolidColorBrush> darkBrush;
-            
             COLORREF baseColor = m_StrokeColor;
-            BYTE rC = GetRValue(baseColor);
-            BYTE gC = GetGValue(baseColor);
-            BYTE bC = GetBValue(baseColor);
-            
+            BYTE rC = GetRValue(baseColor), gC = GetGValue(baseColor), bC = GetBValue(baseColor);
             COLORREF lightC = RGB(std::min(255, rC + 50), std::min(255, gC + 50), std::min(255, bC + 50));
-            COLORREF darkC = RGB(std::max(0, rC - 50), std::max(0, gC - 50), std::max(0, bC - 50));
+            COLORREF darkC  = RGB(std::max(0,   rC - 50), std::max(0,   gC - 50), std::max(0,   bC - 50));
 
+            Microsoft::WRL::ComPtr<ID2D1SolidColorBrush> lightBrush, darkBrush;
             context->CreateSolidColorBrush(Direct2D::ColorToD2D(lightC, m_StrokeAlpha / 255.0f), &lightBrush);
-            context->CreateSolidColorBrush(Direct2D::ColorToD2D(darkC, m_StrokeAlpha / 255.0f), &darkBrush);
+            context->CreateSolidColorBrush(Direct2D::ColorToD2D(darkC,  m_StrokeAlpha / 255.0f), &darkBrush);
 
-            ID2D1Brush* brush1 = nullptr;
-            ID2D1Brush* brush2 = nullptr;
+            ID2D1Brush* topLeftBrush    = nullptr;
+            ID2D1Brush* bottomRightBrush = nullptr;
+            if (style == BorderStyle::Groove) { topLeftBrush = darkBrush.Get();  bottomRightBrush = lightBrush.Get(); }
+            else if (style == BorderStyle::Ridge)  { topLeftBrush = lightBrush.Get(); bottomRightBrush = darkBrush.Get();  }
+            else if (style == BorderStyle::Inset)  { topLeftBrush = darkBrush.Get();  bottomRightBrush = lightBrush.Get(); }
+            else if (style == BorderStyle::Outset) { topLeftBrush = lightBrush.Get(); bottomRightBrush = darkBrush.Get();  }
 
-            if (style == BorderStyle::Groove) { brush1 = darkBrush.Get(); brush2 = lightBrush.Get(); }
-            else if (style == BorderStyle::Ridge) { brush1 = lightBrush.Get(); brush2 = darkBrush.Get(); }
-            else if (style == BorderStyle::Inset) { brush1 = darkBrush.Get(); brush2 = lightBrush.Get(); }
-            else if (style == BorderStyle::Outset) { brush1 = lightBrush.Get(); brush2 = darkBrush.Get(); }
+            if (m_RadiusX == 0.0f && m_RadiusY == 0.0f) {
+                D2D1_ANTIALIAS_MODE oldMode = context->GetAntialiasMode();
+                context->SetAntialiasMode(D2D1_ANTIALIAS_MODE_ALIASED);
 
-            context->DrawRoundedRectangle(rOuter, brush1 ? brush1 : brush, half, sstyle.Get());
-            context->DrawRoundedRectangle(rInner, brush2 ? brush2 : brush, half, sstyle.Get());
+                // Sharp-corner path: draw perfectly mitered trapezoids for the border sides.
+                float L = r.rect.left,  T = r.rect.top;
+                float R = r.rect.right, B = r.rect.bottom;
+                float w = width;
+
+                auto drawPolygon = [&](const D2D1_POINT_2F* points, int count, ID2D1Brush* pBrush) {
+                    if (!pBrush) return;
+                    Microsoft::WRL::ComPtr<ID2D1Factory> factory;
+                    context->GetFactory(&factory);
+                    if (!factory) return;
+                    Microsoft::WRL::ComPtr<ID2D1PathGeometry> pathGeom;
+                    if (SUCCEEDED(factory->CreatePathGeometry(&pathGeom))) {
+                        Microsoft::WRL::ComPtr<ID2D1GeometrySink> sink;
+                        if (SUCCEEDED(pathGeom->Open(&sink))) {
+                            sink->BeginFigure(points[0], D2D1_FIGURE_BEGIN_FILLED);
+                            sink->AddLines(points + 1, count - 1);
+                            sink->EndFigure(D2D1_FIGURE_END_CLOSED);
+                            sink->Close();
+                            context->FillGeometry(pathGeom.Get(), pBrush);
+                        }
+                    }
+                };
+
+                if (style == BorderStyle::Inset || style == BorderStyle::Outset) {
+                    ID2D1Brush* tbBrush = topLeftBrush;
+                    ID2D1Brush* lrBrush = topLeftBrush;
+                    ID2D1Brush* bbBrush = bottomRightBrush;
+                    ID2D1Brush* rrBrush = bottomRightBrush;
+
+                    // Top trapezoid
+                    D2D1_POINT_2F topPts[] = {
+                        D2D1::Point2F(L, T),
+                        D2D1::Point2F(R, T),
+                        D2D1::Point2F(R - w, T + w),
+                        D2D1::Point2F(L + w, T + w)
+                    };
+                    drawPolygon(topPts, 4, tbBrush);
+
+                    // Left trapezoid
+                    D2D1_POINT_2F leftPts[] = {
+                        D2D1::Point2F(L, T),
+                        D2D1::Point2F(L + w, T + w),
+                        D2D1::Point2F(L + w, B - w),
+                        D2D1::Point2F(L, B)
+                    };
+                    drawPolygon(leftPts, 4, lrBrush);
+
+                    // Bottom trapezoid
+                    D2D1_POINT_2F bottomPts[] = {
+                        D2D1::Point2F(L + w, B - w),
+                        D2D1::Point2F(R - w, B - w),
+                        D2D1::Point2F(R, B),
+                        D2D1::Point2F(L, B)
+                    };
+                    drawPolygon(bottomPts, 4, bbBrush);
+
+                    // Right trapezoid
+                    D2D1_POINT_2F rightPts[] = {
+                        D2D1::Point2F(R - w, T + w),
+                        D2D1::Point2F(R, T),
+                        D2D1::Point2F(R, B),
+                        D2D1::Point2F(R - w, B - w)
+                    };
+                    drawPolygon(rightPts, 4, rrBrush);
+                }
+                else if (style == BorderStyle::Groove || style == BorderStyle::Ridge) {
+                    float h = w * 0.5f;
+
+                    ID2D1Brush* outerTopLeftBrush  = (style == BorderStyle::Groove) ? darkBrush.Get()  : lightBrush.Get();
+                    ID2D1Brush* innerTopLeftBrush  = (style == BorderStyle::Groove) ? lightBrush.Get() : darkBrush.Get();
+                    ID2D1Brush* outerBotRightBrush = (style == BorderStyle::Groove) ? lightBrush.Get() : darkBrush.Get();
+                    ID2D1Brush* innerBotRightBrush = (style == BorderStyle::Groove) ? darkBrush.Get()  : lightBrush.Get();
+
+                    // --- TOP SIDE ---
+                    // Outer top
+                    D2D1_POINT_2F topOuterPts[] = {
+                        D2D1::Point2F(L, T),
+                        D2D1::Point2F(R, T),
+                        D2D1::Point2F(R - h, T + h),
+                        D2D1::Point2F(L + h, T + h)
+                    };
+                    drawPolygon(topOuterPts, 4, outerTopLeftBrush);
+
+                    // Inner top
+                    D2D1_POINT_2F topInnerPts[] = {
+                        D2D1::Point2F(L + h, T + h),
+                        D2D1::Point2F(R - h, T + h),
+                        D2D1::Point2F(R - w, T + w),
+                        D2D1::Point2F(L + w, T + w)
+                    };
+                    drawPolygon(topInnerPts, 4, innerTopLeftBrush);
+
+                    // --- LEFT SIDE ---
+                    // Outer left
+                    D2D1_POINT_2F leftOuterPts[] = {
+                        D2D1::Point2F(L, T),
+                        D2D1::Point2F(L + h, T + h),
+                        D2D1::Point2F(L + h, B - h),
+                        D2D1::Point2F(L, B)
+                    };
+                    drawPolygon(leftOuterPts, 4, outerTopLeftBrush);
+
+                    // Inner left
+                    D2D1_POINT_2F leftInnerPts[] = {
+                        D2D1::Point2F(L + h, T + h),
+                        D2D1::Point2F(L + w, T + w),
+                        D2D1::Point2F(L + w, B - w),
+                        D2D1::Point2F(L + h, B - h)
+                    };
+                    drawPolygon(leftInnerPts, 4, innerTopLeftBrush);
+
+                    // --- BOTTOM SIDE ---
+                    // Outer bottom
+                    D2D1_POINT_2F bottomOuterPts[] = {
+                        D2D1::Point2F(L + h, B - h),
+                        D2D1::Point2F(R - h, B - h),
+                        D2D1::Point2F(R, B),
+                        D2D1::Point2F(L, B)
+                    };
+                    drawPolygon(bottomOuterPts, 4, outerBotRightBrush);
+
+                    // Inner bottom
+                    D2D1_POINT_2F bottomInnerPts[] = {
+                        D2D1::Point2F(L + w, B - w),
+                        D2D1::Point2F(R - w, B - w),
+                        D2D1::Point2F(R - h, B - h),
+                        D2D1::Point2F(L + h, B - h)
+                    };
+                    drawPolygon(bottomInnerPts, 4, innerBotRightBrush);
+
+                    // --- RIGHT SIDE ---
+                    // Outer right
+                    D2D1_POINT_2F rightOuterPts[] = {
+                        D2D1::Point2F(R - h, T + h),
+                        D2D1::Point2F(R, T),
+                        D2D1::Point2F(R, B),
+                        D2D1::Point2F(R - h, B - h)
+                    };
+                    drawPolygon(rightOuterPts, 4, outerBotRightBrush);
+
+                    // Inner right
+                    D2D1_POINT_2F rightInnerPts[] = {
+                        D2D1::Point2F(R - w, T + w),
+                        D2D1::Point2F(R - h, T + h),
+                        D2D1::Point2F(R - h, B - h),
+                        D2D1::Point2F(R - w, B - w)
+                    };
+                    drawPolygon(rightInnerPts, 4, innerBotRightBrush);
+                }
+                context->SetAntialiasMode(oldMode);
+            } else {
+                // Rounded-corner fallback: two concentric DrawRoundedRectangle calls
+                float half = width / 2.0f;
+                D2D1_ROUNDED_RECT rOuter = r, rInner = r;
+                rOuter.rect.left -= half/2; rOuter.rect.top -= half/2;
+                rOuter.rect.right += half/2; rOuter.rect.bottom += half/2;
+                rInner.rect.left += half/2; rInner.rect.top += half/2;
+                rInner.rect.right -= half/2; rInner.rect.bottom -= half/2;
+                context->DrawRoundedRectangle(rOuter, topLeftBrush    ? topLeftBrush    : brush, half, sstyle.Get());
+                context->DrawRoundedRectangle(rInner, bottomRightBrush ? bottomRightBrush : brush, half, sstyle.Get());
+            }
         } else if (style == BorderStyle::Dotted && m_RadiusX == 0.0f && m_RadiusY == 0.0f) {
             float left = r.rect.left;
             float top = r.rect.top;
