@@ -19,11 +19,13 @@ for (let i = 0; i < styles.length; i++) {
     borderWidth: 10,
     borderColor: "rgb(100, 100, 200)",
     borderStyle: style,
+    borderRadius: 20,
+    borderPosition: "center",
     children: [{
       type: "text",
       id: "text_" + style,
-      text: style,
-      x: 10,
+      // text: style,
+      x: 50,
       y: 40,
       fontColor: "rgb(0,0,0)"
     }]

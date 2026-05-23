@@ -321,6 +321,10 @@ void ElementLayoutBox::RenderBorderWithStyle(ID2D1DeviceContext *context, const 
                 context->DrawRectangle(r1.rect, brush, third, sstyle.Get());
                 context->DrawRectangle(r2.rect, brush, third, sstyle.Get());
             } else {
+                r1.radiusX = r.radiusX + third;
+                r1.radiusY = r.radiusY + third;
+                r2.radiusX = std::max(0.0f, r.radiusX - third);
+                r2.radiusY = std::max(0.0f, r.radiusY - third);
                 context->DrawRoundedRectangle(r1, brush, third, sstyle.Get());
                 context->DrawRoundedRectangle(r2, brush, third, sstyle.Get());
             }
@@ -498,15 +502,111 @@ void ElementLayoutBox::RenderBorderWithStyle(ID2D1DeviceContext *context, const 
                 }
                 context->SetAntialiasMode(oldMode);
             } else {
-                // Rounded-corner fallback: two concentric DrawRoundedRectangle calls
+                // Rounded-corner: diagonal-clip approach for CSS-accurate rendering.
+                // A diagonal from (L,T) to (R,B) splits the border into two colour zones:
+                //   top-left  half → shade A   (shadow side)
+                //   bottom-right half → shade B (highlight side)
+                // For inset/outset: single full-width ring, split diagonally.
+                // For groove/ridge: two concentric half-width rings, each split diagonally.
+                // To avoid clipping the outer rounded border itself, the clip regions extend
+                // far beyond the outer boundary of the border, but meet precisely at the
+                // extended diagonal joining (R, T) and (L, B).
                 float half = width / 2.0f;
-                D2D1_ROUNDED_RECT rOuter = r, rInner = r;
-                rOuter.rect.left -= half/2; rOuter.rect.top -= half/2;
-                rOuter.rect.right += half/2; rOuter.rect.bottom += half/2;
-                rInner.rect.left += half/2; rInner.rect.top += half/2;
-                rInner.rect.right -= half/2; rInner.rect.bottom -= half/2;
-                context->DrawRoundedRectangle(rOuter, topLeftBrush    ? topLeftBrush    : brush, half, sstyle.Get());
-                context->DrawRoundedRectangle(rInner, bottomRightBrush ? bottomRightBrush : brush, half, sstyle.Get());
+                float L = r.rect.left,  T = r.rect.top;
+                float R = r.rect.right, B = r.rect.bottom;
+
+                Microsoft::WRL::ComPtr<ID2D1Factory> d2dFactory;
+                context->GetFactory(&d2dFactory);
+
+                if (d2dFactory) {
+                    float pad = width * 4.0f + 100.0f;
+                    float dx = R - L;
+                    float dy = T - B;
+                    float len = sqrtf(dx * dx + dy * dy);
+                    
+                    D2D1_POINT_2F pTR_ext = D2D1::Point2F(R, T);
+                    D2D1_POINT_2F pBL_ext = D2D1::Point2F(L, B);
+                    if (len > 0.001f) {
+                        float ux = dx / len;
+                        float uy = dy / len;
+                        pTR_ext = D2D1::Point2F(R + ux * pad, T + uy * pad);
+                        pBL_ext = D2D1::Point2F(L - ux * pad, B - uy * pad);
+                    }
+
+                    // Top-left clip quad: pBL_ext -> pTR_ext -> (pTR_ext.x - pad, pTR_ext.y - pad) -> (pBL_ext.x - pad, pBL_ext.y - pad)
+                    Microsoft::WRL::ComPtr<ID2D1PathGeometry> tlClip;
+                    {
+                        Microsoft::WRL::ComPtr<ID2D1GeometrySink> sink;
+                        if (SUCCEEDED(d2dFactory->CreatePathGeometry(&tlClip)) &&
+                            SUCCEEDED(tlClip->Open(&sink))) {
+                            sink->BeginFigure(pBL_ext, D2D1_FIGURE_BEGIN_FILLED);
+                            sink->AddLine(pTR_ext);
+                            sink->AddLine(D2D1::Point2F(pTR_ext.x - pad, pTR_ext.y - pad));
+                            sink->AddLine(D2D1::Point2F(pBL_ext.x - pad, pBL_ext.y - pad));
+                            sink->EndFigure(D2D1_FIGURE_END_CLOSED);
+                            sink->Close();
+                        }
+                    }
+                    // Bottom-right clip quad: pBL_ext -> pTR_ext -> (pTR_ext.x + pad, pTR_ext.y + pad) -> (pBL_ext.x + pad, pBL_ext.y + pad)
+                    Microsoft::WRL::ComPtr<ID2D1PathGeometry> brClip;
+                    {
+                        Microsoft::WRL::ComPtr<ID2D1GeometrySink> sink;
+                        if (SUCCEEDED(d2dFactory->CreatePathGeometry(&brClip)) &&
+                            SUCCEEDED(brClip->Open(&sink))) {
+                            sink->BeginFigure(pBL_ext, D2D1_FIGURE_BEGIN_FILLED);
+                            sink->AddLine(pTR_ext);
+                            sink->AddLine(D2D1::Point2F(pTR_ext.x + pad, pTR_ext.y + pad));
+                            sink->AddLine(D2D1::Point2F(pBL_ext.x + pad, pBL_ext.y + pad));
+                            sink->EndFigure(D2D1_FIGURE_END_CLOSED);
+                            sink->Close();
+                        }
+                    }
+
+                    // Helper: draw one rounded-rect ring split into two colour halves
+                    auto drawSplitRing = [&](const D2D1_ROUNDED_RECT& rr, float sw,
+                                             ID2D1Brush* tlBrush, ID2D1Brush* brBrush) {
+                        if (tlClip && tlBrush) {
+                            auto lp = D2D1::LayerParameters1(D2D1::InfiniteRect(), tlClip.Get());
+                            context->PushLayer(lp, nullptr);
+                            context->DrawRoundedRectangle(rr, tlBrush, sw, sstyle.Get());
+                            context->PopLayer();
+                        }
+                        if (brClip && brBrush) {
+                            auto lp = D2D1::LayerParameters1(D2D1::InfiniteRect(), brClip.Get());
+                            context->PushLayer(lp, nullptr);
+                            context->DrawRoundedRectangle(rr, brBrush, sw, sstyle.Get());
+                            context->PopLayer();
+                        }
+                    };
+
+                    if (style == BorderStyle::Inset || style == BorderStyle::Outset) {
+                        // Single full-width ring, colour split by diagonal:
+                        //   inset : topLeft=dark,  botRight=light
+                        //   outset: topLeft=light, botRight=dark
+                        drawSplitRing(r, width, topLeftBrush, bottomRightBrush);
+                    } else {
+                        // Groove / Ridge: two concentric half-width rings, each split.
+                        D2D1_ROUNDED_RECT rOuter = r, rInner = r;
+                        rOuter.rect.left -= half/2; rOuter.rect.top -= half/2;
+                        rOuter.rect.right += half/2; rOuter.rect.bottom += half/2;
+                        rInner.rect.left += half/2; rInner.rect.top += half/2;
+                        rInner.rect.right -= half/2; rInner.rect.bottom -= half/2;
+                        rOuter.radiusX = r.radiusX + half/2;
+                        rOuter.radiusY = r.radiusY + half/2;
+                        rInner.radiusX = std::max(0.0f, r.radiusX - half/2);
+                        rInner.radiusY = std::max(0.0f, r.radiusY - half/2);
+
+                        // groove: outer=dark/light, inner=light/dark
+                        // ridge : outer=light/dark, inner=dark/light
+                        ID2D1Brush* outerTl = (style == BorderStyle::Groove) ? darkBrush.Get()  : lightBrush.Get();
+                        ID2D1Brush* outerBr = (style == BorderStyle::Groove) ? lightBrush.Get() : darkBrush.Get();
+                        ID2D1Brush* innerTl = (style == BorderStyle::Groove) ? lightBrush.Get() : darkBrush.Get();
+                        ID2D1Brush* innerBr = (style == BorderStyle::Groove) ? darkBrush.Get()  : lightBrush.Get();
+
+                        drawSplitRing(rOuter, half, outerTl, outerBr);
+                        drawSplitRing(rInner, half, innerTl, innerBr);
+                    }
+                }
             }
         } else if (style == BorderStyle::Dotted && m_RadiusX == 0.0f && m_RadiusY == 0.0f) {
             float left = r.rect.left;
