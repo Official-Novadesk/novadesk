@@ -1,4 +1,4 @@
-/* Copyright (C) 2026 OfficialNovadesk
+﻿/* Copyright (C) 2026 OfficialNovadesk
  *
  * This Source Code Form is subject to the terms of the GNU General Public
  * License; either version 2 of the License, or (at your option) any later
@@ -8,10 +8,10 @@
 #include "ElementLayoutBox.h"
 
 #include "Direct2DHelper.h"
-#include "../shared/Logging.h"
 #include <algorithm>
 #include <cmath>
 #include <d2d1effects.h>
+#include <vector>
 
 ElementLayoutBox::ElementLayoutBox(const std::wstring& id, int x, int y, int width, int height)
     : ShapeElement(id, x, y, width, height, ELEMENT_LAYOUT_BOX)
@@ -712,13 +712,15 @@ void ElementLayoutBox::RenderBorderWithStyle(ID2D1DeviceContext* context, const 
     }
     else
     {
-        static bool s_loggedMixedBorderDebug = false;
-        const float L = std::floor(rect.rect.left) + 0.5f;
-        const float T = std::floor(rect.rect.top) + 0.5f;
-        const float R = std::floor(rect.rect.right) + 0.5f;
-        const float B = std::floor(rect.rect.bottom) + 0.5f;
         const float w = strokeWidth;
         const float eps = std::max(0.5f, w * 0.125f);
+        const float rx = std::min(rect.radiusX, (rect.rect.right - rect.rect.left) * 0.5f);
+        const float ry = std::min(rect.radiusY, (rect.rect.bottom - rect.rect.top) * 0.5f);
+        const bool hasRadius = rx > 0.0f || ry > 0.0f;
+        const float L = hasRadius ? rect.rect.left : (std::floor(rect.rect.left) + 0.5f);
+        const float T = hasRadius ? rect.rect.top : (std::floor(rect.rect.top) + 0.5f);
+        const float R = hasRadius ? rect.rect.right : (std::floor(rect.rect.right) + 0.5f);
+        const float B = hasRadius ? rect.rect.bottom : (std::floor(rect.rect.bottom) + 0.5f);
         if (w <= 0.0f || R <= L || B <= T)
             return;
         ID2D1Factory1* factory = Direct2D::GetFactory();
@@ -1038,57 +1040,520 @@ void ElementLayoutBox::RenderBorderWithStyle(ID2D1DeviceContext* context, const 
                 return style == BorderStyle::Groove || style == BorderStyle::Ridge ||
                     style == BorderStyle::Inset || style == BorderStyle::Outset;
             };
-        auto styleName = [](BorderStyle style) -> const wchar_t*
+        const float il = L + w;
+        const float it = T + w;
+        const float ir = R - w;
+        const float ib = B - w;
+        const float irx = std::max(0.0f, rx - w);
+        const float iry = std::max(0.0f, ry - w);
+        const float L_top = R - L - 2.0f * rx;
+        const float L_bottom = L_top;
+        const float L_left = B - T - 2.0f * ry;
+        const float L_right = L_left;
+        auto quarterEllipseArcLength = [](float radX, float radY) -> float
             {
-                switch (style)
+                if (radX <= 0.0f && radY <= 0.0f)
+                    return 0.0f;
+                if (radX <= 0.0f)
+                    radX = radY;
+                if (radY <= 0.0f)
+                    radY = radX;
+                const float a = std::max(radX, radY);
+                const float b = std::min(radX, radY);
+                if (std::fabs(a - b) < 0.001f)
+                    return 1.5707963267948966f * a;
+                const float h = ((a - b) * (a - b)) / ((a + b) * (a + b));
+                const float fullPerimeter = 3.141592653589793f * (a + b) *
+                    (1.0f + (3.0f * h) / (10.0f + sqrtf(4.0f - 3.0f * h)));
+                return fullPerimeter * 0.25f;
+            };
+        const float L_arc = quarterEllipseArcLength(rx, ry);
+        const float perimeter = L_top + L_right + L_bottom + L_left + 4.0f * L_arc;
+        auto locatePerimeterT = [&](float t, float& edgeRadX, float& edgeRadY, float& cx, float& cy,
+            bool outer, int& segment) -> float
+            {
+                if (t < 0.0f)
+                    t = 0.0f;
+                if (t > perimeter)
+                    t = perimeter;
+                if (t < L_top)
                 {
-                case BorderStyle::None:
-                    return L"none";
-                case BorderStyle::Hidden:
-                    return L"hidden";
-                case BorderStyle::Dotted:
-                    return L"dotted";
-                case BorderStyle::Dashed:
-                    return L"dashed";
-                case BorderStyle::Solid:
-                    return L"solid";
-                case BorderStyle::Double:
-                    return L"double";
-                case BorderStyle::Groove:
-                    return L"groove";
-                case BorderStyle::Ridge:
-                    return L"ridge";
-                case BorderStyle::Inset:
-                    return L"inset";
-                case BorderStyle::Outset:
-                    return L"outset";
+                    segment = 0;
+                    edgeRadX = outer ? rx : irx;
+                    edgeRadY = outer ? ry : iry;
+                    cx = outer ? (L + rx) : (il + irx);
+                    cy = outer ? (T + ry) : (it + iry);
+                    return t;
+                }
+                t -= L_top;
+                if (t < L_arc)
+                {
+                    segment = 1;
+                    edgeRadX = outer ? rx : irx;
+                    edgeRadY = outer ? ry : iry;
+                    cx = outer ? (R - rx) : (ir - irx);
+                    cy = outer ? (T + ry) : (it + iry);
+                    return t;
+                }
+                t -= L_arc;
+                if (t < L_right)
+                {
+                    segment = 2;
+                    edgeRadX = outer ? rx : irx;
+                    edgeRadY = outer ? ry : iry;
+                    cx = outer ? (R - rx) : (ir - irx);
+                    cy = outer ? (T + ry) : (it + iry);
+                    return t;
+                }
+                t -= L_right;
+                if (t < L_arc)
+                {
+                    segment = 3;
+                    edgeRadX = outer ? rx : irx;
+                    edgeRadY = outer ? ry : iry;
+                    cx = outer ? (R - rx) : (ir - irx);
+                    cy = outer ? (B - ry) : (ib - iry);
+                    return t;
+                }
+                t -= L_arc;
+                if (t < L_bottom)
+                {
+                    segment = 4;
+                    edgeRadX = outer ? rx : irx;
+                    edgeRadY = outer ? ry : iry;
+                    cx = outer ? (L + rx) : (il + irx);
+                    cy = outer ? (B - ry) : (ib - iry);
+                    return t;
+                }
+                t -= L_bottom;
+                if (t < L_arc)
+                {
+                    segment = 5;
+                    edgeRadX = outer ? rx : irx;
+                    edgeRadY = outer ? ry : iry;
+                    cx = outer ? (L + rx) : (il + irx);
+                    cy = outer ? (B - ry) : (ib - iry);
+                    return t;
+                }
+                t -= L_arc;
+                if (t < L_left)
+                {
+                    segment = 6;
+                    edgeRadX = outer ? rx : irx;
+                    edgeRadY = outer ? ry : iry;
+                    cx = outer ? (L + rx) : (il + irx);
+                    cy = outer ? (T + ry) : (it + iry);
+                    return t;
+                }
+                t -= L_left;
+                segment = 7;
+                edgeRadX = outer ? rx : irx;
+                edgeRadY = outer ? ry : iry;
+                cx = outer ? (L + rx) : (il + irx);
+                cy = outer ? (T + ry) : (it + iry);
+                return t;
+            };
+        auto getOuterEdgePoint = [&](float t, float& x, float& y)
+            {
+                float edgeRadX = 0.0f, edgeRadY = 0.0f, cx = 0.0f, cy = 0.0f;
+                int segment = 0;
+                float local = locatePerimeterT(t, edgeRadX, edgeRadY, cx, cy, true, segment);
+                switch (segment)
+                {
+                case 0:
+                    x = L + rx + local;
+                    y = T;
+                    return;
+                case 1:
+                {
+                    float theta = -1.570796f + 1.570796f * (local / L_arc);
+                    x = cx + edgeRadX * cosf(theta);
+                    y = cy + edgeRadY * sinf(theta);
+                    return;
+                }
+                case 2:
+                    x = R;
+                    y = T + ry + local;
+                    return;
+                case 3:
+                {
+                    float theta = 0.0f + 1.570796f * (local / L_arc);
+                    x = cx + edgeRadX * cosf(theta);
+                    y = cy + edgeRadY * sinf(theta);
+                    return;
+                }
+                case 4:
+                    x = R - rx - local;
+                    y = B;
+                    return;
+                case 5:
+                {
+                    float theta = 1.570796f + 1.570796f * (local / L_arc);
+                    x = cx + edgeRadX * cosf(theta);
+                    y = cy + edgeRadY * sinf(theta);
+                    return;
+                }
+                case 6:
+                    x = L;
+                    y = B - ry - local;
+                    return;
+                case 7:
                 default:
-                    return L"unknown";
+                {
+                    float theta = 3.1415927f + 1.570796f * (local / L_arc);
+                    x = cx + edgeRadX * cosf(theta);
+                    y = cy + edgeRadY * sinf(theta);
+                    return;
+                }
                 }
             };
-        if (!s_loggedMixedBorderDebug)
-        {
-            s_loggedMixedBorderDebug = true;
-            Logging::Log(LogLevel::Info,
-                L"[LAYOUTBOX_BORDER_DBG] mixed rect=[%.1f,%.1f,%.1f,%.1f] w=%.1f styles top=%s right=%s bottom=%s left=%s",
-                L, T, R, B, w,
-                styleName(m_BorderStyleTop), styleName(m_BorderStyleRight),
-                styleName(m_BorderStyleBottom), styleName(m_BorderStyleLeft));
-            Logging::Log(LogLevel::Info,
-                L"[LAYOUTBOX_BORDER_DBG] bottom-left join bottom=%s left=%s visibleBottom=%d visibleLeft=%d",
-                styleName(m_BorderStyleBottom), styleName(m_BorderStyleLeft),
-                isVisibleStyleForSide(m_BorderStyleBottom) ? 1 : 0,
-                isVisibleStyleForSide(m_BorderStyleLeft) ? 1 : 0);
-            Logging::Log(LogLevel::Info,
-                L"[LAYOUTBOX_BORDER_DBG] bottom-left ownership leftIs3D=%d bottomSolidLeftAdjacentWidth=%.1f",
-                is3DStyleForSide(m_BorderStyleLeft) ? 1 : 0,
-                is3DStyleForSide(m_BorderStyleLeft) ? 0.0f : w);
-        }
+        auto getInnerEdgePoint = [&](float t, float& x, float& y)
+            {
+                float edgeRadX = 0.0f, edgeRadY = 0.0f, cx = 0.0f, cy = 0.0f;
+                int segment = 0;
+                float local = locatePerimeterT(t, edgeRadX, edgeRadY, cx, cy, false, segment);
+                switch (segment)
+                {
+                case 0:
+                    x = il + irx + local;
+                    y = it;
+                    return;
+                case 1:
+                {
+                    float theta = -1.570796f + 1.570796f * (local / L_arc);
+                    x = cx + edgeRadX * cosf(theta);
+                    y = cy + edgeRadY * sinf(theta);
+                    return;
+                }
+                case 2:
+                    x = ir;
+                    y = it + iry + local;
+                    return;
+                case 3:
+                {
+                    float theta = 0.0f + 1.570796f * (local / L_arc);
+                    x = cx + edgeRadX * cosf(theta);
+                    y = cy + edgeRadY * sinf(theta);
+                    return;
+                }
+                case 4:
+                    x = ir - irx - local;
+                    y = ib;
+                    return;
+                case 5:
+                {
+                    float theta = 1.570796f + 1.570796f * (local / L_arc);
+                    x = cx + edgeRadX * cosf(theta);
+                    y = cy + edgeRadY * sinf(theta);
+                    return;
+                }
+                case 6:
+                    x = il;
+                    y = ib - iry - local;
+                    return;
+                case 7:
+                default:
+                {
+                    float theta = 3.1415927f + 1.570796f * (local / L_arc);
+                    x = cx + edgeRadX * cosf(theta);
+                    y = cy + edgeRadY * sinf(theta);
+                    return;
+                }
+                }
+            };
+        auto getMidlinePoint = [&](float t, float& x, float& y)
+            {
+                float ox = 0.0f, oy = 0.0f, ix = 0.0f, iy = 0.0f;
+                getOuterEdgePoint(t, ox, oy);
+                getInnerEdgePoint(t, ix, iy);
+                x = (ox + ix) * 0.5f;
+                y = (oy + iy) * 0.5f;
+            };
+        auto getEdgePointAtDepth = [&](float t, float depth, float& x, float& y)
+            {
+                float ox = 0.0f, oy = 0.0f, ix = 0.0f, iy = 0.0f;
+                getOuterEdgePoint(t, ox, oy);
+                getInnerEdgePoint(t, ix, iy);
+                x = ox + (ix - ox) * depth;
+                y = oy + (iy - oy) * depth;
+            };
+        // Each side owns half of its start/end corner arcs (CSS 45deg corner split).
+        const float sideArcSpan = L_arc * 0.5f;
+        auto sideSegmentLength = [&](int sideIndex) -> float
+            {
+                switch (sideIndex)
+                {
+                case 0:
+                    return L_top + 2.0f * sideArcSpan;
+                case 1:
+                    return L_right + 2.0f * sideArcSpan;
+                case 2:
+                    return L_bottom + 2.0f * sideArcSpan;
+                case 3:
+                    return L_left + 2.0f * sideArcSpan;
+                default:
+                    return 0.0f;
+                }
+            };
+        auto sideSegmentStart = [&](int sideIndex) -> float
+            {
+                switch (sideIndex)
+                {
+                case 0:
+                    return perimeter - sideArcSpan;
+                case 1:
+                    return L_top + sideArcSpan;
+                case 2:
+                    return L_top + L_arc + L_right + sideArcSpan;
+                case 3:
+                    return L_top + L_arc + L_right + sideArcSpan + L_bottom + L_arc;
+                default:
+                    return 0.0f;
+                }
+            };
+        const float joinPad = hasRadius ? std::max(0.75f, w * 0.06f) : 0.0f;
+        auto wrapPerimeterT = [&](float t) -> float
+            {
+                if (perimeter <= 0.0f)
+                    return 0.0f;
+                while (t < 0.0f)
+                    t += perimeter;
+                while (t >= perimeter)
+                    t -= perimeter;
+                return t;
+            };
+        auto mapSideT = [&](int sideIndex, float localT) -> float
+            {
+                const float start = sideSegmentStart(sideIndex);
+                if (sideIndex == 0)
+                    return wrapPerimeterT(start + localT);
+                return start + localT;
+            };
+        auto fillRoundedSideBandBetween = [&](int sideIndex, float depth0, float depth1, ID2D1Brush* brush)
+            {
+                if (!brush)
+                    return;
+                const float segLen = sideSegmentLength(sideIndex);
+                if (segLen <= 0.001f)
+                    return;
+                const float spanLen = segLen + 2.0f * joinPad;
+                const int steps = std::max(8, static_cast<int>(spanLen / 1.5f));
+                std::vector<D2D1_POINT_2F> poly;
+                poly.reserve(static_cast<size_t>((steps + 1) * 2));
+                for (int i = 0; i <= steps; ++i)
+                {
+                    const float localT = -joinPad + spanLen * static_cast<float>(i) / static_cast<float>(steps);
+                    float x = 0.0f, y = 0.0f;
+                    getEdgePointAtDepth(mapSideT(sideIndex, localT), depth0, x, y);
+                    poly.push_back(D2D1::Point2F(x, y));
+                }
+                for (int i = steps; i >= 0; --i)
+                {
+                    const float localT = -joinPad + spanLen * static_cast<float>(i) / static_cast<float>(steps);
+                    float x = 0.0f, y = 0.0f;
+                    getEdgePointAtDepth(mapSideT(sideIndex, localT), depth1, x, y);
+                    poly.push_back(D2D1::Point2F(x, y));
+                }
+                fillPolygon(poly.data(), static_cast<int>(poly.size()), brush);
+            };
+        auto fillRoundedSideBand = [&](int sideIndex, ID2D1Brush* brush)
+            {
+                fillRoundedSideBandBetween(sideIndex, 0.0f, 1.0f, brush);
+            };
+        auto createRoundedSideBandClip = [&](int sideIndex) -> Microsoft::WRL::ComPtr<ID2D1Geometry>
+            {
+                const float segLen = sideSegmentLength(sideIndex);
+                if (segLen <= 0.001f)
+                    return nullptr;
+                const float spanLen = segLen + 2.0f * joinPad;
+                const int steps = std::max(8, static_cast<int>(spanLen / 1.5f));
+                std::vector<D2D1_POINT_2F> poly;
+                poly.reserve(static_cast<size_t>((steps + 1) * 2));
+                for (int i = 0; i <= steps; ++i)
+                {
+                    const float localT = -joinPad + spanLen * static_cast<float>(i) / static_cast<float>(steps);
+                    float x = 0.0f, y = 0.0f;
+                    getEdgePointAtDepth(mapSideT(sideIndex, localT), 0.0f, x, y);
+                    poly.push_back(D2D1::Point2F(x, y));
+                }
+                for (int i = steps; i >= 0; --i)
+                {
+                    const float localT = -joinPad + spanLen * static_cast<float>(i) / static_cast<float>(steps);
+                    float x = 0.0f, y = 0.0f;
+                    getEdgePointAtDepth(mapSideT(sideIndex, localT), 1.0f, x, y);
+                    poly.push_back(D2D1::Point2F(x, y));
+                }
+                Microsoft::WRL::ComPtr<ID2D1PathGeometry> path;
+                Microsoft::WRL::ComPtr<ID2D1GeometrySink> sink;
+                if (FAILED(factory->CreatePathGeometry(&path)) || FAILED(path->Open(&sink)))
+                    return nullptr;
+                sink->BeginFigure(poly[0], D2D1_FIGURE_BEGIN_FILLED);
+                for (size_t i = 1; i < poly.size(); ++i)
+                    sink->AddLine(poly[i]);
+                sink->EndFigure(D2D1_FIGURE_END_CLOSED);
+                sink->Close();
+                Microsoft::WRL::ComPtr<ID2D1Geometry> geometry = path;
+                return geometry;
+            };
+        auto pushSideBandClip = [&](int sideIndex)
+            {
+                Microsoft::WRL::ComPtr<ID2D1Geometry> clip = createRoundedSideBandClip(sideIndex);
+                if (!clip)
+                    return;
+                D2D1_LAYER_PARAMETERS1 params = D2D1::LayerParameters1(
+                    D2D1::InfiniteRect(),
+                    clip.Get(),
+                    D2D1_ANTIALIAS_MODE_PER_PRIMITIVE,
+                    D2D1::Matrix3x2F::Identity(),
+                    1.0f,
+                    nullptr,
+                    D2D1_LAYER_OPTIONS1_NONE);
+                context->PushLayer(params, nullptr);
+            };
+        auto drawRoundedSideDotted = [&](int sideIndex)
+            {
+                const float segLen = sideSegmentLength(sideIndex);
+                if (segLen <= 0.001f)
+                    return;
+                const float idealSpacing = w * 2.0f;
+                int numDots = std::max(1, static_cast<int>(segLen / idealSpacing + 0.5f));
+                const float step = segLen / static_cast<float>(numDots);
+                const float dotRadius = w * 0.5f;
+                for (int i = 0; i < numDots; ++i)
+                {
+                    const float localT = step * (static_cast<float>(i) + 0.5f);
+                    if (localT <= 0.0f || localT >= segLen)
+                        continue;
+                    float x = 0.0f, y = 0.0f;
+                    getMidlinePoint(mapSideT(sideIndex, localT), x, y);
+                    context->FillEllipse(D2D1::Ellipse(D2D1::Point2F(x, y), dotRadius, dotRadius), strokeBrush);
+                }
+            };
+        auto fillRoundedDashStrip = [&](int sideIndex, float localStart, float localEnd)
+            {
+                const float segLen = sideSegmentLength(sideIndex);
+                const float clipStart = std::max(-joinPad, localStart);
+                const float clipEnd = std::min(segLen + joinPad, localEnd);
+                const float stripLen = clipEnd - clipStart;
+                if (stripLen <= 0.001f)
+                    return;
+                const int samples = std::max(2, static_cast<int>(stripLen / 2.0f));
+                std::vector<D2D1_POINT_2F> poly;
+                poly.reserve(static_cast<size_t>((samples + 1) * 2));
+                for (int i = 0; i <= samples; ++i)
+                {
+                    const float localT = clipStart + stripLen * static_cast<float>(i) / static_cast<float>(samples);
+                    float x = 0.0f, y = 0.0f;
+                    getEdgePointAtDepth(mapSideT(sideIndex, localT), 0.0f, x, y);
+                    poly.push_back(D2D1::Point2F(x, y));
+                }
+                for (int i = samples; i >= 0; --i)
+                {
+                    const float localT = clipStart + stripLen * static_cast<float>(i) / static_cast<float>(samples);
+                    float x = 0.0f, y = 0.0f;
+                    getEdgePointAtDepth(mapSideT(sideIndex, localT), 1.0f, x, y);
+                    poly.push_back(D2D1::Point2F(x, y));
+                }
+                fillPolygon(poly.data(), static_cast<int>(poly.size()), strokeBrush);
+            };
+        auto drawRoundedSideDashed = [&](int sideIndex)
+            {
+                const float segLen = sideSegmentLength(sideIndex);
+                if (segLen <= 0.001f)
+                    return;
+                const float dashLen = w * 3.0f;
+                const float gap = w * 1.0f;
+                const float period = dashLen + gap;
+                int dashCount = std::max(1, static_cast<int>(std::floor((segLen + gap) / period)));
+                while (dashCount > 1 &&
+                    static_cast<float>(dashCount) * dashLen + static_cast<float>(dashCount - 1) * gap > segLen + 0.01f)
+                {
+                    --dashCount;
+                }
+                if (dashCount == 1)
+                {
+                    fillRoundedDashStrip(sideIndex, 0.0f, segLen);
+                    return;
+                }
+                const float interiorGap = (segLen - static_cast<float>(dashCount) * dashLen) /
+                    static_cast<float>(dashCount - 1);
+                for (int i = 0; i < dashCount; ++i)
+                {
+                    float dashStart = static_cast<float>(i) * (dashLen + interiorGap);
+                    float dashEnd = dashStart + dashLen;
+                    if (i == 0)
+                        dashStart = 0.0f;
+                    if (i == dashCount - 1)
+                        dashEnd = segLen;
+                    fillRoundedDashStrip(sideIndex, dashStart, dashEnd);
+                }
+            };
+        auto drawRectSideDashed = [&](int sideIndex)
+            {
+                const float dashLen = w * 3.0f;
+                const float gap = w * 1.0f;
+                const float period = dashLen + gap;
+                auto fillEdgeDashes = [&](float runStart, float runEnd, bool isHoriz, float edgeCoord)
+                    {
+                        const float runLen = runEnd - runStart;
+                        if (runLen <= 0.0f)
+                            return;
+                        int dashCount = (runLen >= gap + dashLen)
+                            ? static_cast<int>((runLen - gap) / period)
+                            : 0;
+                        if (dashCount < 1)
+                            return;
+                        const float gapActual = (runLen - static_cast<float>(dashCount) * dashLen) /
+                            static_cast<float>(dashCount + 1);
+                        for (int i = 0; i < dashCount; ++i)
+                        {
+                            const float s = runStart + gapActual + static_cast<float>(i) * (dashLen + gapActual);
+                            const float e = s + dashLen;
+                            if (isHoriz)
+                                context->FillRectangle(D2D1::RectF(s, edgeCoord, e, edgeCoord + w), strokeBrush);
+                            else
+                                context->FillRectangle(D2D1::RectF(edgeCoord, s, edgeCoord + w, e), strokeBrush);
+                        }
+                    };
+                switch (sideIndex)
+                {
+                case 0:
+                    context->FillRectangle(D2D1::RectF(L, T, L + dashLen, T + w), strokeBrush);
+                    context->FillRectangle(D2D1::RectF(L, T, L + w, T + dashLen), strokeBrush);
+                    context->FillRectangle(D2D1::RectF(R - dashLen, T, R, T + w), strokeBrush);
+                    context->FillRectangle(D2D1::RectF(R - w, T, R, T + dashLen), strokeBrush);
+                    fillEdgeDashes(L + dashLen, R - dashLen, true, T);
+                    break;
+                case 1:
+                    context->FillRectangle(D2D1::RectF(R - dashLen, T, R, T + w), strokeBrush);
+                    context->FillRectangle(D2D1::RectF(R - w, T, R, T + dashLen), strokeBrush);
+                    context->FillRectangle(D2D1::RectF(R - dashLen, B - w, R, B), strokeBrush);
+                    context->FillRectangle(D2D1::RectF(R - w, B - dashLen, R, B), strokeBrush);
+                    fillEdgeDashes(T + dashLen, B - dashLen, false, R - w);
+                    break;
+                case 2:
+                    context->FillRectangle(D2D1::RectF(R - dashLen, B - w, R, B), strokeBrush);
+                    context->FillRectangle(D2D1::RectF(R - w, B - dashLen, R, B), strokeBrush);
+                    context->FillRectangle(D2D1::RectF(L, B - w, L + dashLen, B), strokeBrush);
+                    context->FillRectangle(D2D1::RectF(L, B - dashLen, L + w, B), strokeBrush);
+                    fillEdgeDashes(L + dashLen, R - dashLen, true, B - w);
+                    break;
+                case 3:
+                default:
+                    context->FillRectangle(D2D1::RectF(L, T, L + dashLen, T + w), strokeBrush);
+                    context->FillRectangle(D2D1::RectF(L, T, L + w, T + dashLen), strokeBrush);
+                    context->FillRectangle(D2D1::RectF(L, B - w, L + dashLen, B), strokeBrush);
+                    context->FillRectangle(D2D1::RectF(L, B - dashLen, L + w, B), strokeBrush);
+                    fillEdgeDashes(T + dashLen, B - dashLen, false, L);
+                    break;
+                }
+            };
         for (const auto& side : sides)
         {
             if (!side.clip || side.style == BorderStyle::None || side.style == BorderStyle::Hidden)
                 continue;
-            const bool useSideClip = side.style == BorderStyle::Dotted || side.style == BorderStyle::Dashed;
+            const bool useSideClip = !hasRadius &&
+                (side.style == BorderStyle::Dotted || side.style == BorderStyle::Dashed);
             if (useSideClip)
             {
                 D2D1_LAYER_PARAMETERS1 params = D2D1::LayerParameters1(
@@ -1103,6 +1568,17 @@ void ElementLayoutBox::RenderBorderWithStyle(ID2D1DeviceContext* context, const 
             }
             if (side.style == BorderStyle::Dotted || side.style == BorderStyle::Dashed)
             {
+                if (hasRadius)
+                {
+                    pushSideBandClip(side.index);
+                    if (side.style == BorderStyle::Dotted)
+                        drawRoundedSideDotted(side.index);
+                    else
+                        drawRoundedSideDashed(side.index);
+                    context->PopLayer();
+                }
+                else
+                {
                 const float dx = side.p1.x - side.p0.x;
                 const float dy = side.p1.y - side.p0.y;
                 const float len = std::sqrt(dx * dx + dy * dy);
@@ -1125,99 +1601,110 @@ void ElementLayoutBox::RenderBorderWithStyle(ID2D1DeviceContext* context, const 
                     }
                     else
                     {
-                        const float totalLen = len + w;
-                        int n = std::max(1, static_cast<int>((totalLen / w + 1.0f) / 4.0f + 0.5f));
-                        const float g = totalLen / (4.0f * static_cast<float>(n) - 1.0f);
-                        const float d = 3.0f * g;
-                        const float period = d + g;
-                        const float px = -uy * (w * 0.5f);
-                        const float py = ux * (w * 0.5f);
-                        for (int i = 0; i < n; ++i)
-                        {
-                            const float start = -w * 0.5f + static_cast<float>(i) * period;
-                            const float s = start;
-                            const float e = start + d;
-                            const D2D1_POINT_2F a = D2D1::Point2F(side.p0.x + ux * s + px, side.p0.y + uy * s + py);
-                            const D2D1_POINT_2F b = D2D1::Point2F(side.p0.x + ux * e + px, side.p0.y + uy * e + py);
-                            const D2D1_POINT_2F c = D2D1::Point2F(side.p0.x + ux * e - px, side.p0.y + uy * e - py);
-                            const D2D1_POINT_2F d_pt = D2D1::Point2F(side.p0.x + ux * s - px, side.p0.y + uy * s - py);
-                            Microsoft::WRL::ComPtr<ID2D1PathGeometry> dashPath;
-                            Microsoft::WRL::ComPtr<ID2D1GeometrySink> sink;
-                            if (SUCCEEDED(factory->CreatePathGeometry(&dashPath)) &&
-                                SUCCEEDED(dashPath->Open(&sink)))
-                            {
-                                sink->BeginFigure(a, D2D1_FIGURE_BEGIN_FILLED);
-                                sink->AddLine(b);
-                                sink->AddLine(c);
-                                sink->AddLine(d_pt);
-                                sink->EndFigure(D2D1_FIGURE_END_CLOSED);
-                                sink->Close();
-                                context->FillGeometry(dashPath.Get(), strokeBrush);
-                            }
-                        }
+                        drawRectSideDashed(side.index);
                     }
+                }
                 }
             }
             else if (side.style == BorderStyle::Solid)
             {
-                const BorderStyle adjacentStyle1 = side.index == 0 ? m_BorderStyleLeft : side.index == 1 ? m_BorderStyleTop
-                    : side.index == 2 ? m_BorderStyleLeft
-                    : m_BorderStyleTop;
-                const BorderStyle adjacentStyle2 = side.index == 0 ? m_BorderStyleRight : side.index == 1 ? m_BorderStyleBottom
-                    : side.index == 2 ? m_BorderStyleRight
-                    : m_BorderStyleBottom;
-                const float adjacent1 = (side.index == 2 && is3DStyleForSide(adjacentStyle1)) ? 0.0f : (isVisibleStyleForSide(adjacentStyle1) ? w : 0.0f);
-                const float adjacent2 = isVisibleStyleForSide(adjacentStyle2) ? w : 0.0f;
-                if (side.index == 0)
-                    drawBlinkSolidSide(0, L, T, R, T + w, adjacent1, adjacent2);
-                else if (side.index == 1)
-                    drawBlinkSolidSide(1, R - w, T, R, B, adjacent1, adjacent2);
-                else if (side.index == 2)
-                    drawBlinkSolidSide(2, L, B - w, R, B, adjacent1, adjacent2);
+                if (hasRadius)
+                {
+                    fillRoundedSideBand(side.index, strokeBrush);
+                }
                 else
-                    drawBlinkSolidSide(3, L, T, L + w, B, adjacent1, adjacent2);
+                {
+                    const BorderStyle adjacentStyle1 = side.index == 0 ? m_BorderStyleLeft : side.index == 1 ? m_BorderStyleTop
+                        : side.index == 2 ? m_BorderStyleLeft
+                        : m_BorderStyleTop;
+                    const BorderStyle adjacentStyle2 = side.index == 0 ? m_BorderStyleRight : side.index == 1 ? m_BorderStyleBottom
+                        : side.index == 2 ? m_BorderStyleRight
+                        : m_BorderStyleBottom;
+                    const float adjacent1 = (side.index == 2 && is3DStyleForSide(adjacentStyle1)) ? 0.0f : (isVisibleStyleForSide(adjacentStyle1) ? w : 0.0f);
+                    const float adjacent2 = isVisibleStyleForSide(adjacentStyle2) ? w : 0.0f;
+                    if (side.index == 0)
+                        drawBlinkSolidSide(0, L, T, R, T + w, adjacent1, adjacent2);
+                    else if (side.index == 1)
+                        drawBlinkSolidSide(1, R - w, T, R, B, adjacent1, adjacent2);
+                    else if (side.index == 2)
+                        drawBlinkSolidSide(2, L, B - w, R, B, adjacent1, adjacent2);
+                    else
+                        drawBlinkSolidSide(3, L, T, L + w, B, adjacent1, adjacent2);
+                }
             }
             else if (side.style == BorderStyle::Double)
             {
-                const float adjacent1 = isVisibleStyleForSide(side.index == 0 ? m_BorderStyleLeft : side.index == 1 ? m_BorderStyleTop
-                    : side.index == 2 ? m_BorderStyleLeft
-                    : m_BorderStyleTop)
-                    ? w
-                    : 0.0f;
-                const float adjacent2 = isVisibleStyleForSide(side.index == 0 ? m_BorderStyleRight : side.index == 1 ? m_BorderStyleBottom
-                    : side.index == 2 ? m_BorderStyleRight
-                    : m_BorderStyleBottom)
-                    ? w
-                    : 0.0f;
-                if (side.index == 0)
-                    drawBlinkDoubleSide(0, L, T, R, T + w, adjacent1, adjacent2);
-                else if (side.index == 1)
-                    drawBlinkDoubleSide(1, R - w, T, R, B, adjacent1, adjacent2);
-                else if (side.index == 2)
-                    drawBlinkDoubleSide(2, L, B - w, R, B, adjacent1, adjacent2);
+                if (hasRadius)
+                {
+                    const float third = 1.0f / 3.0f;
+                    const float twoThirds = 2.0f * third;
+                    fillRoundedSideBandBetween(side.index, 0.0f, third, strokeBrush);
+                    fillRoundedSideBandBetween(side.index, twoThirds, 1.0f, strokeBrush);
+                }
                 else
-                    drawBlinkDoubleSide(3, L, T, L + w, B, adjacent1, adjacent2);
+                {
+                    const float adjacent1 = isVisibleStyleForSide(side.index == 0 ? m_BorderStyleLeft : side.index == 1 ? m_BorderStyleTop
+                        : side.index == 2 ? m_BorderStyleLeft
+                        : m_BorderStyleTop)
+                        ? w
+                        : 0.0f;
+                    const float adjacent2 = isVisibleStyleForSide(side.index == 0 ? m_BorderStyleRight : side.index == 1 ? m_BorderStyleBottom
+                        : side.index == 2 ? m_BorderStyleRight
+                        : m_BorderStyleBottom)
+                        ? w
+                        : 0.0f;
+                    if (side.index == 0)
+                        drawBlinkDoubleSide(0, L, T, R, T + w, adjacent1, adjacent2);
+                    else if (side.index == 1)
+                        drawBlinkDoubleSide(1, R - w, T, R, B, adjacent1, adjacent2);
+                    else if (side.index == 2)
+                        drawBlinkDoubleSide(2, L, B - w, R, B, adjacent1, adjacent2);
+                    else
+                        drawBlinkDoubleSide(3, L, T, L + w, B, adjacent1, adjacent2);
+                }
             }
             else
             {
-                const float adjacent1 = isVisibleStyleForSide(side.index == 0 ? m_BorderStyleLeft : side.index == 1 ? m_BorderStyleTop
-                    : side.index == 2 ? m_BorderStyleLeft
-                    : m_BorderStyleTop)
-                    ? w
-                    : 0.0f;
-                const float adjacent2 = isVisibleStyleForSide(side.index == 0 ? m_BorderStyleRight : side.index == 1 ? m_BorderStyleBottom
-                    : side.index == 2 ? m_BorderStyleRight
-                    : m_BorderStyleBottom)
-                    ? w
-                    : 0.0f;
-                if (side.index == 0)
-                    drawBlink3DSide(0, side.style, L, T, R, T + w, adjacent1, adjacent2);
-                else if (side.index == 1)
-                    drawBlink3DSide(1, side.style, R - w, T, R, B, adjacent1, adjacent2);
-                else if (side.index == 2)
-                    drawBlink3DSide(2, side.style, L, B - w, R, B, adjacent1, adjacent2);
+                if (hasRadius)
+                {
+                    ID2D1Brush* insetBrush = (side.index == 0 || side.index == 3) ? darkBrush.Get() : lightBrush.Get();
+                    ID2D1Brush* outsetBrush = (side.index == 0 || side.index == 3) ? lightBrush.Get() : darkBrush.Get();
+                    if (side.style == BorderStyle::Inset)
+                        fillRoundedSideBand(side.index, insetBrush);
+                    else if (side.style == BorderStyle::Outset)
+                        fillRoundedSideBand(side.index, outsetBrush);
+                    else if (side.style == BorderStyle::Groove)
+                    {
+                        fillRoundedSideBandBetween(side.index, 0.0f, 0.5f, insetBrush);
+                        fillRoundedSideBandBetween(side.index, 0.5f, 1.0f, outsetBrush);
+                    }
+                    else
+                    {
+                        fillRoundedSideBandBetween(side.index, 0.0f, 0.5f, outsetBrush);
+                        fillRoundedSideBandBetween(side.index, 0.5f, 1.0f, insetBrush);
+                    }
+                }
                 else
-                    drawBlink3DSide(3, side.style, L, T, L + w, B, adjacent1, adjacent2);
+                {
+                    const float adjacent1 = isVisibleStyleForSide(side.index == 0 ? m_BorderStyleLeft : side.index == 1 ? m_BorderStyleTop
+                        : side.index == 2 ? m_BorderStyleLeft
+                        : m_BorderStyleTop)
+                        ? w
+                        : 0.0f;
+                    const float adjacent2 = isVisibleStyleForSide(side.index == 0 ? m_BorderStyleRight : side.index == 1 ? m_BorderStyleBottom
+                        : side.index == 2 ? m_BorderStyleRight
+                        : m_BorderStyleBottom)
+                        ? w
+                        : 0.0f;
+                    if (side.index == 0)
+                        drawBlink3DSide(0, side.style, L, T, R, T + w, adjacent1, adjacent2);
+                    else if (side.index == 1)
+                        drawBlink3DSide(1, side.style, R - w, T, R, B, adjacent1, adjacent2);
+                    else if (side.index == 2)
+                        drawBlink3DSide(2, side.style, L, B - w, R, B, adjacent1, adjacent2);
+                    else
+                        drawBlink3DSide(3, side.style, L, T, L + w, B, adjacent1, adjacent2);
+                }
             }
             if (useSideClip)
                 context->PopLayer();
@@ -1246,29 +1733,71 @@ void ElementLayoutBox::RenderBorderWithStyle(ID2D1DeviceContext* context, const 
                 sink->Close();
                 context->FillGeometry(g.Get(), strokeBrush);
             };
-        if (isVisibleStyle(m_BorderStyleTop) && isVisibleStyle(m_BorderStyleLeft) &&
-            !isComplexJoinStyle(m_BorderStyleTop) && !isComplexJoinStyle(m_BorderStyleLeft))
-            fillCornerBevel(
-                D2D1::Point2F(L, T),
-                D2D1::Point2F(L + w, T),
-                D2D1::Point2F(L, T + w));
-        if (isVisibleStyle(m_BorderStyleTop) && isVisibleStyle(m_BorderStyleRight) &&
-            !isComplexJoinStyle(m_BorderStyleTop) && !isComplexJoinStyle(m_BorderStyleRight))
-            fillCornerBevel(
-                D2D1::Point2F(R - w, T),
-                D2D1::Point2F(R, T),
-                D2D1::Point2F(R, T + w));
-        if (isVisibleStyle(m_BorderStyleBottom) && isVisibleStyle(m_BorderStyleLeft) &&
-            !isComplexJoinStyle(m_BorderStyleBottom) && !isComplexJoinStyle(m_BorderStyleLeft))
-            fillCornerBevel(
-                D2D1::Point2F(L, B - w),
-                D2D1::Point2F(L + w, B - w),
-                D2D1::Point2F(L, B));
-        if (isVisibleStyle(m_BorderStyleBottom) && isVisibleStyle(m_BorderStyleRight) &&
-            !isComplexJoinStyle(m_BorderStyleBottom) && !isComplexJoinStyle(m_BorderStyleRight))
-            fillCornerBevel(
-                D2D1::Point2F(R - w, B - w),
-                D2D1::Point2F(R, B - w),
-                D2D1::Point2F(R, B));
+        if (hasRadius)
+        {
+            auto fillRoundedCornerPatch = [&](float junctionT, ID2D1Brush* brush)
+                {
+                    if (!brush)
+                        return;
+                    const float t0 = wrapPerimeterT(junctionT - joinPad);
+                    const float t1 = wrapPerimeterT(junctionT + joinPad);
+                    const float tJ = wrapPerimeterT(junctionT);
+                    float o0x = 0.0f, o0y = 0.0f, o1x = 0.0f, o1y = 0.0f, ojx = 0.0f, ojy = 0.0f;
+                    float i0x = 0.0f, i0y = 0.0f, i1x = 0.0f, i1y = 0.0f, ijx = 0.0f, ijy = 0.0f;
+                    getOuterEdgePoint(t0, o0x, o0y);
+                    getOuterEdgePoint(t1, o1x, o1y);
+                    getOuterEdgePoint(tJ, ojx, ojy);
+                    getInnerEdgePoint(t0, i0x, i0y);
+                    getInnerEdgePoint(t1, i1x, i1y);
+                    getInnerEdgePoint(tJ, ijx, ijy);
+                    const D2D1_POINT_2F pts[] = {
+                        D2D1::Point2F(o0x, o0y),
+                        D2D1::Point2F(ojx, ojy),
+                        D2D1::Point2F(o1x, o1y),
+                        D2D1::Point2F(i1x, i1y),
+                        D2D1::Point2F(ijx, ijy),
+                        D2D1::Point2F(i0x, i0y) };
+                    fillPolygon(pts, 6, brush);
+                };
+            const float junctionTL = perimeter - sideArcSpan;
+            const float junctionTR = L_top + sideArcSpan;
+            const float junctionBR = L_top + L_arc + L_right + sideArcSpan;
+            const float junctionBL = L_top + L_arc + L_right + sideArcSpan + L_bottom + L_arc;
+            if (isVisibleStyleForSide(m_BorderStyleTop) && isVisibleStyleForSide(m_BorderStyleLeft))
+                fillRoundedCornerPatch(junctionTL, strokeBrush);
+            if (isVisibleStyleForSide(m_BorderStyleTop) && isVisibleStyleForSide(m_BorderStyleRight))
+                fillRoundedCornerPatch(junctionTR, strokeBrush);
+            if (isVisibleStyleForSide(m_BorderStyleBottom) && isVisibleStyleForSide(m_BorderStyleRight))
+                fillRoundedCornerPatch(junctionBR, strokeBrush);
+            if (isVisibleStyleForSide(m_BorderStyleBottom) && isVisibleStyleForSide(m_BorderStyleLeft))
+                fillRoundedCornerPatch(junctionBL, strokeBrush);
+        }
+        else if (!hasRadius)
+        {
+            if (isVisibleStyle(m_BorderStyleTop) && isVisibleStyle(m_BorderStyleLeft) &&
+                !isComplexJoinStyle(m_BorderStyleTop) && !isComplexJoinStyle(m_BorderStyleLeft))
+                fillCornerBevel(
+                    D2D1::Point2F(L, T),
+                    D2D1::Point2F(L + w, T),
+                    D2D1::Point2F(L, T + w));
+            if (isVisibleStyle(m_BorderStyleTop) && isVisibleStyle(m_BorderStyleRight) &&
+                !isComplexJoinStyle(m_BorderStyleTop) && !isComplexJoinStyle(m_BorderStyleRight))
+                fillCornerBevel(
+                    D2D1::Point2F(R - w, T),
+                    D2D1::Point2F(R, T),
+                    D2D1::Point2F(R, T + w));
+            if (isVisibleStyle(m_BorderStyleBottom) && isVisibleStyle(m_BorderStyleLeft) &&
+                !isComplexJoinStyle(m_BorderStyleBottom) && !isComplexJoinStyle(m_BorderStyleLeft))
+                fillCornerBevel(
+                    D2D1::Point2F(L, B - w),
+                    D2D1::Point2F(L + w, B - w),
+                    D2D1::Point2F(L, B));
+            if (isVisibleStyle(m_BorderStyleBottom) && isVisibleStyle(m_BorderStyleRight) &&
+                !isComplexJoinStyle(m_BorderStyleBottom) && !isComplexJoinStyle(m_BorderStyleRight))
+                fillCornerBevel(
+                    D2D1::Point2F(R - w, B - w),
+                    D2D1::Point2F(R, B - w),
+                    D2D1::Point2F(R, B));
+        }
     }
 }
