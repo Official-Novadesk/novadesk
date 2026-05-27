@@ -1,4 +1,4 @@
-﻿/* Copyright (C) 2026 OfficialNovadesk
+/* Copyright (C) 2026 OfficialNovadesk
  *
  * This Source Code Form is subject to the terms of the GNU General Public
  * License; either version 2 of the License, or (at your option) any later
@@ -309,12 +309,8 @@ void ElementLayoutBox::RenderBorderWithStyle(ID2D1DeviceContext* context, const 
         };
     auto strokePathForBorder = [&](const D2D1_ROUNDED_RECT& outer, float strokeWidth) -> D2D1_ROUNDED_RECT
         {
-            const float half = strokeWidth * 0.5f;
-            if (m_BorderPosition == BorderPosition::Inside)
-                return insetRoundedRect(outer, half);
-            if (m_BorderPosition == BorderPosition::Outside)
-                return insetRoundedRect(outer, -half);
-            return outer;
+            // `outer` is the outer edge of the border band; stroke is centered half a width inward.
+            return insetRoundedRect(outer, strokeWidth * 0.5f);
         };
     auto drawStyleRect = [&](const D2D1_ROUNDED_RECT& r, BorderStyle style, ID2D1Brush* brush, float width)
         {
@@ -329,6 +325,22 @@ void ElementLayoutBox::RenderBorderWithStyle(ID2D1DeviceContext* context, const 
                 {
                     D2D1_ROUNDED_RECT r1 = insetRoundedRect(r, third * 0.5f);
                     D2D1_ROUNDED_RECT r2 = insetRoundedRect(r, width - third * 0.5f);
+                    if (r.radiusX == 0.0f && r.radiusY == 0.0f)
+                    {
+                        context->DrawRectangle(r1.rect, brush, third, sstyle.Get());
+                        context->DrawRectangle(r2.rect, brush, third, sstyle.Get());
+                    }
+                    else
+                    {
+                        context->DrawRoundedRectangle(r1, brush, third, sstyle.Get());
+                        context->DrawRoundedRectangle(r2, brush, third, sstyle.Get());
+                    }
+                }
+                else if (m_BorderPosition == BorderPosition::Center)
+                {
+                    const D2D1_ROUNDED_RECT base = strokePathForBorder(r, width);
+                    D2D1_ROUNDED_RECT r1 = insetRoundedRect(base, -third);
+                    D2D1_ROUNDED_RECT r2 = insetRoundedRect(base, third);
                     if (r.radiusX == 0.0f && r.radiusY == 0.0f)
                     {
                         context->DrawRectangle(r1.rect, brush, third, sstyle.Get());
@@ -575,13 +587,15 @@ void ElementLayoutBox::RenderBorderWithStyle(ID2D1DeviceContext* context, const 
                                     context->PopLayer();
                                 }
                             };
+                        const D2D1_ROUNDED_RECT bandPath = strokePathForBorder(r, width);
                         if (style == BorderStyle::Inset || style == BorderStyle::Outset)
                         {
-                            drawSplitRing(r, width, topLeftBrush, bottomRightBrush);
+                            drawSplitRing(bandPath, width, topLeftBrush, bottomRightBrush);
                         }
                         else
                         {
-                            D2D1_ROUNDED_RECT rOuter = r, rInner = r;
+                            D2D1_ROUNDED_RECT rOuter = bandPath;
+                            D2D1_ROUNDED_RECT rInner = bandPath;
                             rOuter.rect.left -= half / 2;
                             rOuter.rect.top -= half / 2;
                             rOuter.rect.right += half / 2;
@@ -590,10 +604,10 @@ void ElementLayoutBox::RenderBorderWithStyle(ID2D1DeviceContext* context, const 
                             rInner.rect.top += half / 2;
                             rInner.rect.right -= half / 2;
                             rInner.rect.bottom -= half / 2;
-                            rOuter.radiusX = r.radiusX + half / 2;
-                            rOuter.radiusY = r.radiusY + half / 2;
-                            rInner.radiusX = std::max(0.0f, r.radiusX - half / 2);
-                            rInner.radiusY = std::max(0.0f, r.radiusY - half / 2);
+                            rOuter.radiusX = bandPath.radiusX + half / 2;
+                            rOuter.radiusY = bandPath.radiusY + half / 2;
+                            rInner.radiusX = std::max(0.0f, bandPath.radiusX - half / 2);
+                            rInner.radiusY = std::max(0.0f, bandPath.radiusY - half / 2);
                             ID2D1Brush* outerTl = (style == BorderStyle::Groove) ? darkBrush.Get() : lightBrush.Get();
                             ID2D1Brush* outerBr = (style == BorderStyle::Groove) ? lightBrush.Get() : darkBrush.Get();
                             ID2D1Brush* innerTl = (style == BorderStyle::Groove) ? lightBrush.Get() : darkBrush.Get();
@@ -606,10 +620,11 @@ void ElementLayoutBox::RenderBorderWithStyle(ID2D1DeviceContext* context, const 
             }
             else if (style == BorderStyle::Dotted)
             {
-                float L = r.rect.left, T = r.rect.top;
-                float R = r.rect.right, B = r.rect.bottom;
-                float rx = std::min(r.radiusX, (R - L) * 0.5f);
-                float ry = std::min(r.radiusY, (B - T) * 0.5f);
+                const D2D1_ROUNDED_RECT dotPath = strokePathForBorder(r, width);
+                float L = dotPath.rect.left, T = dotPath.rect.top;
+                float R = dotPath.rect.right, B = dotPath.rect.bottom;
+                float rx = std::min(dotPath.radiusX, (R - L) * 0.5f);
+                float ry = std::min(dotPath.radiusY, (B - T) * 0.5f);
                 float L_top = R - L - 2.0f * rx;
                 float L_bottom = L_top;
                 float L_left = B - T - 2.0f * ry;
@@ -724,7 +739,20 @@ void ElementLayoutBox::RenderBorderWithStyle(ID2D1DeviceContext* context, const 
                             ? static_cast<int>((runLen - gap) / period)
                             : 0;
                         if (n < 1)
+                        {
+                            if (runLen >= width)
+                            {
+                                const float dashWidth = std::min(dashLen, runLen);
+                                const float inset = (runLen - dashWidth) * 0.5f;
+                                const float s = runStart + inset;
+                                const float e = s + dashWidth;
+                                if (isHoriz)
+                                    context->FillRectangle(D2D1::RectF(s, edgeCoord, e, edgeCoord + width), brush);
+                                else
+                                    context->FillRectangle(D2D1::RectF(edgeCoord, s, edgeCoord + width, e), brush);
+                            }
                             return;
+                        }
                         float gapActual = (runLen - static_cast<float>(n) * dashLen) / static_cast<float>(n + 1);
                         for (int i = 0; i < n; ++i)
                         {
@@ -765,7 +793,9 @@ void ElementLayoutBox::RenderBorderWithStyle(ID2D1DeviceContext* context, const 
         const float rx = std::min(rect.radiusX, (rect.rect.right - rect.rect.left) * 0.5f);
         const float ry = std::min(rect.radiusY, (rect.rect.bottom - rect.rect.top) * 0.5f);
         const bool hasRadius = rx > 0.0f || ry > 0.0f;
-        const bool crispSnap = !hasRadius && m_BorderPosition != BorderPosition::Inside;
+        const bool crispSnap = !hasRadius &&
+            m_BorderPosition != BorderPosition::Inside &&
+            m_BorderPosition != BorderPosition::Center;
         const float L = hasRadius ? rect.rect.left : (crispSnap ? (std::floor(rect.rect.left) + 0.5f) : rect.rect.left);
         const float T = hasRadius ? rect.rect.top : (crispSnap ? (std::floor(rect.rect.top) + 0.5f) : rect.rect.top);
         const float R = hasRadius ? rect.rect.right : (crispSnap ? (std::floor(rect.rect.right) + 0.5f) : rect.rect.right);
@@ -790,9 +820,11 @@ void ElementLayoutBox::RenderBorderWithStyle(ID2D1DeviceContext* context, const 
                 Microsoft::WRL::ComPtr<ID2D1Geometry> g = path;
                 return g;
             };
+        const float aaPad = eps * 0.5f;
         const float outerPad = (m_BorderPosition == BorderPosition::Outside) ? eps :
-            (m_BorderPosition == BorderPosition::Center) ? (eps * 0.5f) : 0.0f;
-        const float innerPad = (m_BorderPosition == BorderPosition::Inside) ? 0.0f : eps;
+            (m_BorderPosition == BorderPosition::Center) ? aaPad : 0.0f;
+        const float innerPad = (m_BorderPosition == BorderPosition::Inside) ? 0.0f :
+            (m_BorderPosition == BorderPosition::Center) ? aaPad : eps;
         D2D1_POINT_2F topPts[4] = {
             D2D1::Point2F(L - outerPad, T - outerPad), D2D1::Point2F(R + outerPad, T - outerPad),
             D2D1::Point2F(R - w + innerPad, T + w + innerPad), D2D1::Point2F(L + w - innerPad, T + w + innerPad) };
@@ -1516,27 +1548,38 @@ void ElementLayoutBox::RenderBorderWithStyle(ID2D1DeviceContext* context, const 
                 const float dashLen = w * 3.0f;
                 const float gap = w * 1.0f;
                 const float period = dashLen + gap;
-                int dashCount = std::max(1, static_cast<int>(std::floor((segLen + gap) / period)));
-                while (dashCount > 1 &&
-                    static_cast<float>(dashCount) * dashLen + static_cast<float>(dashCount - 1) * gap > segLen + 0.01f)
+                // Only reserve the half-corner arcs; using dashLen here consumes the straight edge
+                // and leaves too little room for interior dashes on small rounded boxes.
+                const float cornerRun = std::min(sideArcSpan + joinPad, segLen * 0.5f);
+                if (cornerRun > 0.001f)
                 {
-                    --dashCount;
+                    fillRoundedDashStrip(sideIndex, 0.0f, cornerRun);
+                    fillRoundedDashStrip(sideIndex, segLen - cornerRun, segLen);
                 }
-                if (dashCount == 1)
+                const float runStart = cornerRun;
+                const float runEnd = segLen - cornerRun;
+                const float runLen = runEnd - runStart;
+                if (runLen <= 0.001f)
+                    return;
+                int dashCount = (runLen >= gap + dashLen)
+                    ? static_cast<int>((runLen - gap) / period)
+                    : 0;
+                if (dashCount < 1)
                 {
-                    fillRoundedDashStrip(sideIndex, 0.0f, segLen);
+                    if (runLen >= w)
+                    {
+                        const float dashWidth = std::min(dashLen, runLen);
+                        const float inset = (runLen - dashWidth) * 0.5f;
+                        fillRoundedDashStrip(sideIndex, runStart + inset, runStart + inset + dashWidth);
+                    }
                     return;
                 }
-                const float interiorGap = (segLen - static_cast<float>(dashCount) * dashLen) /
-                    static_cast<float>(dashCount - 1);
+                const float gapActual = (runLen - static_cast<float>(dashCount) * dashLen) /
+                    static_cast<float>(dashCount + 1);
                 for (int i = 0; i < dashCount; ++i)
                 {
-                    float dashStart = static_cast<float>(i) * (dashLen + interiorGap);
-                    float dashEnd = dashStart + dashLen;
-                    if (i == 0)
-                        dashStart = 0.0f;
-                    if (i == dashCount - 1)
-                        dashEnd = segLen;
+                    const float dashStart = runStart + gapActual + static_cast<float>(i) * (dashLen + gapActual);
+                    const float dashEnd = dashStart + dashLen;
                     fillRoundedDashStrip(sideIndex, dashStart, dashEnd);
                 }
             };
@@ -1554,7 +1597,20 @@ void ElementLayoutBox::RenderBorderWithStyle(ID2D1DeviceContext* context, const 
                             ? static_cast<int>((runLen - gap) / period)
                             : 0;
                         if (dashCount < 1)
+                        {
+                            if (runLen >= w)
+                            {
+                                const float dashWidth = std::min(dashLen, runLen);
+                                const float inset = (runLen - dashWidth) * 0.5f;
+                                const float s = runStart + inset;
+                                const float e = s + dashWidth;
+                                if (isHoriz)
+                                    context->FillRectangle(D2D1::RectF(s, edgeCoord, e, edgeCoord + w), strokeBrush);
+                                else
+                                    context->FillRectangle(D2D1::RectF(edgeCoord, s, edgeCoord + w, e), strokeBrush);
+                            }
                             return;
+                        }
                         const float gapActual = (runLen - static_cast<float>(dashCount) * dashLen) /
                             static_cast<float>(dashCount + 1);
                         for (int i = 0; i < dashCount; ++i)
