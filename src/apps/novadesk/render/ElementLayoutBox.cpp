@@ -71,49 +71,68 @@ void ElementLayoutBox::Render(ID2D1DeviceContext* context)
         if (!shadow.inset)
             RenderSingleShadow(context, rect, shadow);
     }
+    // Inside borders are painted inward on top of the fill. Insetting the fill leaves
+    // empty corner wedges (parent background shows through as white gaps).
+    const D2D1_ROUNDED_RECT fillRect = rect;
     if (fillBrush)
     {
-        context->FillRoundedRectangle(rect, fillBrush.Get());
+        context->FillRoundedRectangle(fillRect, fillBrush.Get());
     }
     for (const auto& shadow : m_BoxShadows)
     {
         if (shadow.inset)
-            RenderSingleShadow(context, rect, shadow);
+            RenderSingleShadow(context, fillRect, shadow);
     }
     if (strokeBrush)
     {
+        // Border geometry uses the outer edge of the border band; width is applied inward.
         D2D1_ROUNDED_RECT borderRect = rect;
         float radiusX = m_RadiusX;
         float radiusY = m_RadiusY;
+        const float bw = m_StrokeWidth;
         if (m_BorderPosition == BorderPosition::Outside)
         {
-            const float half = m_StrokeWidth * 0.5f;
+            borderRect.rect.left -= bw;
+            borderRect.rect.top -= bw;
+            borderRect.rect.right += bw;
+            borderRect.rect.bottom += bw;
+            if (radiusX > 0.0f)
+                radiusX += bw;
+            if (radiusY > 0.0f)
+                radiusY += bw;
+        }
+        else if (m_BorderPosition == BorderPosition::Center)
+        {
+            const float half = bw * 0.5f;
             borderRect.rect.left -= half;
             borderRect.rect.top -= half;
             borderRect.rect.right += half;
             borderRect.rect.bottom += half;
-            if (m_RadiusX > 0.0f)
+            if (radiusX > 0.0f)
                 radiusX += half;
-            if (m_RadiusY > 0.0f)
+            if (radiusY > 0.0f)
                 radiusY += half;
-        }
-        else if (m_BorderPosition == BorderPosition::Inside)
-        {
-            const float half = m_StrokeWidth * 0.5f;
-            borderRect.rect.left += half;
-            borderRect.rect.top += half;
-            borderRect.rect.right -= half;
-            borderRect.rect.bottom -= half;
-            radiusX -= half;
-            radiusY -= half;
-            if (radiusX < 0.0f)
-                radiusX = 0.0f;
-            if (radiusY < 0.0f)
-                radiusY = 0.0f;
         }
         borderRect.radiusX = radiusX;
         borderRect.radiusY = radiusY;
-        RenderBorderWithStyle(context, borderRect, strokeBrush.Get(), m_StrokeWidth);
+        if (m_BorderPosition == BorderPosition::Inside)
+        {
+            D2D1_LAYER_PARAMETERS1 clipParams = D2D1::LayerParameters1(
+                rect.rect,
+                nullptr,
+                D2D1_ANTIALIAS_MODE_PER_PRIMITIVE,
+                D2D1::Matrix3x2F::Identity(),
+                1.0f,
+                nullptr,
+                D2D1_LAYER_OPTIONS1_NONE);
+            context->PushLayer(clipParams, nullptr);
+            RenderBorderWithStyle(context, borderRect, strokeBrush.Get(), bw);
+            context->PopLayer();
+        }
+        else
+        {
+            RenderBorderWithStyle(context, borderRect, strokeBrush.Get(), bw);
+        }
     }
     RenderBevel(context);
     RestoreRenderTransform(context, originalTransform);
@@ -276,6 +295,27 @@ void ElementLayoutBox::RenderBorderWithStyle(ID2D1DeviceContext* context, const 
                 factory->CreateStrokeStyle(props, nullptr, 0, outStyle);
             }
         };
+    auto insetRoundedRect = [](D2D1_ROUNDED_RECT rr, float amount) -> D2D1_ROUNDED_RECT
+        {
+            rr.rect.left += amount;
+            rr.rect.top += amount;
+            rr.rect.right -= amount;
+            rr.rect.bottom -= amount;
+            if (rr.radiusX > 0.0f)
+                rr.radiusX = std::max(0.0f, rr.radiusX - amount);
+            if (rr.radiusY > 0.0f)
+                rr.radiusY = std::max(0.0f, rr.radiusY - amount);
+            return rr;
+        };
+    auto strokePathForBorder = [&](const D2D1_ROUNDED_RECT& outer, float strokeWidth) -> D2D1_ROUNDED_RECT
+        {
+            const float half = strokeWidth * 0.5f;
+            if (m_BorderPosition == BorderPosition::Inside)
+                return insetRoundedRect(outer, half);
+            if (m_BorderPosition == BorderPosition::Outside)
+                return insetRoundedRect(outer, -half);
+            return outer;
+        };
     auto drawStyleRect = [&](const D2D1_ROUNDED_RECT& r, BorderStyle style, ID2D1Brush* brush, float width)
         {
             if (style == BorderStyle::None || style == BorderStyle::Hidden)
@@ -285,29 +325,36 @@ void ElementLayoutBox::RenderBorderWithStyle(ID2D1DeviceContext* context, const 
             if (style == BorderStyle::Double)
             {
                 float third = width / 3.0f;
-                D2D1_ROUNDED_RECT r1 = r;
-                D2D1_ROUNDED_RECT r2 = r;
-                r1.rect.left -= third;
-                r1.rect.top -= third;
-                r1.rect.right += third;
-                r1.rect.bottom += third;
-                r2.rect.left += third;
-                r2.rect.top += third;
-                r2.rect.right -= third;
-                r2.rect.bottom -= third;
-                if (r.radiusX == 0.0f && r.radiusY == 0.0f)
+                if (m_BorderPosition == BorderPosition::Inside)
                 {
-                    context->DrawRectangle(r1.rect, brush, third, sstyle.Get());
-                    context->DrawRectangle(r2.rect, brush, third, sstyle.Get());
+                    D2D1_ROUNDED_RECT r1 = insetRoundedRect(r, third * 0.5f);
+                    D2D1_ROUNDED_RECT r2 = insetRoundedRect(r, width - third * 0.5f);
+                    if (r.radiusX == 0.0f && r.radiusY == 0.0f)
+                    {
+                        context->DrawRectangle(r1.rect, brush, third, sstyle.Get());
+                        context->DrawRectangle(r2.rect, brush, third, sstyle.Get());
+                    }
+                    else
+                    {
+                        context->DrawRoundedRectangle(r1, brush, third, sstyle.Get());
+                        context->DrawRoundedRectangle(r2, brush, third, sstyle.Get());
+                    }
                 }
                 else
                 {
-                    r1.radiusX = r.radiusX + third;
-                    r1.radiusY = r.radiusY + third;
-                    r2.radiusX = std::max(0.0f, r.radiusX - third);
-                    r2.radiusY = std::max(0.0f, r.radiusY - third);
-                    context->DrawRoundedRectangle(r1, brush, third, sstyle.Get());
-                    context->DrawRoundedRectangle(r2, brush, third, sstyle.Get());
+                    const D2D1_ROUNDED_RECT base = strokePathForBorder(r, width);
+                    D2D1_ROUNDED_RECT r1 = insetRoundedRect(base, -third);
+                    D2D1_ROUNDED_RECT r2 = insetRoundedRect(base, third);
+                    if (r.radiusX == 0.0f && r.radiusY == 0.0f)
+                    {
+                        context->DrawRectangle(r1.rect, brush, third, sstyle.Get());
+                        context->DrawRectangle(r2.rect, brush, third, sstyle.Get());
+                    }
+                    else
+                    {
+                        context->DrawRoundedRectangle(r1, brush, third, sstyle.Get());
+                        context->DrawRoundedRectangle(r2, brush, third, sstyle.Get());
+                    }
                 }
             }
             else if (style == BorderStyle::Groove || style == BorderStyle::Ridge ||
@@ -696,13 +743,14 @@ void ElementLayoutBox::RenderBorderWithStyle(ID2D1DeviceContext* context, const 
             }
             else
             {
+                const D2D1_ROUNDED_RECT strokeR = strokePathForBorder(r, width);
                 if (r.radiusX == 0.0f && r.radiusY == 0.0f)
                 {
-                    context->DrawRectangle(r.rect, brush, width, sstyle.Get());
+                    context->DrawRectangle(strokeR.rect, brush, width, sstyle.Get());
                 }
                 else
                 {
-                    context->DrawRoundedRectangle(r, brush, width, sstyle.Get());
+                    context->DrawRoundedRectangle(strokeR, brush, width, sstyle.Get());
                 }
             }
         };
@@ -717,10 +765,11 @@ void ElementLayoutBox::RenderBorderWithStyle(ID2D1DeviceContext* context, const 
         const float rx = std::min(rect.radiusX, (rect.rect.right - rect.rect.left) * 0.5f);
         const float ry = std::min(rect.radiusY, (rect.rect.bottom - rect.rect.top) * 0.5f);
         const bool hasRadius = rx > 0.0f || ry > 0.0f;
-        const float L = hasRadius ? rect.rect.left : (std::floor(rect.rect.left) + 0.5f);
-        const float T = hasRadius ? rect.rect.top : (std::floor(rect.rect.top) + 0.5f);
-        const float R = hasRadius ? rect.rect.right : (std::floor(rect.rect.right) + 0.5f);
-        const float B = hasRadius ? rect.rect.bottom : (std::floor(rect.rect.bottom) + 0.5f);
+        const bool crispSnap = !hasRadius && m_BorderPosition != BorderPosition::Inside;
+        const float L = hasRadius ? rect.rect.left : (crispSnap ? (std::floor(rect.rect.left) + 0.5f) : rect.rect.left);
+        const float T = hasRadius ? rect.rect.top : (crispSnap ? (std::floor(rect.rect.top) + 0.5f) : rect.rect.top);
+        const float R = hasRadius ? rect.rect.right : (crispSnap ? (std::floor(rect.rect.right) + 0.5f) : rect.rect.right);
+        const float B = hasRadius ? rect.rect.bottom : (crispSnap ? (std::floor(rect.rect.bottom) + 0.5f) : rect.rect.bottom);
         if (w <= 0.0f || R <= L || B <= T)
             return;
         ID2D1Factory1* factory = Direct2D::GetFactory();
@@ -741,18 +790,21 @@ void ElementLayoutBox::RenderBorderWithStyle(ID2D1DeviceContext* context, const 
                 Microsoft::WRL::ComPtr<ID2D1Geometry> g = path;
                 return g;
             };
+        const float outerPad = (m_BorderPosition == BorderPosition::Outside) ? eps :
+            (m_BorderPosition == BorderPosition::Center) ? (eps * 0.5f) : 0.0f;
+        const float innerPad = (m_BorderPosition == BorderPosition::Inside) ? 0.0f : eps;
         D2D1_POINT_2F topPts[4] = {
-            D2D1::Point2F(L - eps, T - eps), D2D1::Point2F(R + eps, T - eps),
-            D2D1::Point2F(R - w + eps, T + w + eps), D2D1::Point2F(L + w - eps, T + w + eps) };
+            D2D1::Point2F(L - outerPad, T - outerPad), D2D1::Point2F(R + outerPad, T - outerPad),
+            D2D1::Point2F(R - w + innerPad, T + w + innerPad), D2D1::Point2F(L + w - innerPad, T + w + innerPad) };
         D2D1_POINT_2F rightPts[4] = {
-            D2D1::Point2F(R + eps, T - eps), D2D1::Point2F(R + eps, B + eps),
-            D2D1::Point2F(R - w - eps, B - w + eps), D2D1::Point2F(R - w - eps, T + w - eps) };
+            D2D1::Point2F(R + outerPad, T - outerPad), D2D1::Point2F(R + outerPad, B + outerPad),
+            D2D1::Point2F(R - w - innerPad, B - w + innerPad), D2D1::Point2F(R - w - innerPad, T + w - innerPad) };
         D2D1_POINT_2F bottomPts[4] = {
-            D2D1::Point2F(L - eps, B + eps), D2D1::Point2F(R + eps, B + eps),
-            D2D1::Point2F(R - w + eps, B - w - eps), D2D1::Point2F(L + w - eps, B - w - eps) };
+            D2D1::Point2F(L - outerPad, B + outerPad), D2D1::Point2F(R + outerPad, B + outerPad),
+            D2D1::Point2F(R - w + innerPad, B - w - innerPad), D2D1::Point2F(L + w - innerPad, B - w - innerPad) };
         D2D1_POINT_2F leftPts[4] = {
-            D2D1::Point2F(L - eps, T - eps), D2D1::Point2F(L - eps, B + eps),
-            D2D1::Point2F(L + w + eps, B - w + eps), D2D1::Point2F(L + w + eps, T + w - eps) };
+            D2D1::Point2F(L - outerPad, T - outerPad), D2D1::Point2F(L - outerPad, B + outerPad),
+            D2D1::Point2F(L + w + innerPad, B - w + innerPad), D2D1::Point2F(L + w + innerPad, T + w - innerPad) };
         auto topClip = makePolyClip(topPts);
         auto rightClip = makePolyClip(rightPts);
         auto bottomClip = makePolyClip(bottomPts);
