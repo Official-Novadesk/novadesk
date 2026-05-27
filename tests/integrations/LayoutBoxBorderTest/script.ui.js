@@ -17,7 +17,7 @@ for (let i = 0; i < styles.length; i++) {
     borderWidth: 10,
     borderColor: "rgb(100, 100, 200)",
     borderStyle: style,
-    borderRadius: 20,
+    // borderRadius: 20,
     borderPosition: "inside",
     children: [{
       type: "text",

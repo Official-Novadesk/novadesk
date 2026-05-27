@@ -636,10 +636,6 @@ void ElementLayoutBox::RenderBorderWithStyle(ID2D1DeviceContext* context, const 
                 if (perimeter > 0.001f)
                 {
                     float ideal_spacing = width * 2.0f;
-                    int num_dots = static_cast<int>(perimeter / ideal_spacing + 0.5f);
-                    if (num_dots < 4)
-                        num_dots = 4;
-                    float step = perimeter / num_dots;
                     float r_dot = width / 2.0f;
                     auto getPoint = [&](float t, float& x, float& y)
                         {
@@ -705,11 +701,36 @@ void ElementLayoutBox::RenderBorderWithStyle(ID2D1DeviceContext* context, const 
                                 y = T + ry + ry * sinf(theta);
                             }
                         };
-                    for (int i = 0; i < num_dots; ++i)
+                    const float segStarts[] = {
+                        0.0f,
+                        L_top,
+                        L_top + L_arc,
+                        L_top + L_arc + L_right,
+                        L_top + L_arc + L_right + L_arc,
+                        L_top + L_arc + L_right + L_arc + L_bottom,
+                        L_top + L_arc + L_right + L_arc + L_bottom + L_arc,
+                        L_top + L_arc + L_right + L_arc + L_bottom + L_arc + L_left,
+                        perimeter };
+                    auto placeDotsOnSegment = [&](float tStart, float tEnd, bool skipFirst)
+                        {
+                            const float segLen = tEnd - tStart;
+                            if (segLen <= 0.001f)
+                                return;
+                            const int n = std::max(1, static_cast<int>(segLen / ideal_spacing + 0.5f));
+                            const int iStart = skipFirst ? 1 : 0;
+                            for (int i = iStart; i <= n; ++i)
+                            {
+                                const float t = tStart + segLen * static_cast<float>(i) / static_cast<float>(n);
+                                float x = 0.0f, y = 0.0f;
+                                getPoint(t, x, y);
+                                context->FillEllipse(D2D1::Ellipse(D2D1::Point2F(x, y), r_dot, r_dot), brush);
+                            }
+                        };
+                    for (int s = 0; s < 8; ++s)
                     {
-                        float x = 0.0f, y = 0.0f;
-                        getPoint(static_cast<float>(i) * step, x, y);
-                        context->FillEllipse(D2D1::Ellipse(D2D1::Point2F(x, y), r_dot, r_dot), brush);
+                        if (segStarts[s + 1] - segStarts[s] <= 0.001f)
+                            continue;
+                        placeDotsOnSegment(segStarts[s], segStarts[s + 1], s != 0);
                     }
                 }
             }
