@@ -55,14 +55,18 @@ ui.endUpdate();
 
 ui.animate({
   id: "rgbText",
-  duration: 2400,
+  duration: 1000,
   easing: "linear",
   iterationCount: "infinite",
   keyframes: {
-    "0%": { fontColor: "rgba(255,50,50,1)" },
-    "33%": { fontColor: "rgba(50,255,90,1)" },
-    "66%": { fontColor: "rgba(70,130,255,1)" },
-    "100%": { fontColor: "rgba(255,50,50,1)" }
+    "0%":   { fontColor: "rgba(255,50,50,1)" },    // red
+    "16%":  { fontColor: "rgba(255,165,0,1)" },    // orange
+    "32%":  { fontColor: "rgba(255,255,50,1)" },   // yellow
+    "48%":  { fontColor: "rgba(50,255,90,1)" },    // green
+    "64%":  { fontColor: "rgba(70,130,255,1)" },   // blue
+    "80%":  { fontColor: "rgba(138,43,226,1)" },   // violet
+    "90%":  { fontColor: "rgba(255,20,147,1)" },   // pink
+    "100%": { fontColor: "rgba(255,50,50,1)" }     // back to red
   }
 });
 

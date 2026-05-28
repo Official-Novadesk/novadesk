@@ -95,6 +95,7 @@ Widget::~Widget()
     }
 
     DestroyToolbarIcon();
+    ReleaseRenderSurface();
 
     if (m_hWnd)
     {
@@ -2545,6 +2546,28 @@ void Widget::Redraw()
     }
 }
 
+void Widget::ReleaseRenderSurface()
+{
+    if (m_hRenderMemDc && m_hRenderOldBitmap)
+    {
+        SelectObject(m_hRenderMemDc, m_hRenderOldBitmap);
+        m_hRenderOldBitmap = nullptr;
+    }
+    if (m_hRenderBitmap)
+    {
+        DeleteObject(m_hRenderBitmap);
+        m_hRenderBitmap = nullptr;
+    }
+    if (m_hRenderMemDc)
+    {
+        DeleteDC(m_hRenderMemDc);
+        m_hRenderMemDc = nullptr;
+    }
+    m_pRenderBitmapBits = nullptr;
+    m_RenderBitmapW = 0;
+    m_RenderBitmapH = 0;
+}
+
 /*
 ** Update the layered window content using UpdateLayeredWindow.
 ** Draws all content to a memory DC and updates the window.
@@ -2595,6 +2618,7 @@ void Widget::UpdateLayeredWindowContent()
             m_Options.width = calcW;
             m_Options.height = calcH;
             SetWindowPos(m_hWnd, NULL, 0, 0, calcW, calcH, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+            ReleaseRenderSurface();
         }
     }
 
@@ -2605,27 +2629,51 @@ void Widget::UpdateLayeredWindowContent()
         return;
 
     HDC hdcScreen = GetDC(NULL);
-    HDC hdcMem = CreateCompatibleDC(hdcScreen);
 
-    // Create 32-bit bitmap for alpha channel
-    BITMAPINFO bmi;
-    ZeroMemory(&bmi, sizeof(BITMAPINFO));
-    bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-    bmi.bmiHeader.biWidth = w;
-    bmi.bmiHeader.biHeight = -h; // Top-down DIB
-    bmi.bmiHeader.biPlanes = 1;
-    bmi.bmiHeader.biBitCount = 32;
-    bmi.bmiHeader.biCompression = BI_RGB;
-
-    void *pvBits = NULL;
-    HBITMAP hBitmap = CreateDIBSection(hdcMem, &bmi, DIB_RGB_COLORS, &pvBits, NULL, 0);
-    if (!hBitmap)
+    if (!m_hRenderMemDc)
     {
-        DeleteDC(hdcMem);
-        ReleaseDC(NULL, hdcScreen);
-        return;
+        m_hRenderMemDc = CreateCompatibleDC(hdcScreen);
+        if (!m_hRenderMemDc)
+        {
+            ReleaseDC(NULL, hdcScreen);
+            return;
+        }
     }
-    HBITMAP hOldBitmap = (HBITMAP)SelectObject(hdcMem, hBitmap);
+
+    void *pvBits = m_pRenderBitmapBits;
+    if (w != m_RenderBitmapW || h != m_RenderBitmapH || !m_hRenderBitmap)
+    {
+        if (m_hRenderBitmap)
+        {
+            SelectObject(m_hRenderMemDc, m_hRenderOldBitmap);
+            DeleteObject(m_hRenderBitmap);
+            m_hRenderBitmap = nullptr;
+            m_hRenderOldBitmap = nullptr;
+            m_pRenderBitmapBits = nullptr;
+        }
+
+        BITMAPINFO bmi;
+        ZeroMemory(&bmi, sizeof(BITMAPINFO));
+        bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+        bmi.bmiHeader.biWidth = w;
+        bmi.bmiHeader.biHeight = -h;
+        bmi.bmiHeader.biPlanes = 1;
+        bmi.bmiHeader.biBitCount = 32;
+        bmi.bmiHeader.biCompression = BI_RGB;
+
+        m_hRenderBitmap = CreateDIBSection(m_hRenderMemDc, &bmi, DIB_RGB_COLORS, &pvBits, NULL, 0);
+        if (!m_hRenderBitmap)
+        {
+            ReleaseDC(NULL, hdcScreen);
+            return;
+        }
+        m_hRenderOldBitmap = (HBITMAP)SelectObject(m_hRenderMemDc, m_hRenderBitmap);
+        m_pRenderBitmapBits = pvBits;
+        m_RenderBitmapW = w;
+        m_RenderBitmapH = h;
+    }
+
+    HDC hdcMem = m_hRenderMemDc;
 
     // Draw Direct2D
     {
@@ -2808,9 +2856,6 @@ void Widget::UpdateLayeredWindowContent()
                      m_Options.id.c_str(), err, w, h, pptDst.x, pptDst.y);
     }
 
-    SelectObject(hdcMem, hOldBitmap);
-    DeleteObject(hBitmap);
-    DeleteDC(hdcMem);
     ReleaseDC(NULL, hdcScreen);
 }
 

@@ -297,9 +297,16 @@ private:
     void ApplyToolbarIcon();
     void ApplyToolbarTitle();
     void DestroyToolbarIcon();
+    void ReleaseRenderSurface();
     
     // Rendering
     Microsoft::WRL::ComPtr<ID2D1DeviceContext> m_pContext;
+    HDC m_hRenderMemDc = nullptr;
+    HBITMAP m_hRenderBitmap = nullptr;
+    HBITMAP m_hRenderOldBitmap = nullptr;
+    void *m_pRenderBitmapBits = nullptr;
+    int m_RenderBitmapW = 0;
+    int m_RenderBitmapH = 0;
 
     static const UINT_PTR TIMER_TOPMOST = 2;
     static const UINT_PTR TIMER_TOOLTIP = 3;
