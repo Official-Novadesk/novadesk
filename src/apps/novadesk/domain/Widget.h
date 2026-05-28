@@ -31,8 +31,7 @@
 
 #pragma comment(lib, "comctl32.lib")
 
-struct duk_hthread;
-typedef struct duk_hthread duk_context;
+#include "quickjs.h"
 
 namespace PropertyParser {
     struct ImageOptions;
@@ -185,8 +184,8 @@ public:
     void AddAreaGraph(const PropertyParser::AreaGraphOptions& options);
     void AddLayoutBox(const PropertyParser::ShapeOptions& options);
 
-    void SetElementProperties(const std::wstring& id, duk_context* ctx);
-    void SetGroupProperties(const std::wstring& group, duk_context* ctx);
+    void SetElementProperties(const std::wstring& id, JSContext* ctx, JSValueConst options);
+    void SetGroupProperties(const std::wstring& group, JSContext* ctx, JSValueConst options);
     void RemoveElementsByGroup(const std::wstring& group);
     bool RemoveElements(const std::wstring& id = L"");
     void RemoveElements(const std::vector<std::wstring>& ids);
@@ -226,7 +225,7 @@ private:
     void OnContextMenu();
     bool BuildCombinedShapeGeometry(class PathShape* target, const PropertyParser::ShapeOptions& options);
     void ReleaseCombinedConsumes(class PathShape* target);
-    void ApplyParsedPropertiesToElement(Element* element, duk_context* ctx);
+    void ApplyParsedPropertiesToElement(Element* element, JSContext* ctx, JSValueConst options);
     void UpdateContainerForElement(Element* element, const std::wstring& newContainerId);
     bool WouldCreateContainerCycle(Element* element, Element* container) const;
     void ApplyLayoutForContainer(Element *container);

@@ -38,6 +38,7 @@
 #include "BitmapElement.h"
 #include "WidgetContextMenuHelper.h"
 #include "../scripting/quickjs/engine/JSEngine.h"
+#include "../shared/PathUtils.h"
 
 #define WIDGET_CLASS_NAME L"NovadeskWidget"
 #define ZPOS_FLAGS (SWP_NOMOVE | SWP_NOSIZE | SWP_NOOWNERZORDER | SWP_NOACTIVATE | SWP_NOSENDCHANGING)
@@ -2595,118 +2596,164 @@ bool Widget::HitTestContainerChildrenDetailed(
 /*
 ** Update properties of an existing element.
 */
-void Widget::ApplyParsedPropertiesToElement(Element *element, duk_context *ctx)
+void Widget::ApplyParsedPropertiesToElement(Element *element, JSContext *ctx, JSValueConst options)
 {
-    if (!element)
+    if (!element || !ctx || !JS_IsObject(options))
         return;
+
+    const std::wstring baseDir = PathUtils::GetScriptBaseDir(GetOptions().scriptPath, JSEngine::GetEntryScriptDir());
 
     if (element->GetType() == ELEMENT_TEXT)
     {
-        PropertyParser::TextOptions options;
-        PropertyParser::PreFillTextOptions(options, static_cast<TextElement *>(element));
-        PropertyParser::ParseTextOptions(ctx, options);
-        PropertyParser::ApplyTextOptions(static_cast<TextElement *>(element), options);
-        UpdateContainerForElement(element, options.containerId);
+        PropertyParser::TextOptions parsed;
+        PropertyParser::PreFillTextOptions(parsed, static_cast<TextElement *>(element));
+        PropertyParser::ParseTextOptions(ctx, options, parsed, baseDir);
+        PropertyParser::ApplyTextOptions(static_cast<TextElement *>(element), parsed);
+        UpdateContainerForElement(element, parsed.containerId);
     }
     else if (element->GetType() == ELEMENT_IMAGE)
     {
-        PropertyParser::ImageOptions options;
-        PropertyParser::PreFillImageOptions(options, static_cast<ImageElement *>(element));
-        PropertyParser::ParseImageOptions(ctx, options);
-        PropertyParser::ApplyImageOptions(static_cast<ImageElement *>(element), options);
-        UpdateContainerForElement(element, options.containerId);
+        PropertyParser::ImageOptions parsed;
+        PropertyParser::PreFillImageOptions(parsed, static_cast<ImageElement *>(element));
+        PropertyParser::ParseImageOptions(ctx, options, parsed, baseDir);
+        PropertyParser::ApplyImageOptions(static_cast<ImageElement *>(element), parsed);
+        UpdateContainerForElement(element, parsed.containerId);
     }
     else if (element->GetType() == ELEMENT_BAR)
     {
-        PropertyParser::BarOptions options;
-        PropertyParser::PreFillBarOptions(options, static_cast<BarElement *>(element));
-        PropertyParser::ParseBarOptions(ctx, options);
-        PropertyParser::ApplyBarOptions(static_cast<BarElement *>(element), options);
-        UpdateContainerForElement(element, options.containerId);
+        PropertyParser::BarOptions parsed;
+        PropertyParser::PreFillBarOptions(parsed, static_cast<BarElement *>(element));
+        PropertyParser::ParseBarOptions(ctx, options, parsed, baseDir);
+        PropertyParser::ApplyBarOptions(static_cast<BarElement *>(element), parsed);
+        UpdateContainerForElement(element, parsed.containerId);
     }
     else if (element->GetType() == ELEMENT_LINE)
     {
-        PropertyParser::LineOptions options;
-        PropertyParser::PreFillLineOptions(options, static_cast<LineElement *>(element));
-        PropertyParser::ParseLineOptions(ctx, options);
-        PropertyParser::ApplyLineOptions(static_cast<LineElement *>(element), options);
-        UpdateContainerForElement(element, options.containerId);
+        PropertyParser::LineOptions parsed;
+        PropertyParser::PreFillLineOptions(parsed, static_cast<LineElement *>(element));
+        PropertyParser::ParseLineOptions(ctx, options, parsed, baseDir);
+        PropertyParser::ApplyLineOptions(static_cast<LineElement *>(element), parsed);
+        UpdateContainerForElement(element, parsed.containerId);
     }
     else if (element->GetType() == ELEMENT_HISTOGRAM)
     {
-        PropertyParser::HistogramOptions options;
-        PropertyParser::PreFillHistogramOptions(options, static_cast<HistogramElement *>(element));
-        PropertyParser::ParseHistogramOptions(ctx, options);
-        PropertyParser::ApplyHistogramOptions(static_cast<HistogramElement *>(element), options);
-        UpdateContainerForElement(element, options.containerId);
+        PropertyParser::HistogramOptions parsed;
+        PropertyParser::PreFillHistogramOptions(parsed, static_cast<HistogramElement *>(element));
+        PropertyParser::ParseHistogramOptions(ctx, options, parsed, baseDir);
+        PropertyParser::ApplyHistogramOptions(static_cast<HistogramElement *>(element), parsed);
+        UpdateContainerForElement(element, parsed.containerId);
     }
     else if (element->GetType() == ELEMENT_ROUNDLINE)
     {
-        PropertyParser::RoundLineOptions options;
-        PropertyParser::PreFillRoundLineOptions(options, static_cast<RoundLineElement *>(element));
-        PropertyParser::ParseRoundLineOptions(ctx, options);
-        PropertyParser::ApplyRoundLineOptions(static_cast<RoundLineElement *>(element), options);
-        UpdateContainerForElement(element, options.containerId);
+        PropertyParser::RoundLineOptions parsed;
+        PropertyParser::PreFillRoundLineOptions(parsed, static_cast<RoundLineElement *>(element));
+        PropertyParser::ParseRoundLineOptions(ctx, options, parsed, baseDir);
+        PropertyParser::ApplyRoundLineOptions(static_cast<RoundLineElement *>(element), parsed);
+        UpdateContainerForElement(element, parsed.containerId);
     }
-    else if (element->GetType() == ELEMENT_SHAPE || element->GetType() == ELEMENT_LAYOUT_BOX)
+    else if (element->GetType() == ELEMENT_LAYOUT_BOX)
     {
-        PropertyParser::ShapeOptions options;
-        PropertyParser::PreFillShapeOptions(options, static_cast<ShapeElement *>(element));
-        PropertyParser::ParseShapeOptions(ctx, options);
-        PropertyParser::ApplyShapeOptions(static_cast<ShapeElement *>(element), options);
-        UpdateContainerForElement(element, options.containerId);
+        auto *layout = static_cast<ElementLayoutBox *>(element);
+        PropertyParser::LayoutBoxOptions parsed;
+        LayoutConfig cfg{};
+        if (TryGetLayoutConfig(element->GetId(), cfg))
+        {
+            PropertyParser::PreFillLayoutBoxOptions(
+                parsed,
+                layout,
+                &cfg.direction,
+                &cfg.gap,
+                &cfg.align,
+                &cfg.justify,
+                &cfg.paddingLeft,
+                &cfg.paddingTop,
+                &cfg.paddingRight,
+                &cfg.paddingBottom,
+                &cfg.minWidth,
+                &cfg.minHeight);
+        }
+        else
+        {
+            PropertyParser::PreFillLayoutBoxOptions(parsed, layout);
+        }
+        PropertyParser::ParseLayoutBoxOptions(ctx, options, parsed, baseDir);
+        if (!parsed.hasBoxShadowError)
+        {
+            PropertyParser::ApplyLayoutBoxOptions(layout, parsed);
+            LayoutConfig nextCfg{};
+            nextCfg.direction = parsed.direction;
+            nextCfg.gap = parsed.gap;
+            nextCfg.align = parsed.align.empty() ? L"start" : parsed.align;
+            nextCfg.justify = parsed.justify.empty() ? L"start" : parsed.justify;
+            nextCfg.paddingLeft = parsed.paddingLeft;
+            nextCfg.paddingTop = parsed.paddingTop;
+            nextCfg.paddingRight = parsed.paddingRight;
+            nextCfg.paddingBottom = parsed.paddingBottom;
+            nextCfg.minWidth = parsed.minWidth;
+            nextCfg.minHeight = parsed.minHeight;
+            SetLayoutConfig(element->GetId(), nextCfg);
+            UpdateContainerForElement(element, parsed.shape.containerId);
+        }
+    }
+    else if (element->GetType() == ELEMENT_SHAPE)
+    {
+        PropertyParser::ShapeOptions parsed;
+        PropertyParser::PreFillShapeOptions(parsed, static_cast<ShapeElement *>(element));
+        PropertyParser::ParseShapeOptions(ctx, options, parsed, baseDir);
+        PropertyParser::ApplyShapeOptions(static_cast<ShapeElement *>(element), parsed);
+        UpdateContainerForElement(element, parsed.containerId);
 
         PathShape *path = dynamic_cast<PathShape *>(element);
-        if (path && (options.isCombine || path->IsCombineShape()))
+        if (path && (parsed.isCombine || path->IsCombineShape()))
         {
-            if (options.isCombine)
+            if (parsed.isCombine)
             {
                 ReleaseCombinedConsumes(path);
-                BuildCombinedShapeGeometry(path, options);
+                BuildCombinedShapeGeometry(path, parsed);
             }
         }
     }
     else if (element->GetType() == ELEMENT_BUTTON)
     {
-        PropertyParser::ButtonOptions options;
-        PropertyParser::PreFillButtonOptions(options, static_cast<ButtonElement *>(element));
-        PropertyParser::ParseButtonOptions(ctx, options);
-        PropertyParser::ApplyButtonOptions(static_cast<ButtonElement *>(element), options);
-        UpdateContainerForElement(element, options.containerId);
+        PropertyParser::ButtonOptions parsed;
+        PropertyParser::PreFillButtonOptions(parsed, static_cast<ButtonElement *>(element));
+        PropertyParser::ParseButtonOptions(ctx, options, parsed, baseDir);
+        PropertyParser::ApplyButtonOptions(static_cast<ButtonElement *>(element), parsed);
+        UpdateContainerForElement(element, parsed.containerId);
     }
     else if (element->GetType() == ELEMENT_BITMAP)
     {
-        PropertyParser::BitmapOptions options;
-        PropertyParser::PreFillBitmapOptions(options, static_cast<BitmapElement *>(element));
-        PropertyParser::ParseBitmapOptions(ctx, options);
-        PropertyParser::ApplyBitmapOptions(static_cast<BitmapElement *>(element), options);
-        UpdateContainerForElement(element, options.containerId);
+        PropertyParser::BitmapOptions parsed;
+        PropertyParser::PreFillBitmapOptions(parsed, static_cast<BitmapElement *>(element));
+        PropertyParser::ParseBitmapOptions(ctx, options, parsed, baseDir);
+        PropertyParser::ApplyBitmapOptions(static_cast<BitmapElement *>(element), parsed);
+        UpdateContainerForElement(element, parsed.containerId);
     }
     else if (element->GetType() == ELEMENT_ROTATOR)
     {
-        PropertyParser::RotatorOptions options;
-        PropertyParser::PreFillRotatorOptions(options, static_cast<RotatorElement *>(element));
-        PropertyParser::ParseRotatorOptions(ctx, options);
-        PropertyParser::ApplyRotatorOptions(static_cast<RotatorElement *>(element), options);
-        UpdateContainerForElement(element, options.containerId);
+        PropertyParser::RotatorOptions parsed;
+        PropertyParser::PreFillRotatorOptions(parsed, static_cast<RotatorElement *>(element));
+        PropertyParser::ParseRotatorOptions(ctx, options, parsed, baseDir);
+        PropertyParser::ApplyRotatorOptions(static_cast<RotatorElement *>(element), parsed);
+        UpdateContainerForElement(element, parsed.containerId);
     }
     else if (element->GetType() == ELEMENT_AREA_GRAPH)
     {
-        PropertyParser::AreaGraphOptions options;
-        PropertyParser::PreFillAreaGraphOptions(options, static_cast<AreaGraphElement *>(element));
-        PropertyParser::ParseAreaGraphOptions(ctx, options);
-        PropertyParser::ApplyAreaGraphOptions(static_cast<AreaGraphElement *>(element), options);
-        UpdateContainerForElement(element, options.containerId);
+        PropertyParser::AreaGraphOptions parsed;
+        PropertyParser::PreFillAreaGraphOptions(parsed, static_cast<AreaGraphElement *>(element));
+        PropertyParser::ParseAreaGraphOptions(ctx, options, parsed, baseDir);
+        PropertyParser::ApplyAreaGraphOptions(static_cast<AreaGraphElement *>(element), parsed);
+        UpdateContainerForElement(element, parsed.containerId);
     }
 }
 
-void Widget::SetElementProperties(const std::wstring &id, duk_context *ctx)
+void Widget::SetElementProperties(const std::wstring &id, JSContext *ctx, JSValueConst options)
 {
     Element *element = FindElementById(id);
     if (!element)
         return;
 
-    ApplyParsedPropertiesToElement(element, ctx);
+    ApplyParsedPropertiesToElement(element, ctx, options);
 
     if (!m_IsBatchUpdating)
     {
@@ -2714,9 +2761,9 @@ void Widget::SetElementProperties(const std::wstring &id, duk_context *ctx)
     }
 }
 
-void Widget::SetGroupProperties(const std::wstring &group, duk_context *ctx)
+void Widget::SetGroupProperties(const std::wstring &group, JSContext *ctx, JSValueConst options)
 {
-    if (group.empty() || !ctx)
+    if (group.empty() || !ctx || !JS_IsObject(options))
         return;
 
     bool changed = false;
@@ -2726,7 +2773,7 @@ void Widget::SetGroupProperties(const std::wstring &group, duk_context *ctx)
             continue;
         if (element->GetGroupId() != group)
             continue;
-        ApplyParsedPropertiesToElement(element, ctx);
+        ApplyParsedPropertiesToElement(element, ctx, options);
         changed = true;
     }
 

@@ -187,19 +187,6 @@ namespace novadesk::scripting::quickjs
             return JS_UNDEFINED;
         }
 
-        std::wstring GetWidgetScriptBaseDir(Widget *widget)
-        {
-            if (!widget)
-                return JSEngine::GetEntryScriptDir();
-
-            const std::wstring scriptPath = widget->GetOptions().scriptPath;
-            if (scriptPath.empty())
-                return JSEngine::GetEntryScriptDir();
-
-            const std::wstring absScriptPath = PathUtils::ResolvePath(scriptPath, JSEngine::GetEntryScriptDir());
-            return PathUtils::GetParentDir(absScriptPath);
-        }
-
         JSValue JsWidgetAddImage(JSContext *ctx, JSValueConst thisVal, int argc, JSValueConst *argv)
         {
             Widget *widget = GetAnyWidget(ctx, thisVal);
@@ -208,7 +195,7 @@ namespace novadesk::scripting::quickjs
             if (argc < 1 || !JS_IsObject(argv[0]))
                 return ThrowTypeError(ctx, "addImage", "expected options object");
             PropertyParser::ImageOptions options;
-            PropertyParser::ParseImageOptions(ctx, argv[0], options, GetWidgetScriptBaseDir(widget));
+            PropertyParser::ParseImageOptions(ctx, argv[0], options, PathUtils::GetScriptBaseDir(widget->GetOptions().scriptPath, JSEngine::GetEntryScriptDir()));
             widget->AddImage(options);
             return JS_UNDEFINED;
         }
@@ -221,7 +208,7 @@ namespace novadesk::scripting::quickjs
             if (argc < 1 || !JS_IsObject(argv[0]))
                 return ThrowTypeError(ctx, "addButton", "expected options object");
             PropertyParser::ButtonOptions options;
-            PropertyParser::ParseButtonOptions(ctx, argv[0], options, GetWidgetScriptBaseDir(widget));
+            PropertyParser::ParseButtonOptions(ctx, argv[0], options, PathUtils::GetScriptBaseDir(widget->GetOptions().scriptPath, JSEngine::GetEntryScriptDir()));
             widget->AddButton(options);
             return JS_UNDEFINED;
         }
@@ -234,7 +221,7 @@ namespace novadesk::scripting::quickjs
             if (argc < 1 || !JS_IsObject(argv[0]))
                 return ThrowTypeError(ctx, "addText", "expected options object");
             PropertyParser::TextOptions options;
-            PropertyParser::ParseTextOptions(ctx, argv[0], options, GetWidgetScriptBaseDir(widget));
+            PropertyParser::ParseTextOptions(ctx, argv[0], options, PathUtils::GetScriptBaseDir(widget->GetOptions().scriptPath, JSEngine::GetEntryScriptDir()));
             widget->AddText(options);
             return JS_UNDEFINED;
         }
@@ -247,7 +234,7 @@ namespace novadesk::scripting::quickjs
             if (argc < 1 || !JS_IsObject(argv[0]))
                 return ThrowTypeError(ctx, "addBar", "expected options object");
             PropertyParser::BarOptions options;
-            PropertyParser::ParseBarOptions(ctx, argv[0], options, GetWidgetScriptBaseDir(widget));
+            PropertyParser::ParseBarOptions(ctx, argv[0], options, PathUtils::GetScriptBaseDir(widget->GetOptions().scriptPath, JSEngine::GetEntryScriptDir()));
             widget->AddBar(options);
             return JS_UNDEFINED;
         }
@@ -260,7 +247,7 @@ namespace novadesk::scripting::quickjs
             if (argc < 1 || !JS_IsObject(argv[0]))
                 return ThrowTypeError(ctx, "addRoundLine", "expected options object");
             PropertyParser::RoundLineOptions options;
-            PropertyParser::ParseRoundLineOptions(ctx, argv[0], options, GetWidgetScriptBaseDir(widget));
+            PropertyParser::ParseRoundLineOptions(ctx, argv[0], options, PathUtils::GetScriptBaseDir(widget->GetOptions().scriptPath, JSEngine::GetEntryScriptDir()));
             widget->AddRoundLine(options);
             return JS_UNDEFINED;
         }
@@ -273,7 +260,7 @@ namespace novadesk::scripting::quickjs
             if (argc < 1 || !JS_IsObject(argv[0]))
                 return ThrowTypeError(ctx, "addLine", "expected options object");
             PropertyParser::LineOptions options;
-            PropertyParser::ParseLineOptions(ctx, argv[0], options, GetWidgetScriptBaseDir(widget));
+            PropertyParser::ParseLineOptions(ctx, argv[0], options, PathUtils::GetScriptBaseDir(widget->GetOptions().scriptPath, JSEngine::GetEntryScriptDir()));
             widget->AddLine(options);
             return JS_UNDEFINED;
         }
@@ -286,7 +273,7 @@ namespace novadesk::scripting::quickjs
             if (argc < 1 || !JS_IsObject(argv[0]))
                 return ThrowTypeError(ctx, "addHistogram", "expected options object");
             PropertyParser::HistogramOptions options;
-            PropertyParser::ParseHistogramOptions(ctx, argv[0], options, GetWidgetScriptBaseDir(widget));
+            PropertyParser::ParseHistogramOptions(ctx, argv[0], options, PathUtils::GetScriptBaseDir(widget->GetOptions().scriptPath, JSEngine::GetEntryScriptDir()));
             widget->AddHistogram(options);
             return JS_UNDEFINED;
         }
@@ -299,7 +286,7 @@ namespace novadesk::scripting::quickjs
             if (argc < 1 || !JS_IsObject(argv[0]))
                 return ThrowTypeError(ctx, "addShape", "expected options object");
             PropertyParser::ShapeOptions options;
-            PropertyParser::ParseShapeOptions(ctx, argv[0], options, GetWidgetScriptBaseDir(widget));
+            PropertyParser::ParseShapeOptions(ctx, argv[0], options, PathUtils::GetScriptBaseDir(widget->GetOptions().scriptPath, JSEngine::GetEntryScriptDir()));
             widget->AddShape(options);
             return JS_UNDEFINED;
         }
@@ -312,7 +299,7 @@ namespace novadesk::scripting::quickjs
             if (argc < 1 || !JS_IsObject(argv[0]))
                 return ThrowTypeError(ctx, "addBitmap", "expected options object");
             PropertyParser::BitmapOptions options;
-            PropertyParser::ParseBitmapOptions(ctx, argv[0], options, GetWidgetScriptBaseDir(widget));
+            PropertyParser::ParseBitmapOptions(ctx, argv[0], options, PathUtils::GetScriptBaseDir(widget->GetOptions().scriptPath, JSEngine::GetEntryScriptDir()));
             widget->AddBitmap(options);
             return JS_UNDEFINED;
         }
@@ -325,7 +312,7 @@ namespace novadesk::scripting::quickjs
             if (argc < 1 || !JS_IsObject(argv[0]))
                 return ThrowTypeError(ctx, "addRotator", "expected options object");
             PropertyParser::RotatorOptions options;
-            PropertyParser::ParseRotatorOptions(ctx, argv[0], options, GetWidgetScriptBaseDir(widget));
+            PropertyParser::ParseRotatorOptions(ctx, argv[0], options, PathUtils::GetScriptBaseDir(widget->GetOptions().scriptPath, JSEngine::GetEntryScriptDir()));
             widget->AddRotator(options);
             return JS_UNDEFINED;
         }
@@ -338,7 +325,7 @@ namespace novadesk::scripting::quickjs
             if (argc < 1 || !JS_IsObject(argv[0]))
                 return ThrowTypeError(ctx, "addAreaGraph", "expected options object");
             PropertyParser::AreaGraphOptions options;
-            PropertyParser::ParseAreaGraphOptions(ctx, argv[0], options, GetWidgetScriptBaseDir(widget));
+            PropertyParser::ParseAreaGraphOptions(ctx, argv[0], options, PathUtils::GetScriptBaseDir(widget->GetOptions().scriptPath, JSEngine::GetEntryScriptDir()));
             widget->AddAreaGraph(options);
             return JS_UNDEFINED;
         }
@@ -491,7 +478,7 @@ namespace novadesk::scripting::quickjs
                 return ThrowTypeError(ctx, "addLayoutBox", "expected options object");
 
             PropertyParser::LayoutBoxOptions layoutOptions;
-            PropertyParser::ParseLayoutBoxOptions(ctx, argv[0], layoutOptions, GetWidgetScriptBaseDir(widget));
+            PropertyParser::ParseLayoutBoxOptions(ctx, argv[0], layoutOptions, PathUtils::GetScriptBaseDir(widget->GetOptions().scriptPath, JSEngine::GetEntryScriptDir()));
             PropertyParser::ShapeOptions &shapeOptions = layoutOptions.shape;
             if (shapeOptions.id.empty())
                 return ThrowTypeError(ctx, "addLayoutBox", "id is required");
@@ -815,7 +802,7 @@ namespace novadesk::scripting::quickjs
             Element *element = widget->FindElementById(id);
             if (!element)
                 return JS_UNDEFINED;
-            const std::wstring baseDir = GetWidgetScriptBaseDir(widget);
+            const std::wstring baseDir = PathUtils::GetScriptBaseDir(widget->GetOptions().scriptPath, JSEngine::GetEntryScriptDir());
 
             if (auto *image = dynamic_cast<ImageElement *>(element))
             {
@@ -998,7 +985,7 @@ namespace novadesk::scripting::quickjs
                 return JS_EXCEPTION;
             std::wstring group = Utils::ToWString(groupUtf8);
             JS_FreeCString(ctx, groupUtf8);
-            widget->SetGroupProperties(group, reinterpret_cast<duk_context *>(ctx));
+            widget->SetGroupProperties(group, ctx, argv[1]);
             widget->Redraw();
             return JS_UNDEFINED;
         }
@@ -1900,7 +1887,7 @@ namespace novadesk::scripting::quickjs
             std::wstring baseDir;
             if (PathUtils::IsPathRelative(scriptPath))
             {
-                baseDir = GetWidgetScriptBaseDir(widget);
+                baseDir = PathUtils::GetScriptBaseDir(widget->GetOptions().scriptPath, JSEngine::GetEntryScriptDir());
                 absPath = PathUtils::ResolvePath(
                     scriptPath,
                     baseDir.empty() ? PathUtils::GetWidgetsDir() : baseDir);
