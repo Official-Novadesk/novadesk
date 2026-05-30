@@ -350,18 +350,29 @@ void BoxBorderPaint::Paint(ID2D1DeviceContext* context, const D2D1_ROUNDED_RECT&
                     context->GetFactory(&d2dFactory);
                     if (d2dFactory)
                     {
-                        float pad = width * 4.0f + 100.0f;
-                        float dx = R - L;
-                        float dy = T - B;
-                        float len = sqrtf(dx * dx + dy * dy);
+                        const float padAlong = width * 4.0f + 100.0f;
+                        const float dx = R - L;
+                        const float dy = T - B;
+                        const float len = sqrtf(dx * dx + dy * dy);
                         D2D1_POINT_2F pTR_ext = D2D1::Point2F(R, T);
                         D2D1_POINT_2F pBL_ext = D2D1::Point2F(L, B);
+                        float tlPerpX = -padAlong;
+                        float tlPerpY = -padAlong;
+                        float brPerpX = padAlong;
+                        float brPerpY = padAlong;
                         if (len > 0.001f)
                         {
-                            float ux = dx / len;
-                            float uy = dy / len;
-                            pTR_ext = D2D1::Point2F(R + ux * pad, T + uy * pad);
-                            pBL_ext = D2D1::Point2F(L - ux * pad, B - uy * pad);
+                            const float ux = dx / len;
+                            const float uy = dy / len;
+                            // Half-plane clips must reach every corner. A fixed perpendicular
+                            // extent only worked for small boxes; scale with the diagonal length.
+                            const float padPerp = std::max(padAlong, len * 0.5f + width * 2.0f);
+                            pTR_ext = D2D1::Point2F(R + ux * padAlong, T + uy * padAlong);
+                            pBL_ext = D2D1::Point2F(L - ux * padAlong, B - uy * padAlong);
+                            tlPerpX = uy * padPerp;
+                            tlPerpY = -ux * padPerp;
+                            brPerpX = -tlPerpX;
+                            brPerpY = -tlPerpY;
                         }
                         Microsoft::WRL::ComPtr<ID2D1PathGeometry> tlClip;
                         {
@@ -371,8 +382,8 @@ void BoxBorderPaint::Paint(ID2D1DeviceContext* context, const D2D1_ROUNDED_RECT&
                             {
                                 sink->BeginFigure(pBL_ext, D2D1_FIGURE_BEGIN_FILLED);
                                 sink->AddLine(pTR_ext);
-                                sink->AddLine(D2D1::Point2F(pTR_ext.x - pad, pTR_ext.y - pad));
-                                sink->AddLine(D2D1::Point2F(pBL_ext.x - pad, pBL_ext.y - pad));
+                                sink->AddLine(D2D1::Point2F(pTR_ext.x + tlPerpX, pTR_ext.y + tlPerpY));
+                                sink->AddLine(D2D1::Point2F(pBL_ext.x + tlPerpX, pBL_ext.y + tlPerpY));
                                 sink->EndFigure(D2D1_FIGURE_END_CLOSED);
                                 sink->Close();
                             }
@@ -385,8 +396,8 @@ void BoxBorderPaint::Paint(ID2D1DeviceContext* context, const D2D1_ROUNDED_RECT&
                             {
                                 sink->BeginFigure(pBL_ext, D2D1_FIGURE_BEGIN_FILLED);
                                 sink->AddLine(pTR_ext);
-                                sink->AddLine(D2D1::Point2F(pTR_ext.x + pad, pTR_ext.y + pad));
-                                sink->AddLine(D2D1::Point2F(pBL_ext.x + pad, pBL_ext.y + pad));
+                                sink->AddLine(D2D1::Point2F(pTR_ext.x + brPerpX, pTR_ext.y + brPerpY));
+                                sink->AddLine(D2D1::Point2F(pBL_ext.x + brPerpX, pBL_ext.y + brPerpY));
                                 sink->EndFigure(D2D1_FIGURE_END_CLOSED);
                                 sink->Close();
                             }
