@@ -11,6 +11,51 @@
 #include <cmath>
 #include <vector>
 
+namespace
+{
+    struct DashSegment
+    {
+        float start;
+        float end;
+    };
+
+    std::vector<DashSegment> BuildAxisAlignedDashSegments(float length, float strokeWidth)
+    {
+        std::vector<DashSegment> segments;
+        if (length <= 0.0f || strokeWidth <= 0.0f)
+            return segments;
+
+        const float requestedDash = length < strokeWidth * 9.0f
+            ? strokeWidth * 2.0f
+            : strokeWidth * 3.0f;
+        const float minGap = std::max(1.0f, strokeWidth * 0.5f);
+        const int count = std::max(1, static_cast<int>((length + minGap) / (requestedDash + minGap)));
+        if (count <= 1)
+        {
+            const float dash = std::min(requestedDash, length * 0.75f);
+            const float start = (length - dash) * 0.5f;
+            segments.push_back({ start, start + dash });
+            return segments;
+        }
+
+        const float gap = (length - static_cast<float>(count) * requestedDash) / static_cast<float>(count - 1);
+        if (gap < 1.0f)
+        {
+            const float dash = std::min(requestedDash, length * 0.75f);
+            const float start = (length - dash) * 0.5f;
+            segments.push_back({ start, start + dash });
+            return segments;
+        }
+
+        for (int i = 0; i < count; ++i)
+        {
+            const float start = static_cast<float>(i) * (requestedDash + gap);
+            segments.push_back({ start, start + requestedDash });
+        }
+        return segments;
+    }
+}
+
 D2D1_ROUNDED_RECT BoxBorderPaint::BuildBorderGeometryRect(const D2D1_ROUNDED_RECT& elementRect,
     const BoxBorderPaintParams& params)
 {
@@ -573,55 +618,22 @@ void BoxBorderPaint::Paint(ID2D1DeviceContext* context, const D2D1_ROUNDED_RECT&
                 float top = r.rect.top;
                 float right = r.rect.right;
                 float bottom = r.rect.bottom;
-                float dashLen = width * 3.0f;
-                float gap = width * 1.0f;
-                float period = dashLen + gap;
-                context->FillRectangle(D2D1::RectF(left, top, left + dashLen, top + width), brush);
-                context->FillRectangle(D2D1::RectF(left, top, left + width, top + dashLen), brush);
-                context->FillRectangle(D2D1::RectF(right - dashLen, top, right, top + width), brush);
-                context->FillRectangle(D2D1::RectF(right - width, top, right, top + dashLen), brush);
-                context->FillRectangle(D2D1::RectF(right - dashLen, bottom - width, right, bottom), brush);
-                context->FillRectangle(D2D1::RectF(right - width, bottom - dashLen, right, bottom), brush);
-                context->FillRectangle(D2D1::RectF(left, bottom - width, left + dashLen, bottom), brush);
-                context->FillRectangle(D2D1::RectF(left, bottom - dashLen, left + width, bottom), brush);
                 auto fillDashes = [&](float runStart, float runEnd, bool isHoriz, float edgeCoord)
                     {
-                        float runLen = runEnd - runStart;
-                        if (runLen <= 0.0f)
-                            return;
-                        int n = (runLen >= gap + dashLen)
-                            ? static_cast<int>((runLen - gap) / period)
-                            : 0;
-                        if (n < 1)
+                        for (const auto& segment : BuildAxisAlignedDashSegments(runEnd - runStart, width))
                         {
-                            if (runLen >= width)
-                            {
-                                const float dashWidth = std::min(dashLen, runLen);
-                                const float inset = (runLen - dashWidth) * 0.5f;
-                                const float s = runStart + inset;
-                                const float e = s + dashWidth;
-                                if (isHoriz)
-                                    context->FillRectangle(D2D1::RectF(s, edgeCoord, e, edgeCoord + width), brush);
-                                else
-                                    context->FillRectangle(D2D1::RectF(edgeCoord, s, edgeCoord + width, e), brush);
-                            }
-                            return;
-                        }
-                        float gapActual = (runLen - static_cast<float>(n) * dashLen) / static_cast<float>(n + 1);
-                        for (int i = 0; i < n; ++i)
-                        {
-                            float s = runStart + gapActual + static_cast<float>(i) * (dashLen + gapActual);
-                            float e = s + dashLen;
+                            const float s = runStart + segment.start;
+                            const float e = runStart + segment.end;
                             if (isHoriz)
                                 context->FillRectangle(D2D1::RectF(s, edgeCoord, e, edgeCoord + width), brush);
                             else
                                 context->FillRectangle(D2D1::RectF(edgeCoord, s, edgeCoord + width, e), brush);
                         }
                     };
-                fillDashes(left + dashLen, right - dashLen, true, top);
-                fillDashes(left + dashLen, right - dashLen, true, bottom - width);
-                fillDashes(top + dashLen, bottom - dashLen, false, left);
-                fillDashes(top + dashLen, bottom - dashLen, false, right - width);
+                fillDashes(left, right, true, top);
+                fillDashes(left, right, true, bottom - width);
+                fillDashes(top, bottom, false, left);
+                fillDashes(top, bottom, false, right - width);
             }
             else
             {
@@ -636,7 +648,10 @@ void BoxBorderPaint::Paint(ID2D1DeviceContext* context, const D2D1_ROUNDED_RECT&
                 }
             }
         };
-    if (sameStyle)
+    const bool usePerSideBandPaint = !sameStyle ||
+        (params.styleTop == BoxBorder::Style::Dashed &&
+            (rect.radiusX > 0.0f || rect.radiusY > 0.0f));
+    if (!usePerSideBandPaint)
     {
         drawStyleRect(rect, params.styleTop, strokeBrush, params.strokeWidth);
     }
@@ -1402,16 +1417,12 @@ void BoxBorderPaint::Paint(ID2D1DeviceContext* context, const D2D1_ROUNDED_RECT&
                 const float dashLen = w * 3.0f;
                 const float gap = w * 1.0f;
                 const float period = dashLen + gap;
-                // Only reserve the half-corner arcs; using dashLen here consumes the straight edge
-                // and leaves too little room for interior dashes on small rounded boxes.
-                const float cornerRun = std::min(sideArcSpan + joinPad, segLen * 0.5f);
-                if (cornerRun > 0.001f)
-                {
-                    fillRoundedDashStrip(sideIndex, 0.0f, cornerRun);
-                    fillRoundedDashStrip(sideIndex, segLen - cornerRun, segLen);
-                }
-                const float runStart = cornerRun;
-                const float runEnd = segLen - cornerRun;
+                const float endDashLen = std::min(dashLen, segLen * 0.5f);
+                fillRoundedDashStrip(sideIndex, -joinPad, endDashLen);
+                fillRoundedDashStrip(sideIndex, segLen - endDashLen, segLen + joinPad);
+
+                const float runStart = endDashLen + gap;
+                const float runEnd = segLen - endDashLen - gap;
                 const float runLen = runEnd - runStart;
                 if (runLen <= 0.001f)
                     return;
@@ -1439,38 +1450,12 @@ void BoxBorderPaint::Paint(ID2D1DeviceContext* context, const D2D1_ROUNDED_RECT&
             };
         auto drawRectSideDashed = [&](int sideIndex)
             {
-                const float dashLen = w * 3.0f;
-                const float gap = w * 1.0f;
-                const float period = dashLen + gap;
                 auto fillEdgeDashes = [&](float runStart, float runEnd, bool isHoriz, float edgeCoord)
                     {
-                        const float runLen = runEnd - runStart;
-                        if (runLen <= 0.0f)
-                            return;
-                        int dashCount = (runLen >= gap + dashLen)
-                            ? static_cast<int>((runLen - gap) / period)
-                            : 0;
-                        if (dashCount < 1)
+                        for (const auto& segment : BuildAxisAlignedDashSegments(runEnd - runStart, w))
                         {
-                            if (runLen >= w)
-                            {
-                                const float dashWidth = std::min(dashLen, runLen);
-                                const float inset = (runLen - dashWidth) * 0.5f;
-                                const float s = runStart + inset;
-                                const float e = s + dashWidth;
-                                if (isHoriz)
-                                    context->FillRectangle(D2D1::RectF(s, edgeCoord, e, edgeCoord + w), strokeBrush);
-                                else
-                                    context->FillRectangle(D2D1::RectF(edgeCoord, s, edgeCoord + w, e), strokeBrush);
-                            }
-                            return;
-                        }
-                        const float gapActual = (runLen - static_cast<float>(dashCount) * dashLen) /
-                            static_cast<float>(dashCount + 1);
-                        for (int i = 0; i < dashCount; ++i)
-                        {
-                            const float s = runStart + gapActual + static_cast<float>(i) * (dashLen + gapActual);
-                            const float e = s + dashLen;
+                            const float s = runStart + segment.start;
+                            const float e = runStart + segment.end;
                             if (isHoriz)
                                 context->FillRectangle(D2D1::RectF(s, edgeCoord, e, edgeCoord + w), strokeBrush);
                             else
@@ -1480,33 +1465,17 @@ void BoxBorderPaint::Paint(ID2D1DeviceContext* context, const D2D1_ROUNDED_RECT&
                 switch (sideIndex)
                 {
                 case 0:
-                    context->FillRectangle(D2D1::RectF(L, T, L + dashLen, T + w), strokeBrush);
-                    context->FillRectangle(D2D1::RectF(L, T, L + w, T + dashLen), strokeBrush);
-                    context->FillRectangle(D2D1::RectF(R - dashLen, T, R, T + w), strokeBrush);
-                    context->FillRectangle(D2D1::RectF(R - w, T, R, T + dashLen), strokeBrush);
-                    fillEdgeDashes(L + dashLen, R - dashLen, true, T);
+                    fillEdgeDashes(L, R, true, T);
                     break;
                 case 1:
-                    context->FillRectangle(D2D1::RectF(R - dashLen, T, R, T + w), strokeBrush);
-                    context->FillRectangle(D2D1::RectF(R - w, T, R, T + dashLen), strokeBrush);
-                    context->FillRectangle(D2D1::RectF(R - dashLen, B - w, R, B), strokeBrush);
-                    context->FillRectangle(D2D1::RectF(R - w, B - dashLen, R, B), strokeBrush);
-                    fillEdgeDashes(T + dashLen, B - dashLen, false, R - w);
+                    fillEdgeDashes(T, B, false, R - w);
                     break;
                 case 2:
-                    context->FillRectangle(D2D1::RectF(R - dashLen, B - w, R, B), strokeBrush);
-                    context->FillRectangle(D2D1::RectF(R - w, B - dashLen, R, B), strokeBrush);
-                    context->FillRectangle(D2D1::RectF(L, B - w, L + dashLen, B), strokeBrush);
-                    context->FillRectangle(D2D1::RectF(L, B - dashLen, L + w, B), strokeBrush);
-                    fillEdgeDashes(L + dashLen, R - dashLen, true, B - w);
+                    fillEdgeDashes(L, R, true, B - w);
                     break;
                 case 3:
                 default:
-                    context->FillRectangle(D2D1::RectF(L, T, L + dashLen, T + w), strokeBrush);
-                    context->FillRectangle(D2D1::RectF(L, T, L + w, T + dashLen), strokeBrush);
-                    context->FillRectangle(D2D1::RectF(L, B - w, L + dashLen, B), strokeBrush);
-                    context->FillRectangle(D2D1::RectF(L, B - dashLen, L + w, B), strokeBrush);
-                    fillEdgeDashes(T + dashLen, B - dashLen, false, L);
+                    fillEdgeDashes(T, B, false, L);
                     break;
                 }
             };
@@ -1532,12 +1501,16 @@ void BoxBorderPaint::Paint(ID2D1DeviceContext* context, const D2D1_ROUNDED_RECT&
             {
                 if (hasRadius)
                 {
-                    pushSideBandClip(side.index);
                     if (side.style == BoxBorder::Style::Dotted)
+                    {
+                        pushSideBandClip(side.index);
                         drawRoundedSideDotted(side.index);
+                        context->PopLayer();
+                    }
                     else
+                    {
                         drawRoundedSideDashed(side.index);
-                    context->PopLayer();
+                    }
                 }
                 else
                 {
@@ -1725,13 +1698,19 @@ void BoxBorderPaint::Paint(ID2D1DeviceContext* context, const D2D1_ROUNDED_RECT&
             const float junctionTR = L_top + sideArcSpan;
             const float junctionBR = L_top + L_arc + L_right + sideArcSpan;
             const float junctionBL = L_top + L_arc + L_right + sideArcSpan + L_bottom + L_arc;
-            if (isVisibleStyleForSide(params.styleTop) && isVisibleStyleForSide(params.styleLeft))
+            auto needsSolidCornerPatch = [&](BoxBorder::Style a, BoxBorder::Style b)
+                {
+                    return isVisibleStyleForSide(a) && isVisibleStyleForSide(b) &&
+                        a != BoxBorder::Style::Dashed && a != BoxBorder::Style::Dotted &&
+                        b != BoxBorder::Style::Dashed && b != BoxBorder::Style::Dotted;
+                };
+            if (needsSolidCornerPatch(params.styleTop, params.styleLeft))
                 fillRoundedCornerPatch(junctionTL, strokeBrush);
-            if (isVisibleStyleForSide(params.styleTop) && isVisibleStyleForSide(params.styleRight))
+            if (needsSolidCornerPatch(params.styleTop, params.styleRight))
                 fillRoundedCornerPatch(junctionTR, strokeBrush);
-            if (isVisibleStyleForSide(params.styleBottom) && isVisibleStyleForSide(params.styleRight))
+            if (needsSolidCornerPatch(params.styleBottom, params.styleRight))
                 fillRoundedCornerPatch(junctionBR, strokeBrush);
-            if (isVisibleStyleForSide(params.styleBottom) && isVisibleStyleForSide(params.styleLeft))
+            if (needsSolidCornerPatch(params.styleBottom, params.styleLeft))
                 fillRoundedCornerPatch(junctionBL, strokeBrush);
         }
         else if (!hasRadius)
