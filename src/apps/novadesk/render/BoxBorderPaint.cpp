@@ -188,6 +188,7 @@ void BoxBorderPaint::Paint(ID2D1DeviceContext* context, const D2D1_ROUNDED_RECT&
     const float T = rect.rect.top;
     const float R = rect.rect.right;
     const float B = rect.rect.bottom;
+    const float joinOverlap = std::min(0.75f, w * 0.2f);
 
     Microsoft::WRL::ComPtr<ID2D1SolidColorBrush> baseBrush;
     Microsoft::WRL::ComPtr<ID2D1SolidColorBrush> darkBrush;
@@ -242,8 +243,8 @@ void BoxBorderPaint::Paint(ID2D1DeviceContext* context, const D2D1_ROUNDED_RECT&
         const D2D1_POINT_2F points[] = {
             D2D1::Point2F(L, T),
             D2D1::Point2F(R, T),
-            D2D1::Point2F(R - w, T + w),
-            D2D1::Point2F(L + w, T + w)
+            D2D1::Point2F(R - w + joinOverlap, T + w),
+            D2D1::Point2F(L + w - joinOverlap, T + w)
         };
         FillPolygon(context, factory.Get(), points, 4, brushForSide(params.styleTop, 0));
     }
@@ -252,8 +253,8 @@ void BoxBorderPaint::Paint(ID2D1DeviceContext* context, const D2D1_ROUNDED_RECT&
         const D2D1_POINT_2F points[] = {
             D2D1::Point2F(R, T),
             D2D1::Point2F(R, B),
-            D2D1::Point2F(R - w, B - w),
-            D2D1::Point2F(R - w, T + w)
+            D2D1::Point2F(R - w, B - w + joinOverlap),
+            D2D1::Point2F(R - w, T + w - joinOverlap)
         };
         FillPolygon(context, factory.Get(), points, 4, brushForSide(params.styleRight, 1));
     }
@@ -262,8 +263,8 @@ void BoxBorderPaint::Paint(ID2D1DeviceContext* context, const D2D1_ROUNDED_RECT&
         const D2D1_POINT_2F points[] = {
             D2D1::Point2F(R, B),
             D2D1::Point2F(L, B),
-            D2D1::Point2F(L + w, B - w),
-            D2D1::Point2F(R - w, B - w)
+            D2D1::Point2F(L + w - joinOverlap, B - w),
+            D2D1::Point2F(R - w + joinOverlap, B - w)
         };
         FillPolygon(context, factory.Get(), points, 4, brushForSide(params.styleBottom, 2));
     }
@@ -272,8 +273,8 @@ void BoxBorderPaint::Paint(ID2D1DeviceContext* context, const D2D1_ROUNDED_RECT&
         const D2D1_POINT_2F points[] = {
             D2D1::Point2F(L, B),
             D2D1::Point2F(L, T),
-            D2D1::Point2F(L + w, T + w),
-            D2D1::Point2F(L + w, B - w)
+            D2D1::Point2F(L + w, T + w - joinOverlap),
+            D2D1::Point2F(L + w, B - w + joinOverlap)
         };
         FillPolygon(context, factory.Get(), points, 4, brushForSide(params.styleLeft, 3));
     }
