@@ -94,15 +94,7 @@ namespace PropertyParser
         {
             std::wstring lower = str;
             std::transform(lower.begin(), lower.end(), lower.begin(), ::towlower);
-            if (lower == L"none") return ElementLayoutBox::BorderStyle::None;
-            if (lower == L"hidden") return ElementLayoutBox::BorderStyle::Hidden;
-            if (lower == L"dotted") return ElementLayoutBox::BorderStyle::Dotted;
-            if (lower == L"dashed") return ElementLayoutBox::BorderStyle::Dashed;
-            if (lower == L"double") return ElementLayoutBox::BorderStyle::Double;
-            if (lower == L"groove") return ElementLayoutBox::BorderStyle::Groove;
-            if (lower == L"ridge") return ElementLayoutBox::BorderStyle::Ridge;
-            if (lower == L"inset") return ElementLayoutBox::BorderStyle::Inset;
-            if (lower == L"outset") return ElementLayoutBox::BorderStyle::Outset;
+            if (lower == L"none" || lower == L"hidden") return ElementLayoutBox::BorderStyle::None;
             return ElementLayoutBox::BorderStyle::Solid;
         };
 

@@ -1,13 +1,7 @@
-// const styles = ["dotted"]
-const styles = ["double", "dotted", "dashed", "groove", "ridge", "inset", "outset", "solid"];
+const styles = ["solid", "none"];
 const perSideStyles = [
-  ["groove", "dashed", "inset", "double"]
+  ["solid", "none", "solid", "none"]
 ];
-
-// const perSideStyles = [
-//   ["dotted"]
-// ];
-
 
 ui.beginUpdate();
 
