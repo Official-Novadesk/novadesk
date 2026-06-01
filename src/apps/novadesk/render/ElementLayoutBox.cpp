@@ -80,7 +80,12 @@ void ElementLayoutBox::Render(ID2D1DeviceContext* context)
             m_BorderStyleRight != BorderStyle::None ||
             m_BorderStyleBottom != BorderStyle::None ||
             m_BorderStyleLeft != BorderStyle::None);
-    if (hasVisibleBorder)
+    const bool allBordersDotted =
+        m_BorderStyleTop == BorderStyle::Dotted &&
+        m_BorderStyleRight == BorderStyle::Dotted &&
+        m_BorderStyleBottom == BorderStyle::Dotted &&
+        m_BorderStyleLeft == BorderStyle::Dotted;
+    if (hasVisibleBorder && !allBordersDotted)
     {
         const float borderWidth = std::min(
             m_StrokeWidth,

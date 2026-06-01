@@ -7,6 +7,7 @@
 
 #include "BoxBorderPaint.h"
 #include <algorithm>
+#include <cmath>
 #include <wrl/client.h>
 
 namespace
@@ -16,13 +17,19 @@ namespace
         return style == BoxBorder::Style::Solid;
     }
 
+    bool IsDotted(BoxBorder::Style style)
+    {
+        return style == BoxBorder::Style::Dotted;
+    }
+
     bool IsVisible(BoxBorder::Style style)
     {
         return style == BoxBorder::Style::Solid ||
             style == BoxBorder::Style::Inset ||
             style == BoxBorder::Style::Outset ||
             style == BoxBorder::Style::Groove ||
-            style == BoxBorder::Style::Ridge;
+            style == BoxBorder::Style::Ridge ||
+            style == BoxBorder::Style::Dotted;
     }
 
     COLORREF DarkenColor(COLORREF color)
@@ -233,6 +240,151 @@ namespace
         FillSideBandClippedByBorder(context, factory, side, L, T, R, B, 0.0f, borderWidth, borderWidth, joinOverlap, brush);
         context->PopLayer();
     }
+
+    void FillDot(ID2D1DeviceContext* context, float x, float y, float radius, ID2D1Brush* brush)
+    {
+        context->FillEllipse(D2D1::Ellipse(D2D1::Point2F(x, y), radius, radius), brush);
+    }
+
+    void FillDotsOnLine(ID2D1DeviceContext* context, float x1, float y1, float x2, float y2,
+        float dotRadius, float step, ID2D1Brush* brush)
+    {
+        const float dx = x2 - x1;
+        const float dy = y2 - y1;
+        const float length = std::sqrt(dx * dx + dy * dy);
+        if (length <= 0.0f)
+            return;
+
+        const float count = std::max(1.0f, std::floor(length / step));
+        const float actualStep = length / count;
+        const float ux = dx / length;
+        const float uy = dy / length;
+        for (float distance = 0.0f; distance <= length + 0.01f; distance += actualStep)
+            FillDot(context, x1 + ux * distance, y1 + uy * distance, dotRadius, brush);
+    }
+
+    void FillDottedSide(ID2D1DeviceContext* context,
+        int side, float L, float T, float R, float B, float borderWidth, ID2D1Brush* brush)
+    {
+        const float dotRadius = borderWidth * 0.5f;
+        const float step = std::max(borderWidth * 2.0f, 1.0f);
+        const float center = borderWidth * 0.5f;
+
+        if (side == 0)
+            FillDotsOnLine(context, L + center, T + center, R - center, T + center, dotRadius, step, brush);
+        else if (side == 1)
+            FillDotsOnLine(context, R - center, T + center, R - center, B - center, dotRadius, step, brush);
+        else if (side == 2)
+            FillDotsOnLine(context, L + center, B - center, R - center, B - center, dotRadius, step, brush);
+        else
+            FillDotsOnLine(context, L + center, T + center, L + center, B - center, dotRadius, step, brush);
+    }
+
+    void FillDottedRoundedBorder(ID2D1DeviceContext* context, const D2D1_ROUNDED_RECT& outer,
+        float width, ID2D1Brush* brush)
+    {
+        const float dotRadius = width * 0.5f;
+        const float step = std::max(width * 2.0f, 1.0f);
+        const float left = outer.rect.left + dotRadius;
+        const float top = outer.rect.top + dotRadius;
+        const float right = outer.rect.right - dotRadius;
+        const float bottom = outer.rect.bottom - dotRadius;
+        if (right <= left || bottom <= top)
+            return;
+
+        const float radiusX = std::min(
+            std::max(0.0f, outer.radiusX - dotRadius),
+            (right - left) * 0.5f);
+        const float radiusY = std::min(
+            std::max(0.0f, outer.radiusY - dotRadius),
+            (bottom - top) * 0.5f);
+
+        if (radiusX <= 0.0f || radiusY <= 0.0f)
+        {
+            FillDottedSide(context, 0, outer.rect.left, outer.rect.top, outer.rect.right, outer.rect.bottom, width, brush);
+            FillDottedSide(context, 1, outer.rect.left, outer.rect.top, outer.rect.right, outer.rect.bottom, width, brush);
+            FillDottedSide(context, 2, outer.rect.left, outer.rect.top, outer.rect.right, outer.rect.bottom, width, brush);
+            FillDottedSide(context, 3, outer.rect.left, outer.rect.top, outer.rect.right, outer.rect.bottom, width, brush);
+            return;
+        }
+
+        const float pi = 3.14159265358979323846f;
+        const float topLength = std::max(0.0f, (right - left) - (2.0f * radiusX));
+        const float sideLength = std::max(0.0f, (bottom - top) - (2.0f * radiusY));
+        const float arcLength = (pi * 0.5f) * ((radiusX + radiusY) * 0.5f);
+        const float totalLength = (2.0f * topLength) + (2.0f * sideLength) + (4.0f * arcLength);
+        if (totalLength <= 0.0f)
+            return;
+
+        const float dotCount = std::max(1.0f, std::floor(totalLength / step));
+        const float actualStep = totalLength / dotCount;
+
+        auto dotAt = [&](float distance)
+            {
+                float d = std::fmod(distance, totalLength);
+                if (d < topLength)
+                {
+                    FillDot(context, left + radiusX + d, top, dotRadius, brush);
+                    return;
+                }
+                d -= topLength;
+
+                if (d < arcLength)
+                {
+                    const float angle = -pi * 0.5f + (d / arcLength) * (pi * 0.5f);
+                    FillDot(context, right - radiusX + std::cos(angle) * radiusX,
+                        top + radiusY + std::sin(angle) * radiusY, dotRadius, brush);
+                    return;
+                }
+                d -= arcLength;
+
+                if (d < sideLength)
+                {
+                    FillDot(context, right, top + radiusY + d, dotRadius, brush);
+                    return;
+                }
+                d -= sideLength;
+
+                if (d < arcLength)
+                {
+                    const float angle = (d / arcLength) * (pi * 0.5f);
+                    FillDot(context, right - radiusX + std::cos(angle) * radiusX,
+                        bottom - radiusY + std::sin(angle) * radiusY, dotRadius, brush);
+                    return;
+                }
+                d -= arcLength;
+
+                if (d < topLength)
+                {
+                    FillDot(context, right - radiusX - d, bottom, dotRadius, brush);
+                    return;
+                }
+                d -= topLength;
+
+                if (d < arcLength)
+                {
+                    const float angle = pi * 0.5f + (d / arcLength) * (pi * 0.5f);
+                    FillDot(context, left + radiusX + std::cos(angle) * radiusX,
+                        bottom - radiusY + std::sin(angle) * radiusY, dotRadius, brush);
+                    return;
+                }
+                d -= arcLength;
+
+                if (d < sideLength)
+                {
+                    FillDot(context, left, bottom - radiusY - d, dotRadius, brush);
+                    return;
+                }
+                d -= sideLength;
+
+                const float angle = pi + (d / arcLength) * (pi * 0.5f);
+                FillDot(context, left + radiusX + std::cos(angle) * radiusX,
+                    top + radiusY + std::sin(angle) * radiusY, dotRadius, brush);
+            };
+
+        for (float distance = 0.0f; distance < totalLength - 0.01f; distance += actualStep)
+            dotAt(distance);
+    }
 }
 
 D2D1_ROUNDED_RECT BoxBorderPaint::BuildBorderGeometryRect(const D2D1_ROUNDED_RECT& elementRect,
@@ -285,6 +437,10 @@ void BoxBorderPaint::Paint(ID2D1DeviceContext* context, const D2D1_ROUNDED_RECT&
         IsSolid(params.styleRight) &&
         IsSolid(params.styleBottom) &&
         IsSolid(params.styleLeft);
+    const bool allDotted = IsDotted(params.styleTop) &&
+        IsDotted(params.styleRight) &&
+        IsDotted(params.styleBottom) &&
+        IsDotted(params.styleLeft);
 
     const D2D1_ROUNDED_RECT outer = D2D1::RoundedRect(rect.rect, radiusX, radiusY);
     if (allSolid)
@@ -312,6 +468,12 @@ void BoxBorderPaint::Paint(ID2D1DeviceContext* context, const D2D1_ROUNDED_RECT&
     if (!factory)
         return;
 
+    if (allDotted)
+    {
+        FillDottedRoundedBorder(context, outer, w, strokeBrush);
+        return;
+    }
+
     auto brushForSide = [&](BoxBorder::Style style, int side) -> ID2D1Brush*
         {
             if (style == BoxBorder::Style::Inset && (side == 0 || side == 3))
@@ -337,6 +499,12 @@ void BoxBorderPaint::Paint(ID2D1DeviceContext* context, const D2D1_ROUNDED_RECT&
 
     auto paintSide = [&](BoxBorder::Style style, int side)
         {
+            if (style == BoxBorder::Style::Dotted)
+            {
+                FillDottedSide(context, side, L, T, R, B, w, strokeBrush);
+                return;
+            }
+
             if (style == BoxBorder::Style::Groove || style == BoxBorder::Style::Ridge)
             {
                 const float split = w * 0.5f;

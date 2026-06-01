@@ -99,6 +99,7 @@ namespace PropertyParser
             if (lower == L"outset") return ElementLayoutBox::BorderStyle::Outset;
             if (lower == L"groove") return ElementLayoutBox::BorderStyle::Groove;
             if (lower == L"ridge") return ElementLayoutBox::BorderStyle::Ridge;
+            if (lower == L"dotted") return ElementLayoutBox::BorderStyle::Dotted;
             return ElementLayoutBox::BorderStyle::Solid;
         };
 

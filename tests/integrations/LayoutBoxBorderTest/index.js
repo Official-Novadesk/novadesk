@@ -58,3 +58,12 @@ const ridgeTest = new widgetWindow({
   script: "./ridge.ui.js",
   show: true
 });
+
+const dottedTest = new widgetWindow({
+  id: "dottedTest",
+  width: 410,
+  height: 200,
+  backgroundColor: "rgba(240, 240, 240, 1.0)",
+  script: "./dotted.ui.js",
+  show: true
+});

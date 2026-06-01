@@ -1691,6 +1691,7 @@ namespace novadesk::scripting::quickjs
                             case ElementLayoutBox::BorderStyle::Outset: return "outset";
                             case ElementLayoutBox::BorderStyle::Groove: return "groove";
                             case ElementLayoutBox::BorderStyle::Ridge: return "ridge";
+                            case ElementLayoutBox::BorderStyle::Dotted: return "dotted";
                             default: return "solid";
                             }
                         };

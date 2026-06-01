@@ -1,6 +1,6 @@
-const styles = ["solid", "inset", "outset", "groove", "ridge", "none"];
+const styles = ["solid", "inset", "outset", "groove", "ridge", "dotted", "none"];
 const perSideStyles = [
-  ["inset", "outset", "groove", "ridge"]
+  ["inset", "outset", "groove", "dotted"]
 ];
 
 ui.beginUpdate();
