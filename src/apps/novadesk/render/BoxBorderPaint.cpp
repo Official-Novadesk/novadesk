@@ -21,7 +21,8 @@ namespace
         return style == BoxBorder::Style::Solid ||
             style == BoxBorder::Style::Inset ||
             style == BoxBorder::Style::Outset ||
-            style == BoxBorder::Style::Groove;
+            style == BoxBorder::Style::Groove ||
+            style == BoxBorder::Style::Ridge;
     }
 
     COLORREF DarkenColor(COLORREF color)
@@ -236,7 +237,7 @@ void BoxBorderPaint::Paint(ID2D1DeviceContext* context, const D2D1_ROUNDED_RECT&
 
     // Chromium's non-uniform border path paints individual sides and clips/masks
     // their joins. Solid rounded borders use the exact outer-minus-inner band
-    // above; inset/outset/groove and mixed visibility are painted per side.
+    // above; inset/outset/groove/ridge and mixed visibility are painted per side.
     const float L = rect.rect.left;
     const float T = rect.rect.top;
     const float R = rect.rect.right;
@@ -278,13 +279,19 @@ void BoxBorderPaint::Paint(ID2D1DeviceContext* context, const D2D1_ROUNDED_RECT&
 
     auto paintSide = [&](BoxBorder::Style style, int side)
         {
-            if (style == BoxBorder::Style::Groove)
+            if (style == BoxBorder::Style::Groove || style == BoxBorder::Style::Ridge)
             {
                 const float split = w * 0.5f;
+                const BoxBorder::Style outerStyle = style == BoxBorder::Style::Groove
+                    ? BoxBorder::Style::Inset
+                    : BoxBorder::Style::Outset;
+                const BoxBorder::Style innerStyle = style == BoxBorder::Style::Groove
+                    ? BoxBorder::Style::Outset
+                    : BoxBorder::Style::Inset;
                 FillSideBand(context, factory.Get(), side, L, T, R, B, 0.0f, split, joinOverlap,
-                    brushForSide(BoxBorder::Style::Inset, side));
+                    brushForSide(outerStyle, side));
                 FillSideBand(context, factory.Get(), side, L, T, R, B, split, w, joinOverlap,
-                    brushForSide(BoxBorder::Style::Outset, side));
+                    brushForSide(innerStyle, side));
                 return;
             }
 

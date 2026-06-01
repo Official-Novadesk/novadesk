@@ -22,6 +22,7 @@ namespace BoxBorder
         Solid,
         Inset,
         Outset,
-        Groove
+        Groove,
+        Ridge
     };
 }

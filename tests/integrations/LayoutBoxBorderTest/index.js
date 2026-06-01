@@ -49,3 +49,12 @@ const grooveTest = new widgetWindow({
   show: true
 });
 
+
+const ridgeTest = new widgetWindow({
+  id: "ridgeTest",
+  width: 410,
+  height: 200,
+  backgroundColor: "rgba(240, 240, 240, 1.0)",
+  script: "./ridge.ui.js",
+  show: true
+});
