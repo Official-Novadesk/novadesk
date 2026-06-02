@@ -1,3 +1,10 @@
+/* Copyright (C) 2026 OfficialNovadesk
+ *
+ * This Source Code Form is subject to the terms of the GNU General Public
+ * License; either version 2 of the License, or (at your option) any later
+ * version. If a copy of the GPL was not distributed with this file, You can
+ * obtain one at <https://www.gnu.org/licenses/gpl-2.0.html>. */
+ 
 #include "WidgetUiBindings.h"
 
 #include <algorithm>
@@ -20,6 +27,7 @@
 #include "../../render/CurveShape.h"
 #include "../../render/PathShape.h"
 #include "../../render/TextElement.h"
+#include "../../render/ElementLayoutBox.h"
 #include "../../shared/FileUtils.h"
 #include "../../shared/Logging.h"
 #include "../../shared/PathUtils.h"
@@ -179,19 +187,6 @@ namespace novadesk::scripting::quickjs
             return JS_UNDEFINED;
         }
 
-        std::wstring GetWidgetScriptBaseDir(Widget *widget)
-        {
-            if (!widget)
-                return JSEngine::GetEntryScriptDir();
-
-            const std::wstring scriptPath = widget->GetOptions().scriptPath;
-            if (scriptPath.empty())
-                return JSEngine::GetEntryScriptDir();
-
-            const std::wstring absScriptPath = PathUtils::ResolvePath(scriptPath, JSEngine::GetEntryScriptDir());
-            return PathUtils::GetParentDir(absScriptPath);
-        }
-
         JSValue JsWidgetAddImage(JSContext *ctx, JSValueConst thisVal, int argc, JSValueConst *argv)
         {
             Widget *widget = GetAnyWidget(ctx, thisVal);
@@ -200,7 +195,7 @@ namespace novadesk::scripting::quickjs
             if (argc < 1 || !JS_IsObject(argv[0]))
                 return ThrowTypeError(ctx, "addImage", "expected options object");
             PropertyParser::ImageOptions options;
-            PropertyParser::ParseImageOptions(ctx, argv[0], options, GetWidgetScriptBaseDir(widget));
+            PropertyParser::ParseImageOptions(ctx, argv[0], options, PathUtils::GetScriptBaseDir(widget->GetOptions().scriptPath, JSEngine::GetEntryScriptDir()));
             widget->AddImage(options);
             return JS_UNDEFINED;
         }
@@ -213,7 +208,7 @@ namespace novadesk::scripting::quickjs
             if (argc < 1 || !JS_IsObject(argv[0]))
                 return ThrowTypeError(ctx, "addButton", "expected options object");
             PropertyParser::ButtonOptions options;
-            PropertyParser::ParseButtonOptions(ctx, argv[0], options, GetWidgetScriptBaseDir(widget));
+            PropertyParser::ParseButtonOptions(ctx, argv[0], options, PathUtils::GetScriptBaseDir(widget->GetOptions().scriptPath, JSEngine::GetEntryScriptDir()));
             widget->AddButton(options);
             return JS_UNDEFINED;
         }
@@ -226,7 +221,7 @@ namespace novadesk::scripting::quickjs
             if (argc < 1 || !JS_IsObject(argv[0]))
                 return ThrowTypeError(ctx, "addText", "expected options object");
             PropertyParser::TextOptions options;
-            PropertyParser::ParseTextOptions(ctx, argv[0], options, GetWidgetScriptBaseDir(widget));
+            PropertyParser::ParseTextOptions(ctx, argv[0], options, PathUtils::GetScriptBaseDir(widget->GetOptions().scriptPath, JSEngine::GetEntryScriptDir()));
             widget->AddText(options);
             return JS_UNDEFINED;
         }
@@ -239,7 +234,7 @@ namespace novadesk::scripting::quickjs
             if (argc < 1 || !JS_IsObject(argv[0]))
                 return ThrowTypeError(ctx, "addBar", "expected options object");
             PropertyParser::BarOptions options;
-            PropertyParser::ParseBarOptions(ctx, argv[0], options, GetWidgetScriptBaseDir(widget));
+            PropertyParser::ParseBarOptions(ctx, argv[0], options, PathUtils::GetScriptBaseDir(widget->GetOptions().scriptPath, JSEngine::GetEntryScriptDir()));
             widget->AddBar(options);
             return JS_UNDEFINED;
         }
@@ -252,7 +247,7 @@ namespace novadesk::scripting::quickjs
             if (argc < 1 || !JS_IsObject(argv[0]))
                 return ThrowTypeError(ctx, "addRoundLine", "expected options object");
             PropertyParser::RoundLineOptions options;
-            PropertyParser::ParseRoundLineOptions(ctx, argv[0], options, GetWidgetScriptBaseDir(widget));
+            PropertyParser::ParseRoundLineOptions(ctx, argv[0], options, PathUtils::GetScriptBaseDir(widget->GetOptions().scriptPath, JSEngine::GetEntryScriptDir()));
             widget->AddRoundLine(options);
             return JS_UNDEFINED;
         }
@@ -265,7 +260,7 @@ namespace novadesk::scripting::quickjs
             if (argc < 1 || !JS_IsObject(argv[0]))
                 return ThrowTypeError(ctx, "addLine", "expected options object");
             PropertyParser::LineOptions options;
-            PropertyParser::ParseLineOptions(ctx, argv[0], options, GetWidgetScriptBaseDir(widget));
+            PropertyParser::ParseLineOptions(ctx, argv[0], options, PathUtils::GetScriptBaseDir(widget->GetOptions().scriptPath, JSEngine::GetEntryScriptDir()));
             widget->AddLine(options);
             return JS_UNDEFINED;
         }
@@ -278,7 +273,7 @@ namespace novadesk::scripting::quickjs
             if (argc < 1 || !JS_IsObject(argv[0]))
                 return ThrowTypeError(ctx, "addHistogram", "expected options object");
             PropertyParser::HistogramOptions options;
-            PropertyParser::ParseHistogramOptions(ctx, argv[0], options, GetWidgetScriptBaseDir(widget));
+            PropertyParser::ParseHistogramOptions(ctx, argv[0], options, PathUtils::GetScriptBaseDir(widget->GetOptions().scriptPath, JSEngine::GetEntryScriptDir()));
             widget->AddHistogram(options);
             return JS_UNDEFINED;
         }
@@ -291,7 +286,7 @@ namespace novadesk::scripting::quickjs
             if (argc < 1 || !JS_IsObject(argv[0]))
                 return ThrowTypeError(ctx, "addShape", "expected options object");
             PropertyParser::ShapeOptions options;
-            PropertyParser::ParseShapeOptions(ctx, argv[0], options, GetWidgetScriptBaseDir(widget));
+            PropertyParser::ParseShapeOptions(ctx, argv[0], options, PathUtils::GetScriptBaseDir(widget->GetOptions().scriptPath, JSEngine::GetEntryScriptDir()));
             widget->AddShape(options);
             return JS_UNDEFINED;
         }
@@ -304,7 +299,7 @@ namespace novadesk::scripting::quickjs
             if (argc < 1 || !JS_IsObject(argv[0]))
                 return ThrowTypeError(ctx, "addBitmap", "expected options object");
             PropertyParser::BitmapOptions options;
-            PropertyParser::ParseBitmapOptions(ctx, argv[0], options, GetWidgetScriptBaseDir(widget));
+            PropertyParser::ParseBitmapOptions(ctx, argv[0], options, PathUtils::GetScriptBaseDir(widget->GetOptions().scriptPath, JSEngine::GetEntryScriptDir()));
             widget->AddBitmap(options);
             return JS_UNDEFINED;
         }
@@ -317,7 +312,7 @@ namespace novadesk::scripting::quickjs
             if (argc < 1 || !JS_IsObject(argv[0]))
                 return ThrowTypeError(ctx, "addRotator", "expected options object");
             PropertyParser::RotatorOptions options;
-            PropertyParser::ParseRotatorOptions(ctx, argv[0], options, GetWidgetScriptBaseDir(widget));
+            PropertyParser::ParseRotatorOptions(ctx, argv[0], options, PathUtils::GetScriptBaseDir(widget->GetOptions().scriptPath, JSEngine::GetEntryScriptDir()));
             widget->AddRotator(options);
             return JS_UNDEFINED;
         }
@@ -330,8 +325,355 @@ namespace novadesk::scripting::quickjs
             if (argc < 1 || !JS_IsObject(argv[0]))
                 return ThrowTypeError(ctx, "addAreaGraph", "expected options object");
             PropertyParser::AreaGraphOptions options;
-            PropertyParser::ParseAreaGraphOptions(ctx, argv[0], options, GetWidgetScriptBaseDir(widget));
+            PropertyParser::ParseAreaGraphOptions(ctx, argv[0], options, PathUtils::GetScriptBaseDir(widget->GetOptions().scriptPath, JSEngine::GetEntryScriptDir()));
             widget->AddAreaGraph(options);
+            return JS_UNDEFINED;
+        }
+
+        static std::wstring ReadObjectString(JSContext *ctx, JSValueConst obj, const char *key)
+        {
+            JSValue v = JS_GetPropertyStr(ctx, obj, key);
+            if (JS_IsException(v) || JS_IsUndefined(v) || JS_IsNull(v))
+            {
+                JS_FreeValue(ctx, v);
+                return L"";
+            }
+            const char *s = JS_ToCString(ctx, v);
+            std::wstring out;
+            if (s)
+            {
+                out = Utils::ToWString(s);
+                JS_FreeCString(ctx, s);
+            }
+            JS_FreeValue(ctx, v);
+            return out;
+        }
+
+        static JSValue CreateTypedElementObject(JSContext *ctx, JSValueConst srcOptions, const char *typeName)
+        {
+            JSValue obj = JS_NewObject(ctx);
+            JS_SetPropertyStr(ctx, obj, "type", JS_NewString(ctx, typeName));
+            if (JS_IsObject(srcOptions))
+            {
+                JSPropertyEnum *tab = nullptr;
+                uint32_t len = 0;
+                if (JS_GetOwnPropertyNames(ctx, &tab, &len, srcOptions, JS_GPN_STRING_MASK | JS_GPN_ENUM_ONLY) == 0)
+                {
+                    for (uint32_t i = 0; i < len; ++i)
+                    {
+                        JSValue keyV = JS_AtomToString(ctx, tab[i].atom);
+                        const char *key = JS_ToCString(ctx, keyV);
+                        if (key)
+                        {
+                            if (std::strcmp(key, "type") != 0)
+                            {
+                                JSValue val = JS_GetProperty(ctx, srcOptions, tab[i].atom);
+                                JS_SetPropertyStr(ctx, obj, key, val);
+                            }
+                            JS_FreeCString(ctx, key);
+                        }
+                        JS_FreeValue(ctx, keyV);
+                        JS_FreeAtom(ctx, tab[i].atom);
+                    }
+                    js_free(ctx, tab);
+                }
+            }
+            return obj;
+        }
+
+        static JSValue CallAddByType(JSContext *ctx, Widget *widget, JSValueConst thisVal, JSValue obj)
+        {
+            (void)thisVal;
+            if (!widget || !JS_IsObject(obj))
+                return JS_UNDEFINED;
+            std::wstring type = ReadObjectString(ctx, obj, "type");
+            std::transform(type.begin(), type.end(), type.begin(), ::towlower);
+
+            JSValue argvLocal[1] = { obj };
+            if (type == L"text")
+                return JsWidgetAddText(ctx, thisVal, 1, argvLocal);
+            if (type == L"image")
+                return JsWidgetAddImage(ctx, thisVal, 1, argvLocal);
+            if (type == L"shape")
+                return JsWidgetAddShape(ctx, thisVal, 1, argvLocal);
+            if (type == L"button")
+                return JsWidgetAddButton(ctx, thisVal, 1, argvLocal);
+            if (type == L"bitmap")
+                return JsWidgetAddBitmap(ctx, thisVal, 1, argvLocal);
+            if (type == L"rotator")
+                return JsWidgetAddRotator(ctx, thisVal, 1, argvLocal);
+            if (type == L"bar")
+                return JsWidgetAddBar(ctx, thisVal, 1, argvLocal);
+            if (type == L"line")
+                return JsWidgetAddLine(ctx, thisVal, 1, argvLocal);
+            if (type == L"histogram")
+                return JsWidgetAddHistogram(ctx, thisVal, 1, argvLocal);
+            if (type == L"roundline")
+                return JsWidgetAddRoundLine(ctx, thisVal, 1, argvLocal);
+            if (type == L"areagraph")
+                return JsWidgetAddAreaGraph(ctx, thisVal, 1, argvLocal);
+            if (type == L"layoutbox")
+                return JS_UNDEFINED;
+            return ThrowTypeError(ctx, "addLayoutBox", "children item has unsupported type");
+        }
+
+        static JSValue JsWidgetAddLayoutBox(JSContext *ctx, JSValueConst thisVal, int argc, JSValueConst *argv);
+
+        static JSValue AddLayoutBoxChildren(JSContext *ctx, Widget *widget, JSValueConst thisVal, JSValueConst layoutObj, const std::wstring &layoutId)
+        {
+            JSValue childrenVal = JS_GetPropertyStr(ctx, layoutObj, "children");
+            if (!JS_IsArray(childrenVal))
+            {
+                JS_FreeValue(ctx, childrenVal);
+                return JS_UNDEFINED;
+            }
+
+            JSValue lenV = JS_GetPropertyStr(ctx, childrenVal, "length");
+            uint32_t len = 0;
+            JS_ToUint32(ctx, &len, lenV);
+            JS_FreeValue(ctx, lenV);
+
+            for (uint32_t i = 0; i < len; ++i)
+            {
+                JSValue child = JS_GetPropertyUint32(ctx, childrenVal, i);
+                if (!JS_IsObject(child))
+                {
+                    JS_FreeValue(ctx, child);
+                    continue;
+                }
+
+                JS_SetPropertyStr(ctx, child, "container", JS_NewString(ctx, Utils::ToString(layoutId).c_str()));
+                std::wstring type = ReadObjectString(ctx, child, "type");
+                std::transform(type.begin(), type.end(), type.begin(), ::towlower);
+                JSValue res = JS_UNDEFINED;
+                if (type == L"layoutbox")
+                {
+                    JSValue childArgv[1] = { child };
+                    res = JsWidgetAddLayoutBox(ctx, thisVal, 1, childArgv);
+                }
+                else
+                {
+                    res = CallAddByType(ctx, widget, thisVal, child);
+                }
+
+                JS_FreeValue(ctx, child);
+                if (JS_IsException(res))
+                {
+                    JS_FreeValue(ctx, childrenVal);
+                    return res;
+                }
+                JS_FreeValue(ctx, res);
+            }
+
+            JS_FreeValue(ctx, childrenVal);
+            return JS_UNDEFINED;
+        }
+
+        static JSValue JsWidgetAddLayoutBox(JSContext *ctx, JSValueConst thisVal, int argc, JSValueConst *argv)
+        {
+            Widget *widget = GetAnyWidget(ctx, thisVal);
+            if (!widget)
+                return JS_UNDEFINED;
+            if (argc < 1 || !JS_IsObject(argv[0]))
+                return ThrowTypeError(ctx, "addLayoutBox", "expected options object");
+
+            PropertyParser::LayoutBoxOptions layoutOptions;
+            PropertyParser::ParseLayoutBoxOptions(ctx, argv[0], layoutOptions, PathUtils::GetScriptBaseDir(widget->GetOptions().scriptPath, JSEngine::GetEntryScriptDir()));
+            PropertyParser::ShapeOptions &shapeOptions = layoutOptions.shape;
+            if (shapeOptions.id.empty())
+                return ThrowTypeError(ctx, "addLayoutBox", "id is required");
+            if (layoutOptions.hasBoxShadowError)
+                return ThrowTypeError(ctx, "addLayoutBox", Utils::ToString(layoutOptions.boxShadowError).c_str());
+
+            widget->AddLayoutBox(shapeOptions);
+            if (Element *layoutElement = widget->FindElementById(shapeOptions.id))
+            {
+                if (auto *lb = dynamic_cast<ElementLayoutBox *>(layoutElement))
+                {
+                    PropertyParser::ApplyLayoutBoxOptions(lb, layoutOptions);
+                }
+            }
+
+            Widget::LayoutConfig cfg;
+            cfg.direction = layoutOptions.direction;
+            cfg.gap = layoutOptions.gap;
+            if (!layoutOptions.align.empty())
+                cfg.align = layoutOptions.align;
+            if (!layoutOptions.justify.empty())
+                cfg.justify = layoutOptions.justify;
+            cfg.paddingLeft = layoutOptions.paddingLeft;
+            cfg.paddingTop = layoutOptions.paddingTop;
+            cfg.paddingRight = layoutOptions.paddingRight;
+            cfg.paddingBottom = layoutOptions.paddingBottom;
+            if (layoutOptions.minWidth > 0)
+                cfg.minWidth = layoutOptions.minWidth;
+            if (layoutOptions.minHeight > 0)
+                cfg.minHeight = layoutOptions.minHeight;
+
+            widget->SetLayoutConfig(shapeOptions.id, cfg);
+            JSValue childRes = AddLayoutBoxChildren(ctx, widget, thisVal, argv[0], shapeOptions.id);
+            if (JS_IsException(childRes))
+                return childRes;
+            // Ensure a post-config render pass. AddLayoutBox redraws once before
+            // layout metadata is fully applied, which can briefly show stale visuals.
+            widget->Redraw();
+            return JS_UNDEFINED;
+        }
+
+        JSValue JsWidgetAddLayout(JSContext *ctx, JSValueConst thisVal, int argc, JSValueConst *argv)
+        {
+            return JsWidgetAddLayoutBox(ctx, thisVal, argc, argv);
+        }
+
+        JSValue JsWidgetElementFactory(JSContext *ctx, JSValueConst, int argc, JSValueConst *argv, int magic)
+        {
+            if (argc < 1 || !JS_IsObject(argv[0]))
+                return JS_ThrowTypeError(ctx, "element factory expects options object");
+            const char *typeName = "shape";
+            switch (magic)
+            {
+            case 0: typeName = "text"; break;
+            case 1: typeName = "image"; break;
+            case 2: typeName = "shape"; break;
+            case 3: typeName = "button"; break;
+            case 4: typeName = "bitmap"; break;
+            case 5: typeName = "rotator"; break;
+            case 6: typeName = "bar"; break;
+            case 7: typeName = "line"; break;
+            case 8: typeName = "histogram"; break;
+            case 9: typeName = "roundLine"; break;
+            case 10: typeName = "areaGraph"; break;
+            case 11: typeName = "layoutBox"; break;
+            }
+            return CreateTypedElementObject(ctx, argv[0], typeName);
+        }
+
+        Widget::AnimationTarget BuildAnimationTargetFromOptions(const PropertyParser::AnimationOptions &options, bool useFrom)
+        {
+            Widget::AnimationTarget target{};
+            if (useFrom)
+            {
+                target.hasX = options.fromHasX;
+                target.hasY = options.fromHasY;
+                target.hasWidth = options.fromHasWidth;
+                target.hasHeight = options.fromHasHeight;
+                target.hasRotate = options.fromHasRotate;
+                target.x = options.fromX;
+                target.y = options.fromY;
+                target.width = options.fromWidth;
+                target.height = options.fromHeight;
+                target.rotate = options.fromRotate;
+            }
+            else
+            {
+                target.hasX = options.hasX;
+                target.hasY = options.hasY;
+                target.hasWidth = options.hasWidth;
+                target.hasHeight = options.hasHeight;
+                target.hasRotate = options.hasRotate;
+                target.x = options.x;
+                target.y = options.y;
+                target.width = options.width;
+                target.height = options.height;
+                target.rotate = options.rotate;
+            }
+            return target;
+        }
+
+        Widget::AnimationTarget BuildAnimationTargetFromKeyframe(const PropertyParser::AnimationKeyframeOptions &kf)
+        {
+            Widget::AnimationTarget target{};
+            target.hasX = kf.hasX;
+            target.hasY = kf.hasY;
+            target.hasWidth = kf.hasWidth;
+            target.hasHeight = kf.hasHeight;
+            target.hasRotate = kf.hasRotate;
+            target.x = kf.x;
+            target.y = kf.y;
+            target.width = kf.width;
+            target.height = kf.height;
+            target.rotate = kf.rotate;
+            target.hasFontSize = kf.hasFontSize;
+            target.hasFontWeight = kf.hasFontWeight;
+            target.hasLetterSpacing = kf.hasLetterSpacing;
+            target.hasFontColor = kf.hasFontColor;
+            target.fontSize = kf.fontSize;
+            target.fontWeight = kf.fontWeight;
+            target.letterSpacing = kf.letterSpacing;
+            target.fontColorR = kf.fontColorR;
+            target.fontColorG = kf.fontColorG;
+            target.fontColorB = kf.fontColorB;
+            target.fontAlpha = kf.fontAlpha;
+            return target;
+        }
+
+        std::vector<Widget::AnimationKeyframe> BuildKeyframesFromOptions(const PropertyParser::AnimationOptions &options)
+        {
+            std::vector<Widget::AnimationKeyframe> keyframes;
+            keyframes.reserve(options.keyframes.size());
+            for (const PropertyParser::AnimationKeyframeOptions &kf : options.keyframes)
+            {
+                Widget::AnimationKeyframe entry{};
+                entry.offset = kf.offset;
+                entry.easing = kf.easing;
+                entry.values = BuildAnimationTargetFromKeyframe(kf);
+                keyframes.push_back(entry);
+            }
+            return keyframes;
+        }
+
+        JSValue JsWidgetAnimate(JSContext *ctx, JSValueConst thisVal, int argc, JSValueConst *argv)
+        {
+            Widget *widget = GetAnyWidget(ctx, thisVal);
+            if (!widget)
+                return JS_UNDEFINED;
+            if (argc < 1 || !JS_IsObject(argv[0]))
+                return ThrowTypeError(ctx, "animate", "expected options object");
+
+            PropertyParser::AnimationOptions options;
+            PropertyParser::ParseAnimationOptions(ctx, argv[0], options);
+            if (options.id.empty())
+                return ThrowTypeError(ctx, "animate", "id is required");
+
+            if (!options.HasAnyToProps())
+                return ThrowTypeError(ctx, "animate", "to must include at least one supported property");
+
+            Element *element = widget->FindElementById(options.id);
+            if (!element)
+                return ThrowTypeError(ctx, "animate", "element not found");
+
+            if (options.hasKeyframes && options.HasAnyTextToProps() && element->GetType() != ELEMENT_TEXT)
+                return ThrowTypeError(ctx, "animate", "fontSize, fontWeight, letterSpacing, and fontColor in keyframes require a text element");
+
+            if (options.iterationCountInvalid)
+                return ThrowTypeError(ctx, "animate", "iterationCount must be at least 1 or 'infinite'");
+
+            if (options.keyframesInvalid)
+            {
+                const std::string msg = Utils::ToString(options.keyframesError.empty() ? L"invalid keyframes" : options.keyframesError);
+                return ThrowTypeError(ctx, "animate", msg.c_str());
+            }
+
+            if (options.tweenInvalid)
+            {
+                const std::string msg = Utils::ToString(options.tweenError.empty() ? L"invalid from/to" : options.tweenError);
+                return ThrowTypeError(ctx, "animate", msg.c_str());
+            }
+
+            int iterationCount = options.iterationCount;
+            if (options.iterationInfinite)
+                iterationCount = -1;
+
+            if (options.hasKeyframes)
+            {
+                const std::vector<Widget::AnimationKeyframe> keyframes = BuildKeyframesFromOptions(options);
+                widget->StartElementKeyframeAnimation(options.id, keyframes, options.duration, options.easing, iterationCount);
+                return JS_UNDEFINED;
+            }
+
+            const Widget::AnimationTarget to = BuildAnimationTargetFromOptions(options, false);
+            const Widget::AnimationTarget from = BuildAnimationTargetFromOptions(options, true);
+            widget->StartElementAnimation(options.id, to, from, options.duration, options.easing, iterationCount);
             return JS_UNDEFINED;
         }
 
@@ -444,7 +786,7 @@ namespace novadesk::scripting::quickjs
             Element *element = widget->FindElementById(id);
             if (!element)
                 return JS_UNDEFINED;
-            const std::wstring baseDir = GetWidgetScriptBaseDir(widget);
+            const std::wstring baseDir = PathUtils::GetScriptBaseDir(widget->GetOptions().scriptPath, JSEngine::GetEntryScriptDir());
 
             if (auto *image = dynamic_cast<ImageElement *>(element))
             {
@@ -494,6 +836,48 @@ namespace novadesk::scripting::quickjs
                 PropertyParser::PreFillHistogramOptions(options, histogram);
                 PropertyParser::ParseHistogramOptions(ctx, argv[1], options, baseDir);
                 PropertyParser::ApplyHistogramOptions(histogram, options);
+            }
+            else if (auto *layout = dynamic_cast<ElementLayoutBox *>(element))
+            {
+                PropertyParser::LayoutBoxOptions options;
+                Widget::LayoutConfig cfg{};
+                if (widget->TryGetLayoutConfig(id, cfg))
+                {
+                    PropertyParser::PreFillLayoutBoxOptions(
+                        options,
+                        layout,
+                        &cfg.direction,
+                        &cfg.gap,
+                        &cfg.align,
+                        &cfg.justify,
+                        &cfg.paddingLeft,
+                        &cfg.paddingTop,
+                        &cfg.paddingRight,
+                        &cfg.paddingBottom,
+                        &cfg.minWidth,
+                        &cfg.minHeight);
+                }
+                else
+                {
+                    PropertyParser::PreFillLayoutBoxOptions(options, layout);
+                }
+                PropertyParser::ParseLayoutBoxOptions(ctx, argv[1], options, baseDir);
+                if (options.hasBoxShadowError)
+                    return ThrowTypeError(ctx, "setElementProperties", Utils::ToString(options.boxShadowError).c_str());
+                PropertyParser::ApplyLayoutBoxOptions(layout, options);
+
+                Widget::LayoutConfig nextCfg{};
+                nextCfg.direction = options.direction;
+                nextCfg.gap = options.gap;
+                nextCfg.align = options.align.empty() ? L"start" : options.align;
+                nextCfg.justify = options.justify.empty() ? L"start" : options.justify;
+                nextCfg.paddingLeft = options.paddingLeft;
+                nextCfg.paddingTop = options.paddingTop;
+                nextCfg.paddingRight = options.paddingRight;
+                nextCfg.paddingBottom = options.paddingBottom;
+                nextCfg.minWidth = options.minWidth;
+                nextCfg.minHeight = options.minHeight;
+                widget->SetLayoutConfig(id, nextCfg);
             }
             else if (auto *shape = dynamic_cast<ShapeElement *>(element))
             {
@@ -585,7 +969,7 @@ namespace novadesk::scripting::quickjs
                 return JS_EXCEPTION;
             std::wstring group = Utils::ToWString(groupUtf8);
             JS_FreeCString(ctx, groupUtf8);
-            widget->SetGroupProperties(group, reinterpret_cast<duk_context *>(ctx));
+            widget->SetGroupProperties(group, ctx, argv[1]);
             widget->Redraw();
             return JS_UNDEFINED;
         }
@@ -1174,9 +1558,15 @@ namespace novadesk::scripting::quickjs
                     return JS_NewString(ctx, Utils::ToString(c).c_str());
                 }
             }
-            else if (element->GetType() == ELEMENT_SHAPE)
+            else if (element->GetType() == ELEMENT_SHAPE || element->GetType() == ELEMENT_LAYOUT_BOX)
             {
                 auto *shape = static_cast<ShapeElement *>(element);
+                ElementLayoutBox *layoutBox = (element->GetType() == ELEMENT_LAYOUT_BOX)
+                    ? static_cast<ElementLayoutBox *>(element)
+                    : nullptr;
+                PropertyParser::LayoutBoxOptions layoutPrefill;
+                if (layoutBox)
+                    PropertyParser::PreFillLayoutBoxOptions(layoutPrefill, layoutBox);
 
                 auto capToStr = [](D2D1_CAP_STYLE cap) -> const char *
                 {
@@ -1288,6 +1678,50 @@ namespace novadesk::scripting::quickjs
                     return arr;
                 }
 
+                if (layoutBox)
+                {
+                    if (prop == "borderStyle")
+                    {
+                        auto styleToStr = [](ElementLayoutBox::BorderStyle s) -> const char *
+                        {
+                            switch (s)
+                            {
+                            case ElementLayoutBox::BorderStyle::None: return "none";
+                            case ElementLayoutBox::BorderStyle::Inset: return "inset";
+                            case ElementLayoutBox::BorderStyle::Outset: return "outset";
+                            case ElementLayoutBox::BorderStyle::Groove: return "groove";
+                            case ElementLayoutBox::BorderStyle::Ridge: return "ridge";
+                            case ElementLayoutBox::BorderStyle::Dotted: return "dotted";
+                            default: return "solid";
+                            }
+                        };
+                        JSValue arr = JS_NewArray(ctx);
+                        JS_SetPropertyUint32(ctx, arr, 0, JS_NewString(ctx, styleToStr(layoutPrefill.borderTop)));
+                        JS_SetPropertyUint32(ctx, arr, 1, JS_NewString(ctx, styleToStr(layoutPrefill.borderRight)));
+                        JS_SetPropertyUint32(ctx, arr, 2, JS_NewString(ctx, styleToStr(layoutPrefill.borderBottom)));
+                        JS_SetPropertyUint32(ctx, arr, 3, JS_NewString(ctx, styleToStr(layoutPrefill.borderLeft)));
+                        return arr;
+                    }
+                    if (prop == "boxShadow")
+                    {
+                        JSValue arr = JS_NewArray(ctx);
+                        for (uint32_t i = 0; i < static_cast<uint32_t>(layoutPrefill.boxShadows.size()); ++i)
+                        {
+                            const auto &sh = layoutPrefill.boxShadows[i];
+                            JSValue item = JS_NewObject(ctx);
+                            JS_SetPropertyStr(ctx, item, "x", JS_NewFloat64(ctx, sh.x));
+                            JS_SetPropertyStr(ctx, item, "y", JS_NewFloat64(ctx, sh.y));
+                            JS_SetPropertyStr(ctx, item, "blur", JS_NewFloat64(ctx, sh.blur));
+                            JS_SetPropertyStr(ctx, item, "spread", JS_NewFloat64(ctx, sh.spread));
+                            const std::wstring c = ColorUtil::ToRGBAString(sh.color, sh.alpha);
+                            JS_SetPropertyStr(ctx, item, "color", JS_NewString(ctx, Utils::ToString(c).c_str()));
+                            JS_SetPropertyStr(ctx, item, "inset", JS_NewBool(ctx, sh.inset ? 1 : 0));
+                            JS_SetPropertyUint32(ctx, arr, i, item);
+                        }
+                        return arr;
+                    }
+                }
+
                 if (auto *pathShape = dynamic_cast<PathShape *>(shape))
                 {
                     if (prop == "isCombine")
@@ -1383,6 +1817,21 @@ namespace novadesk::scripting::quickjs
             JS_CFUNC_DEF("addBitmap", 1, JsWidgetAddBitmap),
             JS_CFUNC_DEF("addRotator", 1, JsWidgetAddRotator),
             JS_CFUNC_DEF("addAreaGraph", 1, JsWidgetAddAreaGraph),
+            JS_CFUNC_DEF("addLayout", 1, JsWidgetAddLayout),
+            JS_CFUNC_DEF("addLayoutBox", 1, JsWidgetAddLayoutBox),
+            JS_CFUNC_MAGIC_DEF("text", 1, JsWidgetElementFactory, 0),
+            JS_CFUNC_MAGIC_DEF("image", 1, JsWidgetElementFactory, 1),
+            JS_CFUNC_MAGIC_DEF("shape", 1, JsWidgetElementFactory, 2),
+            JS_CFUNC_MAGIC_DEF("button", 1, JsWidgetElementFactory, 3),
+            JS_CFUNC_MAGIC_DEF("bitmap", 1, JsWidgetElementFactory, 4),
+            JS_CFUNC_MAGIC_DEF("rotator", 1, JsWidgetElementFactory, 5),
+            JS_CFUNC_MAGIC_DEF("bar", 1, JsWidgetElementFactory, 6),
+            JS_CFUNC_MAGIC_DEF("line", 1, JsWidgetElementFactory, 7),
+            JS_CFUNC_MAGIC_DEF("histogram", 1, JsWidgetElementFactory, 8),
+            JS_CFUNC_MAGIC_DEF("roundLine", 1, JsWidgetElementFactory, 9),
+            JS_CFUNC_MAGIC_DEF("areaGraph", 1, JsWidgetElementFactory, 10),
+            JS_CFUNC_MAGIC_DEF("layoutBox", 1, JsWidgetElementFactory, 11),
+            JS_CFUNC_DEF("animate", 1, JsWidgetAnimate),
             JS_CFUNC_DEF("setElementProperty", 3, JsWidgetSetElementProperty),
             JS_CFUNC_DEF("setElementProperties", 2, JsWidgetSetElementProperties),
             JS_CFUNC_DEF("setElementPropertyByGroup", 2, JsWidgetSetElementPropertiesByGroup),
@@ -1417,7 +1866,7 @@ namespace novadesk::scripting::quickjs
             std::wstring baseDir;
             if (PathUtils::IsPathRelative(scriptPath))
             {
-                baseDir = GetWidgetScriptBaseDir(widget);
+                baseDir = PathUtils::GetScriptBaseDir(widget->GetOptions().scriptPath, JSEngine::GetEntryScriptDir());
                 absPath = PathUtils::ResolvePath(
                     scriptPath,
                     baseDir.empty() ? PathUtils::GetWidgetsDir() : baseDir);

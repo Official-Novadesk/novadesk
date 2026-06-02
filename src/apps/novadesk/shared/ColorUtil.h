@@ -15,6 +15,7 @@
 #include <cstdio>
 #include <algorithm>
 #include <cwctype>
+#include <cmath>
 #include <unordered_map>
 
 // Helper macros for color extraction from COLORREF (0x00BBGGRR)
@@ -31,6 +32,24 @@
 class ColorUtil
 {
 public:
+    static BYTE ClampByte(float v)
+    {
+        if (v < 0.0f) return 0;
+        if (v > 255.0f) return 255;
+        return static_cast<BYTE>(std::lround(v));
+    }
+
+    static COLORREF FromFloatRGB(float r, float g, float b)
+    {
+        return RGB(ClampByte(r), ClampByte(g), ClampByte(b));
+    }
+
+    static void FromFloatRGBA(float r, float g, float b, float a, COLORREF &color, BYTE &alpha)
+    {
+        color = FromFloatRGB(r, g, b);
+        alpha = ClampByte(a);
+    }
+
     /*
     ** Parse a color string and extract color and alpha values.
     ** Supports formats: "rgba(r,g,b,a)", "#RRGGBB", "#RRGGBBAA", etc.

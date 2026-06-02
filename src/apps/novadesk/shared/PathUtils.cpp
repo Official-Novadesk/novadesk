@@ -398,4 +398,13 @@ namespace PathUtils {
 
         return NormalizePath(combined);
     }
+
+    std::wstring GetScriptBaseDir(const std::wstring& scriptPath, const std::wstring& defaultBaseDir)
+    {
+        if (scriptPath.empty())
+            return defaultBaseDir;
+
+        const std::wstring absScriptPath = ResolvePath(scriptPath, defaultBaseDir);
+        return GetParentDir(absScriptPath);
+    }
 }

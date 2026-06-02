@@ -10,11 +10,11 @@
 #include "../shared/Logging.h"
 #include "Settings.h"
 #include "Resource.h"
-#include "../shared/MenuUtils.h"
 #include "Utils.h"
 #include <vector>
 #include <windowsx.h>
 #include <algorithm>
+#include <cmath>
 #include <functional>
 #include "Direct2DHelper.h"
 #include "ImageElement.h"
@@ -32,10 +32,13 @@
 #include "CurveShape.h"
 #include "ShapeElement.h"
 #include "ColorUtil.h"
-#include "PathUtils.h"
+#include "WidgetWindowChromeHelper.h"
+#include "WidgetAnimationHelper.h"
 #include "ButtonElement.h"
 #include "BitmapElement.h"
+#include "WidgetContextMenuHelper.h"
 #include "../scripting/quickjs/engine/JSEngine.h"
+#include "../shared/PathUtils.h"
 
 #define WIDGET_CLASS_NAME L"NovadeskWidget"
 #define ZPOS_FLAGS (SWP_NOMOVE | SWP_NOSIZE | SWP_NOOWNERZORDER | SWP_NOACTIVATE | SWP_NOSENDCHANGING)
@@ -43,24 +46,6 @@
 #define TIMER_TOPMOST 2
 #define TIMER_TOOLTIP 3
 #define TIMER_CTRL_OVERRIDE 4
-
-// Menu Command IDs
-#define CMD_REFRESH 1001
-#define CMD_CLOSE   1002
-#define CMD_EXIT    1003
-
-#define CMD_MANAGE_ZPOS_NORMAL   1101
-#define CMD_MANAGE_ZPOS_DESKTOP  1102
-#define CMD_MANAGE_ZPOS_BOTTOM   1103
-#define CMD_MANAGE_ZPOS_ONTOP    1104
-#define CMD_MANAGE_ZPOS_ONTOPMOST 1105
-
-#define CMD_MANAGE_OPACITY_START 1110 // 1110 to 1120 for 0% to 100%
-
-#define CMD_MANAGE_DRAGGABLE     1130
-#define CMD_MANAGE_CLICKTHROUGH  1131
-#define CMD_MANAGE_SNAPEDGES     1132
-#define CMD_MANAGE_KEEPOFFSCREEN 1133
 
 
 extern std::vector<Widget *> widgets; // Defined in Novadesk.cpp
@@ -110,6 +95,7 @@ Widget::~Widget()
     }
 
     DestroyToolbarIcon();
+    ReleaseRenderSurface();
 
     if (m_hWnd)
     {
@@ -629,90 +615,22 @@ void Widget::SetToolbarTitle(const std::wstring &title)
 
 void Widget::ApplyToolbarStyle()
 {
-    if (!m_hWnd)
-        return;
-
-    LONG_PTR exStyle = GetWindowLongPtrW(m_hWnd, GWL_EXSTYLE);
-    if (m_Options.showInToolbar)
-    {
-        exStyle &= ~static_cast<LONG_PTR>(WS_EX_TOOLWINDOW);
-        exStyle |= WS_EX_APPWINDOW;
-    }
-    else
-    {
-        exStyle &= ~static_cast<LONG_PTR>(WS_EX_APPWINDOW);
-        exStyle |= WS_EX_TOOLWINDOW;
-    }
-
-    SetWindowLongPtrW(m_hWnd, GWL_EXSTYLE, exStyle);
-    SetWindowPos(
-        m_hWnd,
-        nullptr,
-        0, 0, 0, 0,
-        SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
-
-    if (IsWindowVisible(m_hWnd))
-    {
-        ShowWindow(m_hWnd, SW_HIDE);
-        ShowWindow(m_hWnd, SW_SHOWNOACTIVATE);
-    }
+    WidgetWindowChromeHelper::ApplyToolbarStyle(m_hWnd, m_Options.showInToolbar);
 }
 
 void Widget::DestroyToolbarIcon()
 {
-    if (m_ToolbarIconOwned && m_ToolbarIconHandle)
-    {
-        DestroyIcon(m_ToolbarIconHandle);
-    }
-    m_ToolbarIconHandle = nullptr;
-    m_ToolbarIconOwned = false;
+    WidgetWindowChromeHelper::DestroyToolbarIcon(m_ToolbarIconHandle, m_ToolbarIconOwned);
 }
 
 void Widget::ApplyToolbarIcon()
 {
-    if (!m_hWnd)
-        return;
-
-    DestroyToolbarIcon();
-
-    HICON icon = nullptr;
-    if (!m_Options.toolbarIcon.empty())
-    {
-        icon = reinterpret_cast<HICON>(LoadImageW(
-            nullptr,
-            m_Options.toolbarIcon.c_str(),
-            IMAGE_ICON,
-            0,
-            0,
-            LR_LOADFROMFILE | LR_DEFAULTSIZE));
-
-        if (icon)
-        {
-            m_ToolbarIconHandle = icon;
-            m_ToolbarIconOwned = true;
-        }
-        else
-        {
-            Logging::Log(LogLevel::Warn, L"Widget '%s': failed to load toolbarIcon '%s'", m_Options.id.c_str(), m_Options.toolbarIcon.c_str());
-        }
-    }
-
-    if (!icon)
-    {
-        icon = LoadIcon(GetModuleHandle(nullptr), MAKEINTRESOURCE(IDI_NOVADESK));
-    }
-
-    SendMessageW(m_hWnd, WM_SETICON, ICON_SMALL, reinterpret_cast<LPARAM>(icon));
-    SendMessageW(m_hWnd, WM_SETICON, ICON_BIG, reinterpret_cast<LPARAM>(icon));
+    WidgetWindowChromeHelper::ApplyToolbarIcon(m_hWnd, m_Options, m_ToolbarIconHandle, m_ToolbarIconOwned);
 }
 
 void Widget::ApplyToolbarTitle()
 {
-    if (!m_hWnd)
-        return;
-
-    const std::wstring title = m_Options.toolbarTitle.empty() ? m_Options.id : m_Options.toolbarTitle;
-    SetWindowTextW(m_hWnd, title.c_str());
+    WidgetWindowChromeHelper::ApplyToolbarTitle(m_hWnd, m_Options);
 }
 
 /*
@@ -1020,6 +938,10 @@ LRESULT CALLBACK Widget::WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
                         SetWindowLongPtrW(hWnd, GWL_EXSTYLE, exStyle);
                     }
                 }
+            }
+            else if (wParam == WidgetAnimationHelper::kTimerId)
+            {
+                WidgetAnimationHelper::StepAnimations(*widget);
             }
         }
         return 0;
@@ -1604,6 +1526,26 @@ void Widget::AddAreaGraph(const PropertyParser::AreaGraphOptions &options)
     Redraw();
 }
 
+void Widget::AddLayoutBox(const PropertyParser::ShapeOptions &options)
+{
+    if (options.id.empty())
+    {
+        Logging::Log(LogLevel::Error, L"AddLayoutBox failed: Element ID cannot be empty.");
+        return;
+    }
+
+    if (FindElementById(options.id))
+    {
+        RemoveElements(options.id);
+    }
+
+    ElementLayoutBox *element = new ElementLayoutBox(options.id, options.x, options.y, options.width, options.height);
+    PropertyParser::ApplyShapeOptions(element, options);
+    m_Elements.push_back(element);
+    UpdateContainerForElement(element, options.containerId);
+    Redraw();
+}
+
 bool Widget::BuildCombinedShapeGeometry(PathShape *target, const PropertyParser::ShapeOptions &options)
 {
     if (!target)
@@ -1795,6 +1737,10 @@ void Widget::UpdateContainerForElement(Element *element, const std::wstring &new
         if (currentContainer)
         {
             currentContainer->RemoveContainerItem(element);
+            if (IsLayoutContainer(currentContainer->GetId()))
+            {
+                ApplyLayoutForContainer(currentContainer);
+            }
             element->SetContainer(nullptr);
         }
         element->SetContainerId(L"");
@@ -1820,7 +1766,9 @@ void Widget::UpdateContainerForElement(Element *element, const std::wstring &new
         return;
     }
 
-    if (newContainer->IsContained())
+    // Allow nested layout containers (LayoutBox tree). Keep legacy protection
+    // for non-layout containers to avoid behavior changes in older widgets.
+    if (newContainer->IsContained() && !IsLayoutContainer(newContainer->GetId()))
     {
         Logging::Log(LogLevel::Error, L"Nested containers are not allowed: %s", newContainerId.c_str());
         return;
@@ -1835,12 +1783,158 @@ void Widget::UpdateContainerForElement(Element *element, const std::wstring &new
     if (currentContainer != newContainer)
     {
         if (currentContainer)
+        {
             currentContainer->RemoveContainerItem(element);
+            if (IsLayoutContainer(currentContainer->GetId()))
+            {
+                ApplyLayoutForContainer(currentContainer);
+            }
+        }
         newContainer->AddContainerItem(element);
         element->SetContainer(newContainer);
     }
 
     element->SetContainerId(newContainerId);
+    if (IsLayoutContainer(newContainer->GetId()))
+    {
+        ApplyLayoutForContainer(newContainer);
+    }
+}
+
+void Widget::SetLayoutConfig(const std::wstring &id, const LayoutConfig &config)
+{
+    if (id.empty())
+        return;
+    m_LayoutConfigs[id] = config;
+    ReflowLayout(id);
+}
+
+bool Widget::TryGetLayoutConfig(const std::wstring &id, LayoutConfig &config) const
+{
+    auto it = m_LayoutConfigs.find(id);
+    if (it == m_LayoutConfigs.end())
+        return false;
+    config = it->second;
+    return true;
+}
+
+void Widget::StartElementAnimation(const std::wstring &id, const AnimationTarget &to, const AnimationTarget &from, int durationMs, const std::wstring &easing, int iterationCount)
+{
+    WidgetAnimationHelper::StartElementAnimation(*this, id, to, from, durationMs, easing, iterationCount);
+}
+
+void Widget::StartElementKeyframeAnimation(const std::wstring &id, const std::vector<AnimationKeyframe> &keyframes, int durationMs, const std::wstring &easing, int iterationCount)
+{
+    WidgetAnimationHelper::StartElementKeyframeAnimation(*this, id, keyframes, durationMs, easing, iterationCount);
+}
+
+bool Widget::IsLayoutContainer(const std::wstring &id) const
+{
+    return !id.empty() && m_LayoutConfigs.find(id) != m_LayoutConfigs.end();
+}
+
+void Widget::ReflowLayout(const std::wstring &id)
+{
+    if (id.empty())
+        return;
+    Element *container = FindElementById(id);
+    if (!container)
+        return;
+    ApplyLayoutForContainer(container);
+}
+
+void Widget::ApplyLayoutForContainer(Element *container)
+{
+    if (!container)
+        return;
+
+    auto cfgIt = m_LayoutConfigs.find(container->GetId());
+    if (cfgIt == m_LayoutConfigs.end())
+        return;
+
+    const LayoutConfig &cfg = cfgIt->second;
+    const auto &items = container->GetContainerItems();
+    if (items.empty())
+        return;
+
+    if (cfg.minWidth > 0 || cfg.minHeight > 0)
+    {
+        const int currentW = container->GetWidth();
+        const int currentH = container->GetHeight();
+        const int targetW = (cfg.minWidth > 0 && currentW < cfg.minWidth) ? cfg.minWidth : currentW;
+        const int targetH = (cfg.minHeight > 0 && currentH < cfg.minHeight) ? cfg.minHeight : currentH;
+        if (targetW != currentW || targetH != currentH)
+        {
+            container->SetSize(targetW, targetH);
+        }
+    }
+
+    GfxRect bounds = container->GetBounds();
+    int innerW = bounds.Width - cfg.paddingLeft - cfg.paddingRight;
+    int innerH = bounds.Height - cfg.paddingTop - cfg.paddingBottom;
+    if (innerW < 0) innerW = 0;
+    if (innerH < 0) innerH = 0;
+
+    std::wstring dir = cfg.direction;
+    std::transform(dir.begin(), dir.end(), dir.begin(), ::towlower);
+    const bool isRow = (dir == L"row");
+
+    int mainTotal = 0;
+    for (Element *child : items)
+    {
+        if (!child) continue;
+        mainTotal += isRow ? child->GetWidth() : child->GetHeight();
+    }
+    if (items.size() > 1)
+    {
+        mainTotal += cfg.gap * static_cast<int>(items.size() - 1);
+    }
+
+    int mainAvail = isRow ? innerW : innerH;
+    int mainStart = 0;
+    std::wstring justify = cfg.justify;
+    std::transform(justify.begin(), justify.end(), justify.begin(), ::towlower);
+    if (justify == L"center")
+    {
+        mainStart = (mainAvail - mainTotal) / 2;
+    }
+    else if (justify == L"end")
+    {
+        mainStart = (mainAvail - mainTotal);
+    }
+    if (mainStart < 0) mainStart = 0;
+
+    int cursor = mainStart;
+    for (Element *child : items)
+    {
+        if (!child) continue;
+
+        int childW = child->GetWidth();
+        int childH = child->GetHeight();
+
+        std::wstring align = cfg.align;
+        std::transform(align.begin(), align.end(), align.begin(), ::towlower);
+
+        int crossPos = 0;
+        if (isRow)
+        {
+            if (align == L"center") crossPos = (innerH - childH) / 2;
+            else if (align == L"end") crossPos = (innerH - childH);
+            else crossPos = 0;
+
+            child->SetPosition(cfg.paddingLeft + cursor, cfg.paddingTop + (crossPos < 0 ? 0 : crossPos));
+            cursor += childW + cfg.gap;
+        }
+        else
+        {
+            if (align == L"center") crossPos = (innerW - childW) / 2;
+            else if (align == L"end") crossPos = (innerW - childW);
+            else crossPos = 0;
+
+            child->SetPosition(cfg.paddingLeft + (crossPos < 0 ? 0 : crossPos), cfg.paddingTop + cursor);
+            cursor += childH + cfg.gap;
+        }
+    }
 }
 
 bool Widget::WouldCreateContainerCycle(Element *element, Element *container) const
@@ -1877,8 +1971,11 @@ void Widget::RenderContainerChildren(Element *container)
 
     Microsoft::WRL::ComPtr<ID2D1BitmapBrush> opacityBrush;
     bool hasOpacityMask = false;
+    const bool isLayoutContainer = IsLayoutContainer(container->GetId());
 
-    if (bounds.Width > 0 && bounds.Height > 0)
+    // Layout containers are structural wrappers; they should clip children,
+    // but must not apply alpha masking from their own fill/stroke.
+    if (!isLayoutContainer && bounds.Width > 0 && bounds.Height > 0)
     {
         Microsoft::WRL::ComPtr<ID2D1BitmapRenderTarget> maskTarget;
         HRESULT hr = m_pContext->CreateCompatibleRenderTarget(
@@ -2052,118 +2149,164 @@ bool Widget::HitTestContainerChildrenDetailed(
 /*
 ** Update properties of an existing element.
 */
-void Widget::ApplyParsedPropertiesToElement(Element *element, duk_context *ctx)
+void Widget::ApplyParsedPropertiesToElement(Element *element, JSContext *ctx, JSValueConst options)
 {
-    if (!element)
+    if (!element || !ctx || !JS_IsObject(options))
         return;
+
+    const std::wstring baseDir = PathUtils::GetScriptBaseDir(GetOptions().scriptPath, JSEngine::GetEntryScriptDir());
 
     if (element->GetType() == ELEMENT_TEXT)
     {
-        PropertyParser::TextOptions options;
-        PropertyParser::PreFillTextOptions(options, static_cast<TextElement *>(element));
-        PropertyParser::ParseTextOptions(ctx, options);
-        PropertyParser::ApplyTextOptions(static_cast<TextElement *>(element), options);
-        UpdateContainerForElement(element, options.containerId);
+        PropertyParser::TextOptions parsed;
+        PropertyParser::PreFillTextOptions(parsed, static_cast<TextElement *>(element));
+        PropertyParser::ParseTextOptions(ctx, options, parsed, baseDir);
+        PropertyParser::ApplyTextOptions(static_cast<TextElement *>(element), parsed);
+        UpdateContainerForElement(element, parsed.containerId);
     }
     else if (element->GetType() == ELEMENT_IMAGE)
     {
-        PropertyParser::ImageOptions options;
-        PropertyParser::PreFillImageOptions(options, static_cast<ImageElement *>(element));
-        PropertyParser::ParseImageOptions(ctx, options);
-        PropertyParser::ApplyImageOptions(static_cast<ImageElement *>(element), options);
-        UpdateContainerForElement(element, options.containerId);
+        PropertyParser::ImageOptions parsed;
+        PropertyParser::PreFillImageOptions(parsed, static_cast<ImageElement *>(element));
+        PropertyParser::ParseImageOptions(ctx, options, parsed, baseDir);
+        PropertyParser::ApplyImageOptions(static_cast<ImageElement *>(element), parsed);
+        UpdateContainerForElement(element, parsed.containerId);
     }
     else if (element->GetType() == ELEMENT_BAR)
     {
-        PropertyParser::BarOptions options;
-        PropertyParser::PreFillBarOptions(options, static_cast<BarElement *>(element));
-        PropertyParser::ParseBarOptions(ctx, options);
-        PropertyParser::ApplyBarOptions(static_cast<BarElement *>(element), options);
-        UpdateContainerForElement(element, options.containerId);
+        PropertyParser::BarOptions parsed;
+        PropertyParser::PreFillBarOptions(parsed, static_cast<BarElement *>(element));
+        PropertyParser::ParseBarOptions(ctx, options, parsed, baseDir);
+        PropertyParser::ApplyBarOptions(static_cast<BarElement *>(element), parsed);
+        UpdateContainerForElement(element, parsed.containerId);
     }
     else if (element->GetType() == ELEMENT_LINE)
     {
-        PropertyParser::LineOptions options;
-        PropertyParser::PreFillLineOptions(options, static_cast<LineElement *>(element));
-        PropertyParser::ParseLineOptions(ctx, options);
-        PropertyParser::ApplyLineOptions(static_cast<LineElement *>(element), options);
-        UpdateContainerForElement(element, options.containerId);
+        PropertyParser::LineOptions parsed;
+        PropertyParser::PreFillLineOptions(parsed, static_cast<LineElement *>(element));
+        PropertyParser::ParseLineOptions(ctx, options, parsed, baseDir);
+        PropertyParser::ApplyLineOptions(static_cast<LineElement *>(element), parsed);
+        UpdateContainerForElement(element, parsed.containerId);
     }
     else if (element->GetType() == ELEMENT_HISTOGRAM)
     {
-        PropertyParser::HistogramOptions options;
-        PropertyParser::PreFillHistogramOptions(options, static_cast<HistogramElement *>(element));
-        PropertyParser::ParseHistogramOptions(ctx, options);
-        PropertyParser::ApplyHistogramOptions(static_cast<HistogramElement *>(element), options);
-        UpdateContainerForElement(element, options.containerId);
+        PropertyParser::HistogramOptions parsed;
+        PropertyParser::PreFillHistogramOptions(parsed, static_cast<HistogramElement *>(element));
+        PropertyParser::ParseHistogramOptions(ctx, options, parsed, baseDir);
+        PropertyParser::ApplyHistogramOptions(static_cast<HistogramElement *>(element), parsed);
+        UpdateContainerForElement(element, parsed.containerId);
     }
     else if (element->GetType() == ELEMENT_ROUNDLINE)
     {
-        PropertyParser::RoundLineOptions options;
-        PropertyParser::PreFillRoundLineOptions(options, static_cast<RoundLineElement *>(element));
-        PropertyParser::ParseRoundLineOptions(ctx, options);
-        PropertyParser::ApplyRoundLineOptions(static_cast<RoundLineElement *>(element), options);
-        UpdateContainerForElement(element, options.containerId);
+        PropertyParser::RoundLineOptions parsed;
+        PropertyParser::PreFillRoundLineOptions(parsed, static_cast<RoundLineElement *>(element));
+        PropertyParser::ParseRoundLineOptions(ctx, options, parsed, baseDir);
+        PropertyParser::ApplyRoundLineOptions(static_cast<RoundLineElement *>(element), parsed);
+        UpdateContainerForElement(element, parsed.containerId);
+    }
+    else if (element->GetType() == ELEMENT_LAYOUT_BOX)
+    {
+        auto *layout = static_cast<ElementLayoutBox *>(element);
+        PropertyParser::LayoutBoxOptions parsed;
+        LayoutConfig cfg{};
+        if (TryGetLayoutConfig(element->GetId(), cfg))
+        {
+            PropertyParser::PreFillLayoutBoxOptions(
+                parsed,
+                layout,
+                &cfg.direction,
+                &cfg.gap,
+                &cfg.align,
+                &cfg.justify,
+                &cfg.paddingLeft,
+                &cfg.paddingTop,
+                &cfg.paddingRight,
+                &cfg.paddingBottom,
+                &cfg.minWidth,
+                &cfg.minHeight);
+        }
+        else
+        {
+            PropertyParser::PreFillLayoutBoxOptions(parsed, layout);
+        }
+        PropertyParser::ParseLayoutBoxOptions(ctx, options, parsed, baseDir);
+        if (!parsed.hasBoxShadowError)
+        {
+            PropertyParser::ApplyLayoutBoxOptions(layout, parsed);
+            LayoutConfig nextCfg{};
+            nextCfg.direction = parsed.direction;
+            nextCfg.gap = parsed.gap;
+            nextCfg.align = parsed.align.empty() ? L"start" : parsed.align;
+            nextCfg.justify = parsed.justify.empty() ? L"start" : parsed.justify;
+            nextCfg.paddingLeft = parsed.paddingLeft;
+            nextCfg.paddingTop = parsed.paddingTop;
+            nextCfg.paddingRight = parsed.paddingRight;
+            nextCfg.paddingBottom = parsed.paddingBottom;
+            nextCfg.minWidth = parsed.minWidth;
+            nextCfg.minHeight = parsed.minHeight;
+            SetLayoutConfig(element->GetId(), nextCfg);
+            UpdateContainerForElement(element, parsed.shape.containerId);
+        }
     }
     else if (element->GetType() == ELEMENT_SHAPE)
     {
-        PropertyParser::ShapeOptions options;
-        PropertyParser::PreFillShapeOptions(options, static_cast<ShapeElement *>(element));
-        PropertyParser::ParseShapeOptions(ctx, options);
-        PropertyParser::ApplyShapeOptions(static_cast<ShapeElement *>(element), options);
-        UpdateContainerForElement(element, options.containerId);
+        PropertyParser::ShapeOptions parsed;
+        PropertyParser::PreFillShapeOptions(parsed, static_cast<ShapeElement *>(element));
+        PropertyParser::ParseShapeOptions(ctx, options, parsed, baseDir);
+        PropertyParser::ApplyShapeOptions(static_cast<ShapeElement *>(element), parsed);
+        UpdateContainerForElement(element, parsed.containerId);
 
         PathShape *path = dynamic_cast<PathShape *>(element);
-        if (path && (options.isCombine || path->IsCombineShape()))
+        if (path && (parsed.isCombine || path->IsCombineShape()))
         {
-            if (options.isCombine)
+            if (parsed.isCombine)
             {
                 ReleaseCombinedConsumes(path);
-                BuildCombinedShapeGeometry(path, options);
+                BuildCombinedShapeGeometry(path, parsed);
             }
         }
     }
     else if (element->GetType() == ELEMENT_BUTTON)
     {
-        PropertyParser::ButtonOptions options;
-        PropertyParser::PreFillButtonOptions(options, static_cast<ButtonElement *>(element));
-        PropertyParser::ParseButtonOptions(ctx, options);
-        PropertyParser::ApplyButtonOptions(static_cast<ButtonElement *>(element), options);
-        UpdateContainerForElement(element, options.containerId);
+        PropertyParser::ButtonOptions parsed;
+        PropertyParser::PreFillButtonOptions(parsed, static_cast<ButtonElement *>(element));
+        PropertyParser::ParseButtonOptions(ctx, options, parsed, baseDir);
+        PropertyParser::ApplyButtonOptions(static_cast<ButtonElement *>(element), parsed);
+        UpdateContainerForElement(element, parsed.containerId);
     }
     else if (element->GetType() == ELEMENT_BITMAP)
     {
-        PropertyParser::BitmapOptions options;
-        PropertyParser::PreFillBitmapOptions(options, static_cast<BitmapElement *>(element));
-        PropertyParser::ParseBitmapOptions(ctx, options);
-        PropertyParser::ApplyBitmapOptions(static_cast<BitmapElement *>(element), options);
-        UpdateContainerForElement(element, options.containerId);
+        PropertyParser::BitmapOptions parsed;
+        PropertyParser::PreFillBitmapOptions(parsed, static_cast<BitmapElement *>(element));
+        PropertyParser::ParseBitmapOptions(ctx, options, parsed, baseDir);
+        PropertyParser::ApplyBitmapOptions(static_cast<BitmapElement *>(element), parsed);
+        UpdateContainerForElement(element, parsed.containerId);
     }
     else if (element->GetType() == ELEMENT_ROTATOR)
     {
-        PropertyParser::RotatorOptions options;
-        PropertyParser::PreFillRotatorOptions(options, static_cast<RotatorElement *>(element));
-        PropertyParser::ParseRotatorOptions(ctx, options);
-        PropertyParser::ApplyRotatorOptions(static_cast<RotatorElement *>(element), options);
-        UpdateContainerForElement(element, options.containerId);
+        PropertyParser::RotatorOptions parsed;
+        PropertyParser::PreFillRotatorOptions(parsed, static_cast<RotatorElement *>(element));
+        PropertyParser::ParseRotatorOptions(ctx, options, parsed, baseDir);
+        PropertyParser::ApplyRotatorOptions(static_cast<RotatorElement *>(element), parsed);
+        UpdateContainerForElement(element, parsed.containerId);
     }
     else if (element->GetType() == ELEMENT_AREA_GRAPH)
     {
-        PropertyParser::AreaGraphOptions options;
-        PropertyParser::PreFillAreaGraphOptions(options, static_cast<AreaGraphElement *>(element));
-        PropertyParser::ParseAreaGraphOptions(ctx, options);
-        PropertyParser::ApplyAreaGraphOptions(static_cast<AreaGraphElement *>(element), options);
-        UpdateContainerForElement(element, options.containerId);
+        PropertyParser::AreaGraphOptions parsed;
+        PropertyParser::PreFillAreaGraphOptions(parsed, static_cast<AreaGraphElement *>(element));
+        PropertyParser::ParseAreaGraphOptions(ctx, options, parsed, baseDir);
+        PropertyParser::ApplyAreaGraphOptions(static_cast<AreaGraphElement *>(element), parsed);
+        UpdateContainerForElement(element, parsed.containerId);
     }
 }
 
-void Widget::SetElementProperties(const std::wstring &id, duk_context *ctx)
+void Widget::SetElementProperties(const std::wstring &id, JSContext *ctx, JSValueConst options)
 {
     Element *element = FindElementById(id);
     if (!element)
         return;
 
-    ApplyParsedPropertiesToElement(element, ctx);
+    ApplyParsedPropertiesToElement(element, ctx, options);
 
     if (!m_IsBatchUpdating)
     {
@@ -2171,9 +2314,9 @@ void Widget::SetElementProperties(const std::wstring &id, duk_context *ctx)
     }
 }
 
-void Widget::SetGroupProperties(const std::wstring &group, duk_context *ctx)
+void Widget::SetGroupProperties(const std::wstring &group, JSContext *ctx, JSValueConst options)
 {
-    if (group.empty() || !ctx)
+    if (group.empty() || !ctx || !JS_IsObject(options))
         return;
 
     bool changed = false;
@@ -2183,7 +2326,7 @@ void Widget::SetGroupProperties(const std::wstring &group, duk_context *ctx)
             continue;
         if (element->GetGroupId() != group)
             continue;
-        ApplyParsedPropertiesToElement(element, ctx);
+        ApplyParsedPropertiesToElement(element, ctx, options);
         changed = true;
     }
 
@@ -2273,6 +2416,8 @@ bool Widget::RemoveElements(const std::wstring &id)
             delete el;
         }
         m_Elements.clear();
+        m_LayoutConfigs.clear();
+        WidgetAnimationHelper::ClearAllAnimations(*this);
         m_MouseOverElement = nullptr;
         m_TooltipElement = nullptr;
         Redraw();
@@ -2309,6 +2454,8 @@ bool Widget::RemoveElements(const std::wstring &id)
             }
             
             UpdateContainerForElement(element, L"");
+            m_LayoutConfigs.erase(id);
+            WidgetAnimationHelper::RemoveAnimationsForElement(*this, id);
             delete element;
             it = m_Elements.erase(it);
             changed = true;
@@ -2359,6 +2506,8 @@ void Widget::RemoveElements(const std::vector<std::wstring> &ids)
                     (*it)->ClearContainerItems();
                 }
                 UpdateContainerForElement(*it, L"");
+                m_LayoutConfigs.erase(id);
+                WidgetAnimationHelper::RemoveAnimationsForElement(*this, id);
                 delete *it;
                 m_Elements.erase(it);
                 changed = true;
@@ -2395,6 +2544,28 @@ void Widget::Redraw()
     {
         UpdateLayeredWindowContent();
     }
+}
+
+void Widget::ReleaseRenderSurface()
+{
+    if (m_hRenderMemDc && m_hRenderOldBitmap)
+    {
+        SelectObject(m_hRenderMemDc, m_hRenderOldBitmap);
+        m_hRenderOldBitmap = nullptr;
+    }
+    if (m_hRenderBitmap)
+    {
+        DeleteObject(m_hRenderBitmap);
+        m_hRenderBitmap = nullptr;
+    }
+    if (m_hRenderMemDc)
+    {
+        DeleteDC(m_hRenderMemDc);
+        m_hRenderMemDc = nullptr;
+    }
+    m_pRenderBitmapBits = nullptr;
+    m_RenderBitmapW = 0;
+    m_RenderBitmapH = 0;
 }
 
 /*
@@ -2447,6 +2618,7 @@ void Widget::UpdateLayeredWindowContent()
             m_Options.width = calcW;
             m_Options.height = calcH;
             SetWindowPos(m_hWnd, NULL, 0, 0, calcW, calcH, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+            ReleaseRenderSurface();
         }
     }
 
@@ -2457,27 +2629,51 @@ void Widget::UpdateLayeredWindowContent()
         return;
 
     HDC hdcScreen = GetDC(NULL);
-    HDC hdcMem = CreateCompatibleDC(hdcScreen);
 
-    // Create 32-bit bitmap for alpha channel
-    BITMAPINFO bmi;
-    ZeroMemory(&bmi, sizeof(BITMAPINFO));
-    bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-    bmi.bmiHeader.biWidth = w;
-    bmi.bmiHeader.biHeight = -h; // Top-down DIB
-    bmi.bmiHeader.biPlanes = 1;
-    bmi.bmiHeader.biBitCount = 32;
-    bmi.bmiHeader.biCompression = BI_RGB;
-
-    void *pvBits = NULL;
-    HBITMAP hBitmap = CreateDIBSection(hdcMem, &bmi, DIB_RGB_COLORS, &pvBits, NULL, 0);
-    if (!hBitmap)
+    if (!m_hRenderMemDc)
     {
-        DeleteDC(hdcMem);
-        ReleaseDC(NULL, hdcScreen);
-        return;
+        m_hRenderMemDc = CreateCompatibleDC(hdcScreen);
+        if (!m_hRenderMemDc)
+        {
+            ReleaseDC(NULL, hdcScreen);
+            return;
+        }
     }
-    HBITMAP hOldBitmap = (HBITMAP)SelectObject(hdcMem, hBitmap);
+
+    void *pvBits = m_pRenderBitmapBits;
+    if (w != m_RenderBitmapW || h != m_RenderBitmapH || !m_hRenderBitmap)
+    {
+        if (m_hRenderBitmap)
+        {
+            SelectObject(m_hRenderMemDc, m_hRenderOldBitmap);
+            DeleteObject(m_hRenderBitmap);
+            m_hRenderBitmap = nullptr;
+            m_hRenderOldBitmap = nullptr;
+            m_pRenderBitmapBits = nullptr;
+        }
+
+        BITMAPINFO bmi;
+        ZeroMemory(&bmi, sizeof(BITMAPINFO));
+        bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+        bmi.bmiHeader.biWidth = w;
+        bmi.bmiHeader.biHeight = -h;
+        bmi.bmiHeader.biPlanes = 1;
+        bmi.bmiHeader.biBitCount = 32;
+        bmi.bmiHeader.biCompression = BI_RGB;
+
+        m_hRenderBitmap = CreateDIBSection(m_hRenderMemDc, &bmi, DIB_RGB_COLORS, &pvBits, NULL, 0);
+        if (!m_hRenderBitmap)
+        {
+            ReleaseDC(NULL, hdcScreen);
+            return;
+        }
+        m_hRenderOldBitmap = (HBITMAP)SelectObject(m_hRenderMemDc, m_hRenderBitmap);
+        m_pRenderBitmapBits = pvBits;
+        m_RenderBitmapW = w;
+        m_RenderBitmapH = h;
+    }
+
+    HDC hdcMem = m_hRenderMemDc;
 
     // Draw Direct2D
     {
@@ -2548,6 +2744,11 @@ void Widget::UpdateLayeredWindowContent()
                     continue;
                 if (!element->IsContainer())
                 {
+                    element->Render(m_pContext.Get());
+                }
+                else if (element->GetType() == ELEMENT_LAYOUT_BOX)
+                {
+                    // LayoutBox is both structural and visual; render box chrome first.
                     element->Render(m_pContext.Get());
                 }
                 if (element->IsContainer())
@@ -2655,9 +2856,6 @@ void Widget::UpdateLayeredWindowContent()
                      m_Options.id.c_str(), err, w, h, pptDst.x, pptDst.y);
     }
 
-    SelectObject(hdcMem, hOldBitmap);
-    DeleteObject(hBitmap);
-    DeleteDC(hdcMem);
     ReleaseDC(NULL, hdcScreen);
 }
 
@@ -3275,122 +3473,13 @@ void Widget::OnContextMenu()
     if (m_ContextMenuDisabled)
         return;
 
-    POINT pt;
-    GetCursorPos(&pt);
-
-    HMENU hMenu = CreatePopupMenu();
-
-    MenuUtils::BuildMenu(hMenu, m_ContextMenu);
-
-    if (m_ShowDefaultContextMenuItems)
-    {
-        if (!m_ContextMenu.empty())
-        {
-            AppendMenu(hMenu, MF_SEPARATOR, 0, nullptr);
-        }
-
-        HMENU hManageMenu = CreatePopupMenu();
-
-        // 1. Zpos Submenu
-        HMENU hZPosMenu = CreatePopupMenu();
-        AppendMenuW(hZPosMenu, MF_STRING | (m_WindowZPosition == ZPOSITION_NORMAL ? MF_CHECKED : 0), CMD_MANAGE_ZPOS_NORMAL, L"Normal");
-        AppendMenuW(hZPosMenu, MF_STRING | (m_WindowZPosition == ZPOSITION_ONDESKTOP ? MF_CHECKED : 0), CMD_MANAGE_ZPOS_DESKTOP, L"OnDesktop");
-        AppendMenuW(hZPosMenu, MF_STRING | (m_WindowZPosition == ZPOSITION_ONTOP ? MF_CHECKED : 0), CMD_MANAGE_ZPOS_ONTOP, L"OnTop");
-        AppendMenuW(hZPosMenu, MF_STRING | (m_WindowZPosition == ZPOSITION_ONTOPMOST ? MF_CHECKED : 0), CMD_MANAGE_ZPOS_ONTOPMOST, L"OnTopMost");
-        AppendMenuW(hZPosMenu, MF_STRING | (m_WindowZPosition == ZPOSITION_ONBOTTOM ? MF_CHECKED : 0), CMD_MANAGE_ZPOS_BOTTOM, L"Bottom");
-        AppendMenuW(hManageMenu, MF_POPUP, (UINT_PTR)hZPosMenu, L"Zpos");
-
-        // 2. Opacity Submenu
-        HMENU hOpacityMenu = CreatePopupMenu();
-        for (int i = 0; i <= 100; i += 10)
-        {
-            BYTE targetOpacity = (BYTE)(i * 255 / 100);
-            std::wstring label = std::to_wstring(i) + L"%";
-            // Use a small range for check to account for rounding
-            bool isCurrent = abs((int)m_Options.windowOpacity - (int)targetOpacity) < 5;
-            AppendMenuW(hOpacityMenu, MF_STRING | (isCurrent ? MF_CHECKED : 0), CMD_MANAGE_OPACITY_START + (i / 10), label.c_str());
-        }
-        AppendMenuW(hManageMenu, MF_POPUP, (UINT_PTR)hOpacityMenu, L"Opacity");
-
-        AppendMenuW(hManageMenu, MF_SEPARATOR, 0, nullptr);
-
-        // 3. Toggles
-        AppendMenuW(hManageMenu, MF_STRING | (m_Options.draggable ? MF_CHECKED : 0), CMD_MANAGE_DRAGGABLE, L"Draggable");
-        AppendMenuW(hManageMenu, MF_STRING | (m_Options.clickThrough ? MF_CHECKED : 0), CMD_MANAGE_CLICKTHROUGH, L"Clickthrough");
-        AppendMenuW(hManageMenu, MF_STRING | (m_Options.snapEdges ? MF_CHECKED : 0), CMD_MANAGE_SNAPEDGES, L"Snap to Edges");
-        AppendMenuW(hManageMenu, MF_STRING | (m_Options.keepOnScreen ? MF_CHECKED : 0), CMD_MANAGE_KEEPOFFSCREEN, L"Keep On Screen");
-
-        AppendMenuW(hMenu, MF_POPUP, (UINT_PTR)hManageMenu, L"Manage");
-
-        HMENU hAppMenu = CreatePopupMenu();
-        AppendMenuW(hAppMenu, MF_STRING, CMD_REFRESH, L"Refresh");
-        AppendMenuW(hAppMenu, MF_STRING, CMD_EXIT, L"Exit");
-
-        std::wstring appTitle = PathUtils::GetProductName();
-        AppendMenuW(hMenu, MF_POPUP, (UINT_PTR)hAppMenu, appTitle.c_str());
-    }
-
-    SetForegroundWindow(m_hWnd);
-    int cmd = TrackPopupMenu(hMenu, TPM_RETURNCMD | TPM_NONOTIFY | TPM_BOTTOMALIGN | TPM_LEFTALIGN, pt.x, pt.y, 0, m_hWnd, NULL);
-    DestroyMenu(hMenu);
-
-    if (cmd >= 2000)
-    {
-        JSEngine::OnWidgetContextCommand(m_Options.id, cmd);
-    }
-    else if (cmd == CMD_REFRESH)
-    {
-        JSEngine::Reload();
-    }
-    else if (cmd == CMD_CLOSE)
-    {
-        DestroyWindow(m_hWnd);
-    }
-    else if (cmd == CMD_EXIT)
-    {
-        PostQuitMessage(0);
-    }
-    else if (cmd == CMD_MANAGE_ZPOS_NORMAL)
-    {
-        ChangeZPos(ZPOSITION_NORMAL);
-    }
-    else if (cmd == CMD_MANAGE_ZPOS_DESKTOP)
-    {
-        ChangeZPos(ZPOSITION_ONDESKTOP);
-    }
-    else if (cmd == CMD_MANAGE_ZPOS_BOTTOM)
-    {
-        ChangeZPos(ZPOSITION_ONBOTTOM);
-    }
-    else if (cmd == CMD_MANAGE_ZPOS_ONTOP)
-    {
-        ChangeZPos(ZPOSITION_ONTOP);
-    }
-    else if (cmd == CMD_MANAGE_ZPOS_ONTOPMOST)
-    {
-        ChangeZPos(ZPOSITION_ONTOPMOST);
-    }
-    else if (cmd >= CMD_MANAGE_OPACITY_START && cmd <= CMD_MANAGE_OPACITY_START + 10)
-    {
-        int percent = (cmd - CMD_MANAGE_OPACITY_START) * 10;
-        SetWindowOpacity((BYTE)(percent * 255 / 100));
-    }
-    else if (cmd == CMD_MANAGE_DRAGGABLE)
-    {
-        SetDraggable(!m_Options.draggable);
-    }
-    else if (cmd == CMD_MANAGE_CLICKTHROUGH)
-    {
-        SetClickThrough(!m_Options.clickThrough);
-    }
-    else if (cmd == CMD_MANAGE_SNAPEDGES)
-    {
-        SetSnapEdges(!m_Options.snapEdges);
-    }
-    else if (cmd == CMD_MANAGE_KEEPOFFSCREEN)
-    {
-        SetKeepOnScreen(!m_Options.keepOnScreen);
-    }
+    const int cmd = WidgetContextMenuHelper::ShowContextMenu(
+        m_hWnd,
+        m_ContextMenu,
+        m_ShowDefaultContextMenuItems,
+        m_WindowZPosition,
+        m_Options);
+    WidgetContextMenuHelper::HandleContextCommand(*this, cmd);
 }
 
 void Widget::BeginUpdate()

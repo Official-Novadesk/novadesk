@@ -32,6 +32,7 @@ target_compile_definitions(novadesk PRIVATE UNICODE _UNICODE)
 target_include_directories(novadesk PRIVATE
     "${APP_SRC_DIR}"
     "${APP_SRC_DIR}/domain"
+    "${APP_SRC_DIR}/domain/animation"
     "${APP_SRC_DIR}/shared"
     "${APP_SRC_DIR}/render"
     "${APP_SRC_DIR}/scripting/quickjs"

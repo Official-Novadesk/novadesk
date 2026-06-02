@@ -1,3 +1,10 @@
+/* Copyright (C) 2026 OfficialNovadesk
+ *
+ * This Source Code Form is subject to the terms of the GNU General Public
+ * License; either version 2 of the License, or (at your option) any later
+ * version. If a copy of the GPL was not distributed with this file, You can
+ * obtain one at <https://www.gnu.org/licenses/gpl-2.0.html>. */
+ 
 #include "NovadeskModule.h"
 
 #include <map>
@@ -12,6 +19,7 @@
 #include "../../shared/Logging.h"
 #include "../../shared/PathUtils.h"
 #include "../../shared/Settings.h"
+#include "../../shared/System.h"
 #include "../../shared/Utils.h"
 #include "../engine/JSEngine.h"
 #include "ModuleSystem.h"
@@ -881,6 +889,135 @@ namespace novadesk::scripting::quickjs
             return JS_NewBool(ctx, Settings::IsFirstRun() ? 1 : 0);
         }
 
+        static std::wstring GetStorageFilePath()
+        {
+            return PathUtils::GetAppDataPath() + L"storage.json";
+        }
+
+        static JSValue LoadStorageObject(JSContext *ctx)
+        {
+            const std::wstring storagePath = GetStorageFilePath();
+            std::string text;
+            if (!::novadesk::shared::system::JsonReadTextFile(storagePath, text))
+            {
+                return JS_NewObject(ctx);
+            }
+
+            if (text.find_first_not_of(" \t\r\n") == std::string::npos)
+            {
+                return JS_NewObject(ctx);
+            }
+
+            JSValue parsed = JS_ParseJSON(ctx, text.c_str(), text.size(), Utils::ToString(storagePath).c_str());
+            if (JS_IsException(parsed) || !JS_IsObject(parsed))
+            {
+                if (!JS_IsException(parsed))
+                {
+                    JS_FreeValue(ctx, parsed);
+                }
+                return JS_NewObject(ctx);
+            }
+            return parsed;
+        }
+
+        static bool SaveStorageObject(JSContext *ctx, JSValueConst storageObj)
+        {
+            JSValue indent = JS_NewInt32(ctx, 2);
+            JSValue serialized = JS_JSONStringify(ctx, storageObj, JS_UNDEFINED, indent);
+            JS_FreeValue(ctx, indent);
+            if (JS_IsException(serialized))
+            {
+                return false;
+            }
+
+            const char *text = JS_ToCString(ctx, serialized);
+            if (!text)
+            {
+                JS_FreeValue(ctx, serialized);
+                return false;
+            }
+
+            const bool ok = ::novadesk::shared::system::JsonWriteTextFile(GetStorageFilePath(), text);
+            JS_FreeCString(ctx, text);
+            JS_FreeValue(ctx, serialized);
+            return ok;
+        }
+
+        JSValue JsAppStorageGet(JSContext *ctx, JSValueConst, int argc, JSValueConst *argv)
+        {
+            if (argc < 1 || !JS_IsString(argv[0]))
+            {
+                return JS_ThrowTypeError(ctx, "app.storage.get(key[, defaultValue]) requires string key");
+            }
+
+            JSValue storageObj = LoadStorageObject(ctx);
+            const char *key = JS_ToCString(ctx, argv[0]);
+            if (!key)
+            {
+                JS_FreeValue(ctx, storageObj);
+                return JS_EXCEPTION;
+            }
+
+            JSValue out = JS_GetPropertyStr(ctx, storageObj, key);
+            JS_FreeCString(ctx, key);
+            JS_FreeValue(ctx, storageObj);
+
+            if (JS_IsUndefined(out) && argc > 1)
+            {
+                JS_FreeValue(ctx, out);
+                return JS_DupValue(ctx, argv[1]);
+            }
+            return out;
+        }
+
+        JSValue JsAppStorageSet(JSContext *ctx, JSValueConst, int argc, JSValueConst *argv)
+        {
+            if (argc < 2 || !JS_IsString(argv[0]))
+            {
+                return JS_ThrowTypeError(ctx, "app.storage.set(key, value) requires string key");
+            }
+
+            JSValue storageObj = LoadStorageObject(ctx);
+            const char *key = JS_ToCString(ctx, argv[0]);
+            if (!key)
+            {
+                JS_FreeValue(ctx, storageObj);
+                return JS_EXCEPTION;
+            }
+
+            JS_SetPropertyStr(ctx, storageObj, key, JS_DupValue(ctx, argv[1]));
+            JS_FreeCString(ctx, key);
+
+            const bool ok = SaveStorageObject(ctx, storageObj);
+            JS_FreeValue(ctx, storageObj);
+            return JS_NewBool(ctx, ok ? 1 : 0);
+        }
+
+        JSValue JsAppStorageRemove(JSContext *ctx, JSValueConst, int argc, JSValueConst *argv)
+        {
+            if (argc < 1 || !JS_IsString(argv[0]))
+            {
+                return JS_ThrowTypeError(ctx, "app.storage.remove(key) requires string key");
+            }
+
+            JSValue storageObj = LoadStorageObject(ctx);
+            const char *key = JS_ToCString(ctx, argv[0]);
+            if (!key)
+            {
+                JS_FreeValue(ctx, storageObj);
+                return JS_EXCEPTION;
+            }
+
+            JSAtom keyAtom = JS_NewAtom(ctx, key);
+            const int deleted = JS_DeleteProperty(ctx, storageObj, keyAtom, 0);
+            JS_FreeAtom(ctx, keyAtom);
+            JS_FreeCString(ctx, key);
+
+            const bool saved = SaveStorageObject(ctx, storageObj);
+            JS_FreeValue(ctx, storageObj);
+            return JS_NewBool(ctx, (deleted == 1 && saved) ? 1 : 0);
+        }
+
         static bool IsTrayEventName(const std::string &name)
         {
             static const std::unordered_set<std::string> kNames = {
@@ -1262,6 +1399,11 @@ namespace novadesk::scripting::quickjs
             JS_SetPropertyStr(ctx, app, "isPortable", JS_NewCFunction(ctx, JsAppIsPortable, "isPortable", 0));
             JS_SetPropertyStr(ctx, app, "isFirstRun", JS_NewCFunction(ctx, JsAppIsFirstRun, "isFirstRun", 0));
             JS_SetPropertyStr(ctx, app, "enableDebugging", JS_NewCFunction(ctx, JsAppEnableDebugging, "enableDebugging", 1));
+            JSValue storage = JS_NewObject(ctx);
+            JS_SetPropertyStr(ctx, storage, "get", JS_NewCFunction(ctx, JsAppStorageGet, "get", 2));
+            JS_SetPropertyStr(ctx, storage, "set", JS_NewCFunction(ctx, JsAppStorageSet, "set", 2));
+            JS_SetPropertyStr(ctx, storage, "remove", JS_NewCFunction(ctx, JsAppStorageRemove, "remove", 1));
+            JS_SetPropertyStr(ctx, app, "storage", storage);
             JS_SetModuleExport(ctx, m, "app", app);
 
             JSValue addon = JS_NewObject(ctx);

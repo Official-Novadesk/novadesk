@@ -12,6 +12,7 @@
 #include <commctrl.h>
 #include <string>
 #include <vector>
+#include <unordered_map>
 #include <d2d1_1.h>
 #include <wrl/client.h>
 #include "DesktopManager.h"
@@ -20,6 +21,7 @@
 #include "../render/ImageElement.h"
 #include "../render/BitmapElement.h"
 #include "../render/RotatorElement.h"
+#include "../render/ElementLayoutBox.h"
 #include "../render/HistogramElement.h"
 #include "../render/ButtonElement.h"
 #include "../render/BarElement.h"
@@ -29,8 +31,7 @@
 
 #pragma comment(lib, "comctl32.lib")
 
-struct duk_hthread;
-typedef struct duk_hthread duk_context;
+#include "quickjs.h"
 
 namespace PropertyParser {
     struct ImageOptions;
@@ -77,6 +78,66 @@ struct WidgetOptions
 class Widget
 {
 public:
+    struct LayoutConfig
+    {
+        std::wstring direction = L"column"; // "row" | "column"
+        int gap = 0;
+        std::wstring align = L"start";   // "start" | "center" | "end" | "stretch"
+        std::wstring justify = L"start"; // currently used as start/center/end for main axis
+        int paddingLeft = 0;
+        int paddingTop = 0;
+        int paddingRight = 0;
+        int paddingBottom = 0;
+        int minWidth = 0;
+        int minHeight = 0;
+    };
+    struct AnimationTarget
+    {
+        bool hasX = false;
+        bool hasY = false;
+        bool hasWidth = false;
+        bool hasHeight = false;
+        bool hasRotate = false;
+        float x = 0.0f;
+        float y = 0.0f;
+        float width = 0.0f;
+        float height = 0.0f;
+        float rotate = 0.0f;
+        bool hasFontSize = false;
+        bool hasFontWeight = false;
+        bool hasLetterSpacing = false;
+        bool hasFontColor = false;
+        float fontSize = 12.0f;
+        float fontWeight = 400.0f;
+        float letterSpacing = 0.0f;
+        float fontColorR = 0.0f;
+        float fontColorG = 0.0f;
+        float fontColorB = 0.0f;
+        float fontAlpha = 255.0f;
+
+        bool HasTransformProps() const
+        {
+            return hasX || hasY || hasWidth || hasHeight || hasRotate;
+        }
+
+        bool HasTextProps() const
+        {
+            return hasFontSize || hasFontWeight || hasLetterSpacing || hasFontColor;
+        }
+
+        bool HasAnyProps() const
+        {
+            return HasTransformProps() || HasTextProps();
+        }
+    };
+
+    struct AnimationKeyframe
+    {
+        float offset = 0.0f;
+        std::wstring easing;
+        AnimationTarget values;
+    };
+
     Widget(const WidgetOptions& options);
 
     ~Widget();
@@ -121,9 +182,10 @@ public:
     void AddRoundLine(const PropertyParser::RoundLineOptions& options);
     void AddShape(const PropertyParser::ShapeOptions& options);
     void AddAreaGraph(const PropertyParser::AreaGraphOptions& options);
+    void AddLayoutBox(const PropertyParser::ShapeOptions& options);
 
-    void SetElementProperties(const std::wstring& id, duk_context* ctx);
-    void SetGroupProperties(const std::wstring& group, duk_context* ctx);
+    void SetElementProperties(const std::wstring& id, JSContext* ctx, JSValueConst options);
+    void SetGroupProperties(const std::wstring& group, JSContext* ctx, JSValueConst options);
     void RemoveElementsByGroup(const std::wstring& group);
     bool RemoveElements(const std::wstring& id = L"");
     void RemoveElements(const std::vector<std::wstring>& ids);
@@ -142,6 +204,14 @@ public:
     static std::vector<Widget *> &GetAllWidgets();
     static void ClearAllWidgets();
     static bool IsValid(Widget* pWidget);
+    void SetLayoutConfig(const std::wstring &id, const LayoutConfig &config);
+    bool TryGetLayoutConfig(const std::wstring &id, LayoutConfig &config) const;
+    bool IsLayoutContainer(const std::wstring &id) const;
+    void ReflowLayout(const std::wstring &id);
+    void StartElementAnimation(const std::wstring &id, const AnimationTarget &to, const AnimationTarget &from, int durationMs, const std::wstring &easing, int iterationCount);
+    void StartElementKeyframeAnimation(const std::wstring &id, const std::vector<AnimationKeyframe> &keyframes, int durationMs, const std::wstring &easing, int iterationCount);
+
+    friend class WidgetAnimationHelper;
 
 private:
     static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
@@ -157,9 +227,10 @@ private:
     void OnContextMenu();
     bool BuildCombinedShapeGeometry(class PathShape* target, const PropertyParser::ShapeOptions& options);
     void ReleaseCombinedConsumes(class PathShape* target);
-    void ApplyParsedPropertiesToElement(Element* element, duk_context* ctx);
+    void ApplyParsedPropertiesToElement(Element* element, JSContext* ctx, JSValueConst options);
     void UpdateContainerForElement(Element* element, const std::wstring& newContainerId);
     bool WouldCreateContainerCycle(Element* element, Element* container) const;
+    void ApplyLayoutForContainer(Element *container);
     void RenderContainerChildren(Element* container);
     bool HitTestContainerChildren(Element* container, int x, int y, Element*& outElement);
     bool HitTestContainerChildrenDetailed(
@@ -181,6 +252,24 @@ private:
     Tooltip m_Tooltip;
     ZPOSITION m_WindowZPosition;
     std::vector<Element*> m_Elements;
+    std::unordered_map<std::wstring, LayoutConfig> m_LayoutConfigs;
+    struct ElementAnimation
+    {
+        std::wstring id;
+        std::wstring easing = L"linear";
+        DWORD startTick = 0;
+        int durationMs = 250;
+        int iterationCount = 1;
+        int completedIterations = 0;
+        bool useKeyframes = false;
+        std::vector<float> keyframeOffsets;
+        std::vector<std::wstring> keyframeEasings;
+        std::vector<AnimationTarget> resolvedStops;
+        AnimationTarget from;
+        AnimationTarget to;
+    };
+
+    std::vector<ElementAnimation> m_Animations;
     Element* m_MouseOverElement = nullptr;
     Element* m_TooltipElement = nullptr;
     int m_IsBatchUpdating = 0;
@@ -208,13 +297,21 @@ private:
     void ApplyToolbarIcon();
     void ApplyToolbarTitle();
     void DestroyToolbarIcon();
+    void ReleaseRenderSurface();
     
     // Rendering
     Microsoft::WRL::ComPtr<ID2D1DeviceContext> m_pContext;
+    HDC m_hRenderMemDc = nullptr;
+    HBITMAP m_hRenderBitmap = nullptr;
+    HBITMAP m_hRenderOldBitmap = nullptr;
+    void *m_pRenderBitmapBits = nullptr;
+    int m_RenderBitmapW = 0;
+    int m_RenderBitmapH = 0;
 
     static const UINT_PTR TIMER_TOPMOST = 2;
     static const UINT_PTR TIMER_TOOLTIP = 3;
     static const UINT_PTR TIMER_CTRL_OVERRIDE = 4;
+    static const UINT_PTR TIMER_ANIMATION = 5;
 };
 
 #endif

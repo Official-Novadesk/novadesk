@@ -31,4 +31,42 @@ If you enjoy using Novadesk and want to support its development, consider becomi
 - ☕ [Patreon](https://www.patreon.com/c/officialnovadesk) - Support the project's growth and get exclusive updates.
 
 ## Novadesk Ecosystem
-[![](https://mermaid.ink/img/pako:eNp9Vmtz2jgU_Ssaf0ragMMrD2anM1sCu8mUlC2hmdllp6PYF6MgJK8kh5A0_71Xkg3YkM2HjHQf51zdeyTzGkQyhqAbzLhcRXOqDLn7PBUE_3T2kCiazsm3TBi2hH-mgZBPNAa9qMMzFOZp8K-Pt399YdQaA2O5pEyEt0V8lKa_Pajw0-qeiSF6yEeyBK1pAoRLmeLWKLouQY3X2sCyJxVs8a4Qy8h0SAVmKotKjiJOtc6jjx1J7KPIXGqDyC81qWJQllIKZqQi2lBTrnsMxjCRaKTS2ASIw8JS_-Awb8Zfb2sPNFpATFJQmiFdTCIpZiwpId2zOAGzLdnvc5QVE7FcEc5mEK0jDlgTPIEw2i44LHGJjYBybd9AYPmIqNwi9FBXTEFkmld_Ak_d4QZSmLwxuOvnaDhE1yDQJcwRVdph6kix1B40_C9j0eJRh6lzhSMlEdesfeSmC0RitBTERmEWqX0ivY_b4r23zHUzPsgDImECwptx3y1yhr-sF2mUF1eIHTbwbMdot8o26nrUw_8R5dzOo8w1lHHGwYvhIOvSBehwNzCn9i4ipFpSzl4g5JLisCVn0foAidVKjtYlhdC9C8vzyJvtYOyXjshLYsI-oxqsxNDvTfdOHn2riMJXVqmT5lajH0hmGGeGgXbAnjQcMA4TdOhwRM3cr77IJLF9GILInGUDjKKaisqNH7u-2RP6wgpDuQ0ob2_HOHfxie83OYphRjOOclCk9-UaxWLmx6XcCdtk5gyT6zz7SB__b239ZwNKUI6pI07NDMdFQnI3Zyq2sjbrynUUv4-uHY3trSa4882aoKxbzXA8B87D3tdhaJ-mYQgmqpcQckUihLEcP1LL4fVUe6woXUtRiXtEEzkSXM6XVIhyEwaDu0r0gmn9YzYzjdZpKfKWCjn-_kclWqBVPyWHuuXHUcPbuX1G9zz5C1e134yrFj-iqtW_S3uoTppFHXiTrXH3tnnHrmUnRJfTNgrbTdLOVyioYNrGWvfPaRApwFc-XLonkazcEXBcP0unKVDyHP8-hxlzMqkG50q17P5V9Ga_3mvJTvQ75vIA8jMfNuZNLX8XS7PZn5kV_jspW9dOObtmX_GeOS8nvxLvTLLkLY7jlYWXITe7Azkj3oI9zlzvUxGcBIlicdA1KoOTAL8A-FHFbfBqc-x1APsLpIvLmKrFNJiKN8xJqfhbymWRpmSWzIPujHKNuyyNURhXjOJ7sg1x5D2Jn52g2zm7dBhB9zV4Drq188uL-sVps432RrPdarZPgjWaO-edervV6jQ7jQ56zxtvJ8GLo23WT89azdP2-Vmn1bi8sAkQ258eQ_9jy_3mevsFD-cSuA?type=png)](https://mermaid.live/edit#pako:eNp9Vmtz2jgU_Ssaf0ragMMrD2anM1sCu8mUlC2hmdllp6PYF6MgJK8kh5A0_71Xkg3YkM2HjHQf51zdeyTzGkQyhqAbzLhcRXOqDLn7PBUE_3T2kCiazsm3TBi2hH-mgZBPNAa9qMMzFOZp8K-Pt399YdQaA2O5pEyEt0V8lKa_Pajw0-qeiSF6yEeyBK1pAoRLmeLWKLouQY3X2sCyJxVs8a4Qy8h0SAVmKotKjiJOtc6jjx1J7KPIXGqDyC81qWJQllIKZqQi2lBTrnsMxjCRaKTS2ASIw8JS_-Awb8Zfb2sPNFpATFJQmiFdTCIpZiwpId2zOAGzLdnvc5QVE7FcEc5mEK0jDlgTPIEw2i44LHGJjYBybd9AYPmIqNwi9FBXTEFkmld_Ak_d4QZSmLwxuOvnaDhE1yDQJcwRVdph6kix1B40_C9j0eJRh6lzhSMlEdesfeSmC0RitBTERmEWqX0ivY_b4r23zHUzPsgDImECwptx3y1yhr-sF2mUF1eIHTbwbMdot8o26nrUw_8R5dzOo8w1lHHGwYvhIOvSBehwNzCn9i4ipFpSzl4g5JLisCVn0foAidVKjtYlhdC9C8vzyJvtYOyXjshLYsI-oxqsxNDvTfdOHn2riMJXVqmT5lajH0hmGGeGgXbAnjQcMA4TdOhwRM3cr77IJLF9GILInGUDjKKaisqNH7u-2RP6wgpDuQ0ob2_HOHfxie83OYphRjOOclCk9-UaxWLmx6XcCdtk5gyT6zz7SB__b239ZwNKUI6pI07NDMdFQnI3Zyq2sjbrynUUv4-uHY3trSa4882aoKxbzXA8B87D3tdhaJ-mYQgmqpcQckUihLEcP1LL4fVUe6woXUtRiXtEEzkSXM6XVIhyEwaDu0r0gmn9YzYzjdZpKfKWCjn-_kclWqBVPyWHuuXHUcPbuX1G9zz5C1e134yrFj-iqtW_S3uoTppFHXiTrXH3tnnHrmUnRJfTNgrbTdLOVyioYNrGWvfPaRApwFc-XLonkazcEXBcP0unKVDyHP8-hxlzMqkG50q17P5V9Ga_3mvJTvQ75vIA8jMfNuZNLX8XS7PZn5kV_jspW9dOObtmX_GeOS8nvxLvTLLkLY7jlYWXITe7Azkj3oI9zlzvUxGcBIlicdA1KoOTAL8A-FHFbfBqc-x1APsLpIvLmKrFNJiKN8xJqfhbymWRpmSWzIPujHKNuyyNURhXjOJ7sg1x5D2Jn52g2zm7dBhB9zV4Drq188uL-sVps432RrPdarZPgjWaO-edervV6jQ7jQ56zxtvJ8GLo23WT89azdP2-Vmn1bi8sAkQ258eQ_9jy_3mevsFD-cSuA)
+
+Full diagrams (all `src/apps` apps, `novadesk/` layers, render class tree, and data flow): **[src/apps/ARCHITECTURE.md](src/apps/ARCHITECTURE.md)**
+
+```mermaid
+flowchart TB
+  subgraph src_apps ["src/apps"]
+    Novadesk["novadesk/<br/>Runtime EXE"]
+    Nwm["nwm/<br/>CLI: init, run, build"]
+    Manage["manage_novadesk/<br/>Widget manager GUI"]
+    Restart["restart_novadesk/<br/>Restart helper"]
+    Ndpkg["ndpkg_installer/<br/>.ndpkg installer"]
+    Stub["installer_stub/<br/>Setup bootstrap"]
+    Assets["assets/images"]
+  end
+
+  Dev["Developer"] --> Nwm
+  User["User"] --> Manage
+  User --> Novadesk
+
+  Nwm -->|"build"| Stub
+  Nwm --> Novadesk
+  Manage --> Novadesk
+  Ndpkg --> Novadesk
+  Restart --> Manage
+  Stub -->|"install"| Novadesk
+
+  subgraph novadesk_layers ["novadesk/ internals"]
+    JS["scripting/quickjs<br/>JSEngine, PropertyParser, modules"]
+    Domain["domain/<br/>Widget, DesktopManager, Animation"]
+    Render["render/<br/>Elements, Shapes, Direct2D"]
+    Shared["shared/<br/>Settings, Logging, Utils"]
+  end
+
+  Novadesk --> JS
+  JS --> Domain
+  Domain --> Render
+  Domain --> Shared
+  Render --> Shared
+```
