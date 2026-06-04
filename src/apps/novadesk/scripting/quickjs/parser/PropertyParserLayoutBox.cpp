@@ -317,8 +317,6 @@ namespace PropertyParser
         {
             int padX = 0;
             int padY = 0;
-            int minWidth = 0;
-            int minHeight = 0;
             if (GetIntProp(ctx, stylePadding, "padding", pad))
                 options.paddingLeft = options.paddingTop = options.paddingRight = options.paddingBottom = pad;
             if (GetIntProp(ctx, stylePadding, "paddingX", padX))
@@ -337,10 +335,6 @@ namespace PropertyParser
                 std::transform(justifyContent.begin(), justifyContent.end(), justifyContent.begin(), ::towlower);
                 options.justify = justifyContent;
             }
-            if (GetIntProp(ctx, stylePadding, "minWidth", minWidth) && minWidth > 0)
-                options.minWidth = minWidth;
-            if (GetIntProp(ctx, stylePadding, "minHeight", minHeight) && minHeight > 0)
-                options.minHeight = minHeight;
         }
         JS_FreeValue(ctx, stylePadding);
     }
@@ -386,9 +380,7 @@ namespace PropertyParser
         const int *paddingLeft,
         const int *paddingTop,
         const int *paddingRight,
-        const int *paddingBottom,
-        const int *minWidth,
-        const int *minHeight)
+        const int *paddingBottom)
     {
         if (!element)
             return;
@@ -426,7 +418,5 @@ namespace PropertyParser
         options.paddingTop = paddingTop ? *paddingTop : element->GetPaddingTop();
         options.paddingRight = paddingRight ? *paddingRight : element->GetPaddingRight();
         options.paddingBottom = paddingBottom ? *paddingBottom : element->GetPaddingBottom();
-        options.minWidth = minWidth ? *minWidth : 0;
-        options.minHeight = minHeight ? *minHeight : 0;
     }
 }

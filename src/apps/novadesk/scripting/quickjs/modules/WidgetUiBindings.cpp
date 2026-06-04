@@ -505,10 +505,6 @@ namespace novadesk::scripting::quickjs
             cfg.paddingTop = layoutOptions.paddingTop;
             cfg.paddingRight = layoutOptions.paddingRight;
             cfg.paddingBottom = layoutOptions.paddingBottom;
-            if (layoutOptions.minWidth > 0)
-                cfg.minWidth = layoutOptions.minWidth;
-            if (layoutOptions.minHeight > 0)
-                cfg.minHeight = layoutOptions.minHeight;
 
             widget->SetLayoutConfig(shapeOptions.id, cfg);
             JSValue childRes = AddLayoutBoxChildren(ctx, widget, thisVal, argv[0], shapeOptions.id);
@@ -853,9 +849,7 @@ namespace novadesk::scripting::quickjs
                         &cfg.paddingLeft,
                         &cfg.paddingTop,
                         &cfg.paddingRight,
-                        &cfg.paddingBottom,
-                        &cfg.minWidth,
-                        &cfg.minHeight);
+                        &cfg.paddingBottom);
                 }
                 else
                 {
@@ -875,8 +869,6 @@ namespace novadesk::scripting::quickjs
                 nextCfg.paddingTop = options.paddingTop;
                 nextCfg.paddingRight = options.paddingRight;
                 nextCfg.paddingBottom = options.paddingBottom;
-                nextCfg.minWidth = options.minWidth;
-                nextCfg.minHeight = options.minHeight;
                 widget->SetLayoutConfig(id, nextCfg);
             }
             else if (auto *shape = dynamic_cast<ShapeElement *>(element))

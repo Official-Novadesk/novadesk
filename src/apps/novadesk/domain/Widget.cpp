@@ -1857,18 +1857,6 @@ void Widget::ApplyLayoutForContainer(Element *container)
     if (items.empty())
         return;
 
-    if (cfg.minWidth > 0 || cfg.minHeight > 0)
-    {
-        const int currentW = container->GetWidth();
-        const int currentH = container->GetHeight();
-        const int targetW = (cfg.minWidth > 0 && currentW < cfg.minWidth) ? cfg.minWidth : currentW;
-        const int targetH = (cfg.minHeight > 0 && currentH < cfg.minHeight) ? cfg.minHeight : currentH;
-        if (targetW != currentW || targetH != currentH)
-        {
-            container->SetSize(targetW, targetH);
-        }
-    }
-
     GfxRect bounds = container->GetBounds();
     int innerW = bounds.Width - cfg.paddingLeft - cfg.paddingRight;
     int innerH = bounds.Height - cfg.paddingTop - cfg.paddingBottom;
@@ -2221,9 +2209,7 @@ void Widget::ApplyParsedPropertiesToElement(Element *element, JSContext *ctx, JS
                 &cfg.paddingLeft,
                 &cfg.paddingTop,
                 &cfg.paddingRight,
-                &cfg.paddingBottom,
-                &cfg.minWidth,
-                &cfg.minHeight);
+                &cfg.paddingBottom);
         }
         else
         {
@@ -2242,8 +2228,6 @@ void Widget::ApplyParsedPropertiesToElement(Element *element, JSContext *ctx, JS
             nextCfg.paddingTop = parsed.paddingTop;
             nextCfg.paddingRight = parsed.paddingRight;
             nextCfg.paddingBottom = parsed.paddingBottom;
-            nextCfg.minWidth = parsed.minWidth;
-            nextCfg.minHeight = parsed.minHeight;
             SetLayoutConfig(element->GetId(), nextCfg);
             UpdateContainerForElement(element, parsed.shape.containerId);
         }

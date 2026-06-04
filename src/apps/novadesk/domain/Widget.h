@@ -88,8 +88,6 @@ public:
         int paddingTop = 0;
         int paddingRight = 0;
         int paddingBottom = 0;
-        int minWidth = 0;
-        int minHeight = 0;
     };
     struct AnimationTarget
     {

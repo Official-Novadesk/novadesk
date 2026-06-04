@@ -81,9 +81,7 @@ namespace PropertyParser
         const int *paddingLeft = nullptr,
         const int *paddingTop = nullptr,
         const int *paddingRight = nullptr,
-        const int *paddingBottom = nullptr,
-        const int *minWidth = nullptr,
-        const int *minHeight = nullptr);
+        const int *paddingBottom = nullptr);
     void PreFillAreaGraphOptions(AreaGraphOptions &options, AreaGraphElement *element);
 
     void ParseGeneralImageOptions(JSContext *ctx, JSValueConst obj, GeneralImageOptions &options);
