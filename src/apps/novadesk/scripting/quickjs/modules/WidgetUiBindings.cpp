@@ -352,7 +352,8 @@ namespace novadesk::scripting::quickjs
         static JSValue CreateTypedElementObject(JSContext *ctx, JSValueConst srcOptions, const char *typeName)
         {
             JSValue obj = JS_NewObject(ctx);
-            JS_SetPropertyStr(ctx, obj, "type", JS_NewString(ctx, typeName));
+            // Only set 'elementType' (no longer setting 'type' for backward compatibility)
+            JS_SetPropertyStr(ctx, obj, "elementType", JS_NewString(ctx, typeName));
             if (JS_IsObject(srcOptions))
             {
                 JSPropertyEnum *tab = nullptr;
@@ -365,7 +366,8 @@ namespace novadesk::scripting::quickjs
                         const char *key = JS_ToCString(ctx, keyV);
                         if (key)
                         {
-                            if (std::strcmp(key, "type") != 0)
+                            // Skip 'elementType' and 'type' to avoid overwriting
+                            if (std::strcmp(key, "elementType") != 0 && std::strcmp(key, "type") != 0)
                             {
                                 JSValue val = JS_GetProperty(ctx, srcOptions, tab[i].atom);
                                 JS_SetPropertyStr(ctx, obj, key, val);
@@ -386,7 +388,13 @@ namespace novadesk::scripting::quickjs
             (void)thisVal;
             if (!widget || !JS_IsObject(obj))
                 return JS_UNDEFINED;
-            std::wstring type = ReadObjectString(ctx, obj, "type");
+            
+            // Only check 'elementType' - no fallback to 'type'
+            std::wstring type = ReadObjectString(ctx, obj, "elementType");
+            if (type.empty())
+            {
+                return ThrowTypeError(ctx, "addLayoutBox", "children item must have 'elementType' property");
+            }
             std::transform(type.begin(), type.end(), type.begin(), ::towlower);
 
             JSValue argvLocal[1] = { obj };
@@ -414,7 +422,7 @@ namespace novadesk::scripting::quickjs
                 return JsWidgetAddAreaGraph(ctx, thisVal, 1, argvLocal);
             if (type == L"layoutbox")
                 return JS_UNDEFINED;
-            return ThrowTypeError(ctx, "addLayoutBox", "children item has unsupported type");
+            return ThrowTypeError(ctx, "addLayoutBox", Utils::ToString(L"children item has unsupported elementType: " + type).c_str());
         }
 
         static JSValue JsWidgetAddLayoutBox(JSContext *ctx, JSValueConst thisVal, int argc, JSValueConst *argv);
@@ -443,8 +451,17 @@ namespace novadesk::scripting::quickjs
                 }
 
                 JS_SetPropertyStr(ctx, child, "container", JS_NewString(ctx, Utils::ToString(layoutId).c_str()));
-                std::wstring type = ReadObjectString(ctx, child, "type");
+                
+                // Only check 'elementType' - no fallback to 'type'
+                std::wstring type = ReadObjectString(ctx, child, "elementType");
+                if (type.empty())
+                {
+                    JS_FreeValue(ctx, child);
+                    JS_FreeValue(ctx, childrenVal);
+                    return ThrowTypeError(ctx, "addLayoutBox", "children item must have 'elementType' property");
+                }
                 std::transform(type.begin(), type.end(), type.begin(), ::towlower);
+                
                 JSValue res = JS_UNDEFINED;
                 if (type == L"layoutbox")
                 {
@@ -1867,18 +1884,6 @@ namespace novadesk::scripting::quickjs
             JS_CFUNC_DEF("addAreaGraph", 1, JsWidgetAddAreaGraph),
             JS_CFUNC_DEF("addLayout", 1, JsWidgetAddLayout),
             JS_CFUNC_DEF("addLayoutBox", 1, JsWidgetAddLayoutBox),
-            JS_CFUNC_MAGIC_DEF("text", 1, JsWidgetElementFactory, 0),
-            JS_CFUNC_MAGIC_DEF("image", 1, JsWidgetElementFactory, 1),
-            JS_CFUNC_MAGIC_DEF("shape", 1, JsWidgetElementFactory, 2),
-            JS_CFUNC_MAGIC_DEF("button", 1, JsWidgetElementFactory, 3),
-            JS_CFUNC_MAGIC_DEF("bitmap", 1, JsWidgetElementFactory, 4),
-            JS_CFUNC_MAGIC_DEF("rotator", 1, JsWidgetElementFactory, 5),
-            JS_CFUNC_MAGIC_DEF("bar", 1, JsWidgetElementFactory, 6),
-            JS_CFUNC_MAGIC_DEF("line", 1, JsWidgetElementFactory, 7),
-            JS_CFUNC_MAGIC_DEF("histogram", 1, JsWidgetElementFactory, 8),
-            JS_CFUNC_MAGIC_DEF("roundLine", 1, JsWidgetElementFactory, 9),
-            JS_CFUNC_MAGIC_DEF("areaGraph", 1, JsWidgetElementFactory, 10),
-            JS_CFUNC_MAGIC_DEF("layoutBox", 1, JsWidgetElementFactory, 11),
             JS_CFUNC_DEF("animate", 1, JsWidgetAnimate),
             JS_CFUNC_DEF("setElementProperty", 3, JsWidgetSetElementProperty),
             JS_CFUNC_DEF("setElementProperties", 2, JsWidgetSetElementProperties),
