@@ -33,10 +33,11 @@ public:
 
     enum class ListStyleType
     {
-        Disc,      // • (filled circle)
-        Circle,    // ○ (hollow circle)
-        Square,    // ■ (filled square)
-        None       // No marker
+        Disc,        // • (filled circle)
+        Circle,      // ○ (hollow circle)
+        Square,      // ■ (filled square)
+        UpperRoman,  // I, II, III, IV, V, etc.
+        None         // No marker
     };
 
     struct ListMarker

@@ -357,60 +357,180 @@ void ElementLayoutBox::RenderListMarker(ID2D1DeviceContext* context)
     if (m_ListMarker.type == ListStyleType::None)
         return;
     
-    // Create brush for the marker
-    Microsoft::WRL::ComPtr<ID2D1SolidColorBrush> markerBrush;
-    if (!Direct2D::CreateSolidBrush(context, m_ListMarker.color, m_ListMarker.alpha / 255.0f, &markerBrush))
-        return;
+    // Check if this listitem has children
+    const auto& children = GetContainerItems();
+    if (children.empty())
+        return;  // No children, no markers to render
     
-    // Calculate marker position
-    // Position marker to the left of the content box (respecting padding)
-    const float markerCenterX = (float)(m_X + m_PaddingLeft) + m_ListMarker.offsetX;
-    const float markerCenterY = (float)(m_Y + m_PaddingTop) + (m_ListMarker.size * 1.5f);
-    const float markerSize = m_ListMarker.size;
+    Logging::Log(LogLevel::Debug, L"[LIST-MARKER] Rendering markers for listitem '%s' with %d children", 
+        m_Id.c_str(), static_cast<int>(children.size()));
     
-    // Render different marker types
-    switch (m_ListMarker.type)
+    // Auto-calculate starting index based on sibling position
+    int startingIndex = 1;
+    Element* container = GetContainer();
+    if (container)
     {
-        case ListStyleType::Disc:
+        const auto& siblings = container->GetContainerItems();
+        for (Element* sibling : siblings)
         {
-            // Filled circle (•)
-            D2D1_ELLIPSE disc = D2D1::Ellipse(
-                D2D1::Point2F(markerCenterX, markerCenterY),
-                markerSize / 2.0f,
-                markerSize / 2.0f
-            );
-            context->FillEllipse(disc, markerBrush.Get());
-            break;
+            if (sibling == this)
+                break;  // Found ourselves, stop counting
+            
+            // Count only list items with same list style type
+            ElementLayoutBox* siblingBox = dynamic_cast<ElementLayoutBox*>(sibling);
+            if (siblingBox && 
+                siblingBox->GetDisplayType() == DisplayType::ListItem &&
+                siblingBox->GetListStyleType() == m_ListMarker.type)
+            {
+                // Add the number of children in the sibling (each child gets a marker)
+                const auto& siblingChildren = siblingBox->GetContainerItems();
+                startingIndex += std::max(1, static_cast<int>(siblingChildren.size()));
+            }
+        }
+    }
+    
+    // Render marker for each child element
+    int childIndex = 0;
+    for (Element* child : children)
+    {
+        if (!child || !child->IsVisible())
+            continue;
+        
+        const int displayIndex = startingIndex + childIndex;
+        
+        Logging::Log(LogLevel::Debug, L"[LIST-MARKER] Child %d: pos(%d,%d) index=%d", 
+            childIndex, child->GetX(), child->GetY(), displayIndex);
+        
+        // Create brush for the marker
+        Microsoft::WRL::ComPtr<ID2D1SolidColorBrush> markerBrush;
+        if (!Direct2D::CreateSolidBrush(context, m_ListMarker.color, m_ListMarker.alpha / 255.0f, &markerBrush))
+            continue;
+        
+        // Calculate marker position
+        // Children have RELATIVE positions, so we need to add the parent's position
+        // to get the absolute screen position
+        const float childAbsoluteX = (float)(m_X + child->GetX());
+        const float childAbsoluteY = (float)(m_Y + child->GetY());
+        const float markerCenterX = childAbsoluteX + m_ListMarker.offsetX;
+        const float markerCenterY = childAbsoluteY + (m_ListMarker.size * 1.5f);
+        const float markerSize = m_ListMarker.size;
+        
+        Logging::Log(LogLevel::Debug, L"[LIST-MARKER] Marker at (%.1f, %.1f) size=%.1f type=%d", 
+            markerCenterX, markerCenterY, markerSize, static_cast<int>(m_ListMarker.type));
+        
+        // Render different marker types
+        switch (m_ListMarker.type)
+        {
+            case ListStyleType::Disc:
+            {
+                // Filled circle (•)
+                D2D1_ELLIPSE disc = D2D1::Ellipse(
+                    D2D1::Point2F(markerCenterX, markerCenterY),
+                    markerSize / 2.0f,
+                    markerSize / 2.0f
+                );
+                context->FillEllipse(disc, markerBrush.Get());
+                break;
+            }
+            
+            case ListStyleType::Circle:
+            {
+                // Hollow circle (○)
+                D2D1_ELLIPSE circle = D2D1::Ellipse(
+                    D2D1::Point2F(markerCenterX, markerCenterY),
+                    markerSize / 2.0f,
+                    markerSize / 2.0f
+                );
+                context->DrawEllipse(circle, markerBrush.Get(), 1.0f);
+                break;
+            }
+            
+            case ListStyleType::Square:
+            {
+                // Filled square (■)
+                D2D1_RECT_F square = D2D1::RectF(
+                    markerCenterX - (markerSize / 2.0f),
+                    markerCenterY - (markerSize / 2.0f),
+                    markerCenterX + (markerSize / 2.0f),
+                    markerCenterY + (markerSize / 2.0f)
+                );
+                context->FillRectangle(square, markerBrush.Get());
+                break;
+            }
+            
+            case ListStyleType::UpperRoman:
+            {
+                // Roman numerals (I, II, III, IV, V, etc.)
+                auto toRomanNumeral = [](int num) -> std::wstring
+                {
+                    if (num <= 0 || num > 3999)
+                        return L"?";
+                    
+                    const std::vector<std::pair<int, std::wstring>> romanPairs = {
+                        {1000, L"M"}, {900, L"CM"}, {500, L"D"}, {400, L"CD"},
+                        {100, L"C"}, {90, L"XC"}, {50, L"L"}, {40, L"XL"},
+                        {10, L"X"}, {9, L"IX"}, {5, L"V"}, {4, L"IV"}, {1, L"I"}
+                    };
+                    
+                    std::wstring result;
+                    for (const auto& [value, numeral] : romanPairs)
+                    {
+                        while (num >= value)
+                        {
+                            result += numeral;
+                            num -= value;
+                        }
+                    }
+                    return result;
+                };
+                
+                std::wstring romanText = toRomanNumeral(displayIndex) + L".";
+                
+                // Create text format for rendering the roman numeral
+                Microsoft::WRL::ComPtr<IDWriteTextFormat> textFormat;
+                Microsoft::WRL::ComPtr<IDWriteFactory> writeFactory;
+                if (SUCCEEDED(DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, __uuidof(IDWriteFactory), 
+                    reinterpret_cast<IUnknown**>(writeFactory.GetAddressOf()))))
+                {
+                    if (SUCCEEDED(writeFactory->CreateTextFormat(
+                        L"Segoe UI",
+                        nullptr,
+                        DWRITE_FONT_WEIGHT_NORMAL,
+                        DWRITE_FONT_STYLE_NORMAL,
+                        DWRITE_FONT_STRETCH_NORMAL,
+                        markerSize * 2.0f,  // Font size based on marker size
+                        L"en-us",
+                        textFormat.GetAddressOf())))
+                    {
+                        textFormat->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_TRAILING);
+                        textFormat->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_NEAR);
+                        
+                        // Position text to the left of content
+                        D2D1_RECT_F textRect = D2D1::RectF(
+                            markerCenterX - 50.0f,  // Wide enough for roman numerals
+                            markerCenterY - (markerSize * 1.5f),
+                            markerCenterX,
+                            markerCenterY + (markerSize * 1.5f)
+                        );
+                        
+                        context->DrawText(
+                            romanText.c_str(),
+                            static_cast<UINT32>(romanText.length()),
+                            textFormat.Get(),
+                            textRect,
+                            markerBrush.Get()
+                        );
+                    }
+                }
+                break;
+            }
+            
+            case ListStyleType::None:
+            default:
+                // Do nothing
+                break;
         }
         
-        case ListStyleType::Circle:
-        {
-            // Hollow circle (○)
-            D2D1_ELLIPSE circle = D2D1::Ellipse(
-                D2D1::Point2F(markerCenterX, markerCenterY),
-                markerSize / 2.0f,
-                markerSize / 2.0f
-            );
-            context->DrawEllipse(circle, markerBrush.Get(), 1.0f);
-            break;
-        }
-        
-        case ListStyleType::Square:
-        {
-            // Filled square (■)
-            D2D1_RECT_F square = D2D1::RectF(
-                markerCenterX - (markerSize / 2.0f),
-                markerCenterY - (markerSize / 2.0f),
-                markerCenterX + (markerSize / 2.0f),
-                markerCenterY + (markerSize / 2.0f)
-            );
-            context->FillRectangle(square, markerBrush.Get());
-            break;
-        }
-        
-        case ListStyleType::None:
-        default:
-            // Do nothing
-            break;
+        childIndex++;
     }
 }

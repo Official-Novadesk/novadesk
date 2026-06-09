@@ -4,13 +4,13 @@ ui.beginUpdate();
 ui.addLayoutBox({
     id: "flex-type",
     display: "flex",
-    x:"10",
-    y:"10",
-    padding:10,
-    gap:10,
-    width:500,
-    height:200,
-    backgroundColor:"rgba(10,10,10,0.5)",
+    x: "10",
+    y: "10",
+    padding: 10,
+    gap: 10,
+    width: 500,
+    height: 200,
+    backgroundColor: "rgba(10,10,10,0.5)",
     children: [
         {
             elementType: "shape",
@@ -55,13 +55,13 @@ ui.addLayoutBox({
 ui.addLayoutBox({
     id: "none-type",
     display: "none",
-    x:"10",
-    y:"230",
-    padding:10,
-    gap:10,
-    width:500,
-    height:200,
-    backgroundColor:"rgba(10,10,10,0.5)",
+    x: "10",
+    y: "230",
+    padding: 10,
+    gap: 10,
+    width: 500,
+    height: 200,
+    backgroundColor: "rgba(10,10,10,0.5)",
     children: [
         {
             elementType: "shape",
@@ -89,14 +89,14 @@ ui.addLayoutBox({
     id: "listitem-disc",
     display: "listitem",
     listStyleType: "disc",
-    x:"20",
-    y:"230",
+    x: "20",
+    y: "230",
     flexDirection: "column",
-    padding:10,
-    gap:10,
-    width:500,
-    height:80,
-    backgroundColor:"rgba(10,10,10,0.5)",
+    padding: 10,
+    gap: 10,
+    width: 500,
+    height: 80,
+    backgroundColor: "rgba(10,10,10,0.5)",
     children: [
         {
             elementType: "text",
@@ -115,14 +115,14 @@ ui.addLayoutBox({
     id: "listitem-circle",
     display: "listitem",
     listStyleType: "circle",
-    x:"20",
-    y:"330",
+    x: "20",
+    y: "330",
     flexDirection: "column",
-    padding:10,
-    gap:10,
-    width:500,
-    height:80,
-    backgroundColor:"rgba(10,10,10,0.5)",
+    padding: 10,
+    gap: 10,
+    width: 500,
+    height: 80,
+    backgroundColor: "rgba(10,10,10,0.5)",
     children: [
         {
             elementType: "text",
@@ -141,14 +141,14 @@ ui.addLayoutBox({
     id: "listitem-square",
     display: "listitem",
     listStyleType: "square",
-    x:"20",
-    y:"430",
+    x: "20",
+    y: "430",
     flexDirection: "column",
-    padding:10,
-    gap:10,
-    width:500,
-    height:80,
-    backgroundColor:"rgba(10,10,10,0.5)",
+    padding: 10,
+    gap: 10,
+    width: 500,
+    height: 80,
+    backgroundColor: "rgba(10,10,10,0.5)",
     children: [
         {
             elementType: "text",
@@ -167,19 +167,127 @@ ui.addLayoutBox({
     id: "listitem-none",
     display: "listitem",
     listStyleType: "none",
-    x:"20",
-    y:"530",
+    x: "20",
+    y: "530",
     flexDirection: "column",
-    padding:10,
-    gap:10,
-    width:500,
-    height:80,
-    backgroundColor:"rgba(10,10,10,0.5)",
+    padding: 10,
+    gap: 10,
+    width: 500,
+    height: 80,
+    backgroundColor: "rgba(10,10,10,0.5)",
     children: [
         {
             elementType: "text",
             id: "listitemText4",
             text: "List item with no marker (listStyleType: none)",
+            x: 20,
+            y: 10,
+            fontSize: 16,
+            fontColor: "rgba(255, 255, 255, 1)"
+        }
+    ]
+})
+
+// Test 7: display:listitem with listStyleType:upperroman (Roman numerals - auto-indexed)
+ui.addLayoutBox({
+    id: "listitem-roman1",
+    display: "listitem",
+    listStyleType: "upper-roman",
+    x: "20",
+    y: "630",
+    flexDirection: "column",
+    padding: 10,
+    gap: 10,
+    width: 500,
+    height: 80,
+    backgroundColor: "rgba(10,10,10,0.5)",
+    children: [
+        {
+            elementType: "text",
+            id: "listitemText5",
+            text: "First list item with Roman numeral (auto I.)",
+            x: 20,
+            y: 10,
+            fontSize: 16,
+            fontColor: "rgba(255, 255, 255, 1)"
+        }
+    ]
+})
+
+ui.addLayoutBox({
+    id: "listitem-roman2",
+    display: "listitem",
+    listStyleType: "upper-roman",
+    x: "20",
+    y: "730",
+    flexDirection: "column",
+    padding: 10,
+    gap: 10,
+    width: 500,
+    height: 120,
+    backgroundColor: "rgba(10,10,10,0.5)",
+    children: [
+        {
+            elementType: "text",
+            id: "listitemText6",
+            text: "Second list item with Roman numeral (auto II.)",
+            // NO x/y - let flex layout position it automatically
+            fontSize: 16,
+            fontColor: "rgba(255, 255, 255, 1)"
+        },
+        {
+            elementType: "text",
+            id: "listitemText65",
+            text: "Third list item with Roman numeral (auto III.)",
+            // NO x/y - let flex layout position it automatically
+            fontSize: 16,
+            fontColor: "rgba(255, 255, 255, 1)"
+        }
+    ]
+})
+
+ui.addLayoutBox({
+    id: "listitem-roman3",
+    display: "listitem",
+    listStyleType: "upper-roman",
+    x: "20",
+    y: "870",
+    flexDirection: "column",
+    padding: 10,
+    gap: 10,
+    width: 500,
+    height: 80,
+    backgroundColor: "rgba(10,10,10,0.5)",
+    children: [
+        {
+            elementType: "text",
+            id: "listitemText67",
+            text: "Fourth list item with Roman numeral (auto IV.)",
+            x: 20,
+            y: 10,
+            fontSize: 16,
+            fontColor: "rgba(255, 255, 255, 1)"
+        }
+    ]
+})
+
+ui.addLayoutBox({
+    id: "listitem-roman4",
+    display: "listitem",
+    listStyleType: "upper-roman",
+    x: "20",
+    y: "970",
+    flexDirection: "column",
+    padding: 10,
+    gap: 10,
+    width: 500,
+    height: 80,
+    backgroundColor: "rgba(10,10,10,0.5)",
+    children: [
+        {
+            elementType: "text",
+            id: "listitemText7",
+            text: "Fifth list item with Roman numeral (auto V.)",
             x: 20,
             y: 10,
             fontSize: 16,
