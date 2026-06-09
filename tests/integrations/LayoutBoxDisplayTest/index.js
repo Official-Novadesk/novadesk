@@ -6,7 +6,7 @@ const win = new widgetWindow({
   id: "LayoutApiTestWindow(Display)",
   x: 180,
   y: 140,
-  width: 520,
+  width: 620,
   height: 520,
   backgroundColor: "rgba(255, 255, 255, 0.95)",
   script: "./script.ui.js",

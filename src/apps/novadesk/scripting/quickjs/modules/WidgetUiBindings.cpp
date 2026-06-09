@@ -1700,20 +1700,9 @@ namespace novadesk::scripting::quickjs
                         {
                             switch (d)
                             {
-                            case ElementLayoutBox::DisplayType::Inline: return "inline";
-                            case ElementLayoutBox::DisplayType::Block: return "block";
-                            case ElementLayoutBox::DisplayType::InlineBlock: return "inlineblock";
                             case ElementLayoutBox::DisplayType::Flex: return "flex";
-                            case ElementLayoutBox::DisplayType::Contents: return "contents";
-                            case ElementLayoutBox::DisplayType::InlineFlex: return "inlineflex";
-                            case ElementLayoutBox::DisplayType::Grid: return "grid";
-                            case ElementLayoutBox::DisplayType::InlineGrid: return "inlinegrid";
-                            case ElementLayoutBox::DisplayType::Table: return "table";
-                            case ElementLayoutBox::DisplayType::InlineTable: return "inlinetable";
-                            case ElementLayoutBox::DisplayType::ListItem: return "listitem";
                             case ElementLayoutBox::DisplayType::None: return "none";
-                            case ElementLayoutBox::DisplayType::RunIn: return "runin";
-                            default: return "block";
+                            default: return "flex";
                             }
                         };
                         return JS_NewString(ctx, displayToStr(layoutBox->GetDisplayType()));

@@ -340,32 +340,10 @@ namespace PropertyParser
         if (!displayStr.empty())
         {
             std::transform(displayStr.begin(), displayStr.end(), displayStr.begin(), ::towlower);
-            if (displayStr == L"inline")
-                options.displayType = ElementLayoutBox::DisplayType::Inline;
-            else if (displayStr == L"block")
-                options.displayType = ElementLayoutBox::DisplayType::Block;
-            else if (displayStr == L"inlineblock")
-                options.displayType = ElementLayoutBox::DisplayType::InlineBlock;
-            else if (displayStr == L"flex")
+            if (displayStr == L"flex")
                 options.displayType = ElementLayoutBox::DisplayType::Flex;
-            else if (displayStr == L"contents")
-                options.displayType = ElementLayoutBox::DisplayType::Contents;
-            else if (displayStr == L"inlineflex")
-                options.displayType = ElementLayoutBox::DisplayType::InlineFlex;
-            else if (displayStr == L"grid")
-                options.displayType = ElementLayoutBox::DisplayType::Grid;
-            else if (displayStr == L"inlinegrid")
-                options.displayType = ElementLayoutBox::DisplayType::InlineGrid;
-            else if (displayStr == L"table")
-                options.displayType = ElementLayoutBox::DisplayType::Table;
-            else if (displayStr == L"inlinetable")
-                options.displayType = ElementLayoutBox::DisplayType::InlineTable;
-            else if (displayStr == L"listitem")
-                options.displayType = ElementLayoutBox::DisplayType::ListItem;
             else if (displayStr == L"none")
                 options.displayType = ElementLayoutBox::DisplayType::None;
-            else if (displayStr == L"runin")
-                options.displayType = ElementLayoutBox::DisplayType::RunIn;
         }
 
         JSValue stylePadding = JS_GetPropertyStr(ctx, obj, "style");
@@ -397,32 +375,10 @@ namespace PropertyParser
             if (!styleDisplay.empty())
             {
                 std::transform(styleDisplay.begin(), styleDisplay.end(), styleDisplay.begin(), ::towlower);
-                if (styleDisplay == L"inline")
-                    options.displayType = ElementLayoutBox::DisplayType::Inline;
-                else if (styleDisplay == L"block")
-                    options.displayType = ElementLayoutBox::DisplayType::Block;
-                else if (styleDisplay == L"inlineblock")
-                    options.displayType = ElementLayoutBox::DisplayType::InlineBlock;
-                else if (styleDisplay == L"flex")
+                if (styleDisplay == L"flex")
                     options.displayType = ElementLayoutBox::DisplayType::Flex;
-                else if (styleDisplay == L"contents")
-                    options.displayType = ElementLayoutBox::DisplayType::Contents;
-                else if (styleDisplay == L"inlineflex")
-                    options.displayType = ElementLayoutBox::DisplayType::InlineFlex;
-                else if (styleDisplay == L"grid")
-                    options.displayType = ElementLayoutBox::DisplayType::Grid;
-                else if (styleDisplay == L"inlinegrid")
-                    options.displayType = ElementLayoutBox::DisplayType::InlineGrid;
-                else if (styleDisplay == L"table")
-                    options.displayType = ElementLayoutBox::DisplayType::Table;
-                else if (styleDisplay == L"inlinetable")
-                    options.displayType = ElementLayoutBox::DisplayType::InlineTable;
-                else if (styleDisplay == L"listitem")
-                    options.displayType = ElementLayoutBox::DisplayType::ListItem;
                 else if (styleDisplay == L"none")
                     options.displayType = ElementLayoutBox::DisplayType::None;
-                else if (styleDisplay == L"runin")
-                    options.displayType = ElementLayoutBox::DisplayType::RunIn;
             }
         }
         JS_FreeValue(ctx, stylePadding);

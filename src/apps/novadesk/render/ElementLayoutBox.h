@@ -15,19 +15,8 @@ class ElementLayoutBox : public ShapeElement
 public:
     enum class DisplayType
     {
-        Inline,
-        Block,
-        InlineBlock,
         Flex,
-        Contents,
-        InlineFlex,
-        Grid,
-        InlineGrid,
-        Table,
-        InlineTable,
-        ListItem,
-        None,
-        RunIn
+        None
     };
 
     struct BoxShadow
@@ -91,7 +80,7 @@ private:
     BorderStyle m_BorderStyleRight = BorderStyle::Solid;
     BorderStyle m_BorderStyleBottom = BorderStyle::Solid;
     BorderStyle m_BorderStyleLeft = BorderStyle::Solid;
-    DisplayType m_DisplayType = DisplayType::Block;
+    DisplayType m_DisplayType = DisplayType::Flex;
     std::wstring m_FlexDirection = L"row";
     int m_LayoutGap = 0;
 };

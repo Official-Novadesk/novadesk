@@ -1858,22 +1858,13 @@ void Widget::ApplyLayoutForContainer(Element *container)
     if (items.empty())
         return;
 
-    // Check if this is a Grid layout container
-    // Note: Grid layout algorithm not yet fully implemented - currently falls through to flex logic
-    ElementLayoutBox *layoutBox = dynamic_cast<ElementLayoutBox*>(container);
-    const bool isGridLayout = layoutBox && 
-        (layoutBox->GetDisplayType() == ElementLayoutBox::DisplayType::Grid ||
-         layoutBox->GetDisplayType() == ElementLayoutBox::DisplayType::InlineGrid);
-
     // Set layout properties on ElementLayoutBox for auto-sizing calculations
+    ElementLayoutBox *layoutBox = dynamic_cast<ElementLayoutBox*>(container);
     if (layoutBox)
     {
         layoutBox->SetLayoutDirection(cfg.flexDirection);
         layoutBox->SetLayoutGap(cfg.gap);
     }
-
-    // TODO: Implement proper Grid layout algorithm when Grid is fully supported
-    // For now, all layouts use Flexbox logic below
 
     GfxRect bounds = container->GetBounds();
     int innerW = bounds.Width - cfg.paddingLeft - cfg.paddingRight;
