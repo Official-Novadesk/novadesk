@@ -592,6 +592,50 @@ void ElementLayoutBox::RenderListMarker(ID2D1DeviceContext* context)
                 break;
             }
             
+            case ListStyleType::Decimal:
+            {
+                // Decimal numbers (1., 2., 3., etc.)
+                std::wstring decimalText = std::to_wstring(displayIndex) + L".";
+                
+                // Create text format for rendering the decimal number
+                Microsoft::WRL::ComPtr<IDWriteTextFormat> textFormat;
+                Microsoft::WRL::ComPtr<IDWriteFactory> writeFactory;
+                if (SUCCEEDED(DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, __uuidof(IDWriteFactory), 
+                    reinterpret_cast<IUnknown**>(writeFactory.GetAddressOf()))))
+                {
+                    if (SUCCEEDED(writeFactory->CreateTextFormat(
+                        L"Segoe UI",
+                        nullptr,
+                        DWRITE_FONT_WEIGHT_NORMAL,
+                        DWRITE_FONT_STYLE_NORMAL,
+                        DWRITE_FONT_STRETCH_NORMAL,
+                        markerSize * 2.0f,  // Font size based on marker size
+                        L"en-us",
+                        textFormat.GetAddressOf())))
+                    {
+                        textFormat->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_TRAILING);
+                        textFormat->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_NEAR);
+                        
+                        // Position text to the left of content
+                        D2D1_RECT_F textRect = D2D1::RectF(
+                            markerCenterX - 50.0f,  // Wide enough for numbers
+                            markerCenterY - (markerSize * 1.5f),
+                            markerCenterX,
+                            markerCenterY + (markerSize * 1.5f)
+                        );
+                        
+                        context->DrawText(
+                            decimalText.c_str(),
+                            static_cast<UINT32>(decimalText.length()),
+                            textFormat.Get(),
+                            textRect,
+                            markerBrush.Get()
+                        );
+                    }
+                }
+                break;
+            }
+            
             case ListStyleType::None:
             default:
                 // Do nothing

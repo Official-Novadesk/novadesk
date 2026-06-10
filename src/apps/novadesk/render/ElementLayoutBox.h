@@ -38,6 +38,7 @@ public:
         Square,      // ■ (filled square)
         UpperRoman,  // I, II, III, IV, V, etc.
         LowerRoman,  // i, ii, iii, iv, v, etc.
+        Decimal,     // 1, 2, 3, 4, 5, etc.
         None         // No marker
     };
 

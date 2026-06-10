@@ -347,4 +347,38 @@ ui.addLayoutBox({
     ]
 })
 
+ui.addLayoutBox({
+    id: "listitem-lowerroman56",
+    display: "listitem",
+    listStyleType: "decimal",
+    x: "20",
+    y: "1350",
+    flexDirection: "column",
+    padding: 10,
+    gap: 10,
+    width: 500,
+    height: 80,
+    backgroundColor: "rgba(10,10,10,0.5)",
+    children: [
+        {
+            elementType: "text",
+            id: "listitemText9",
+            text: "Second list item with lower Roman numeral (auto ii.)",
+            x: 20,
+            y: 10,
+            fontSize: 16,
+            fontColor: "rgba(255, 255, 255, 1)"
+        },
+                {
+            elementType: "text",
+            id: "listitemText95454",
+            text: "Second list item with lower Roman numeral (auto ii.)",
+            x: 20,
+            y: 10,
+            fontSize: 16,
+            fontColor: "rgba(255, 255, 255, 1)"
+        }
+    ]
+})
+
 ui.endUpdate();

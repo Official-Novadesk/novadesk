@@ -363,6 +363,8 @@ namespace PropertyParser
                 options.listStyleType = ElementLayoutBox::ListStyleType::UpperRoman;
             else if (listStyleTypeStr == L"lower-roman")
                 options.listStyleType = ElementLayoutBox::ListStyleType::LowerRoman;
+            else if (listStyleTypeStr == L"decimal")
+                options.listStyleType = ElementLayoutBox::ListStyleType::Decimal;
             else if (listStyleTypeStr == L"none")
                 options.listStyleType = ElementLayoutBox::ListStyleType::None;
         }

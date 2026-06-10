@@ -1719,6 +1719,7 @@ namespace novadesk::scripting::quickjs
                             case ElementLayoutBox::ListStyleType::Square: return "square";
                             case ElementLayoutBox::ListStyleType::UpperRoman: return "upper-roman";
                             case ElementLayoutBox::ListStyleType::LowerRoman: return "lower-roman";
+                            case ElementLayoutBox::ListStyleType::Decimal: return "decimal";
                             case ElementLayoutBox::ListStyleType::None: return "none";
                             default: return "disc";
                             }
