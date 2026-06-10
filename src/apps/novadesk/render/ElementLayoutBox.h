@@ -101,6 +101,9 @@ public:
 private:
     void RenderSingleShadow(ID2D1DeviceContext *context, const D2D1_ROUNDED_RECT &baseRect, const BoxShadow &shadow);
     void RenderListMarker(ID2D1DeviceContext *context);
+    void RenderTextMarker(ID2D1DeviceContext *context, const std::wstring &text,
+                          float markerCenterX, float markerCenterY, float markerSize,
+                          ID2D1SolidColorBrush *brush);
     BoxBorderPaintParams BuildBorderPaintParams() const;
 
     float m_RadiusX = 0.0f;

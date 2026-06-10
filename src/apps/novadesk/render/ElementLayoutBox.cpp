@@ -347,6 +347,48 @@ BoxBorderPaintParams ElementLayoutBox::BuildBorderPaintParams() const
     return params;
 }
 
+void ElementLayoutBox::RenderTextMarker(
+    ID2D1DeviceContext* context,
+    const std::wstring& text,
+    float markerCenterX, float markerCenterY, float markerSize,
+    ID2D1SolidColorBrush* brush)
+{
+    Microsoft::WRL::ComPtr<IDWriteTextFormat> textFormat;
+    Microsoft::WRL::ComPtr<IDWriteFactory> writeFactory;
+    if (FAILED(DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, __uuidof(IDWriteFactory),
+        reinterpret_cast<IUnknown**>(writeFactory.GetAddressOf()))))
+        return;
+
+    if (FAILED(writeFactory->CreateTextFormat(
+        L"Segoe UI",
+        nullptr,
+        DWRITE_FONT_WEIGHT_NORMAL,
+        DWRITE_FONT_STYLE_NORMAL,
+        DWRITE_FONT_STRETCH_NORMAL,
+        markerSize * 2.0f,
+        L"en-us",
+        textFormat.GetAddressOf())))
+        return;
+
+    textFormat->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_TRAILING);
+    textFormat->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_NEAR);
+
+    const D2D1_RECT_F textRect = D2D1::RectF(
+        markerCenterX - 50.0f,
+        markerCenterY - (markerSize * 1.5f),
+        markerCenterX,
+        markerCenterY + (markerSize * 1.5f)
+    );
+
+    context->DrawText(
+        text.c_str(),
+        static_cast<UINT32>(text.length()),
+        textFormat.Get(),
+        textRect,
+        brush
+    );
+}
+
 void ElementLayoutBox::RenderListMarker(ID2D1DeviceContext* context)
 {
     // Only render marker for list items
@@ -388,7 +430,47 @@ void ElementLayoutBox::RenderListMarker(ID2D1DeviceContext* context)
             }
         }
     }
-    
+
+    // Helper lambdas for converting an index to a marker string
+    auto toRoman = [](int num, bool upper) -> std::wstring
+    {
+        if (num <= 0 || num > 3999)
+            return L"?";
+        struct Pair { int value; const wchar_t* upper; const wchar_t* lower; };
+        const Pair pairs[] = {
+            {1000,L"M",L"m"},{900,L"CM",L"cm"},{500,L"D",L"d"},{400,L"CD",L"cd"},
+            {100,L"C",L"c"},{90,L"XC",L"xc"},{50,L"L",L"l"},{40,L"XL",L"xl"},
+            {10,L"X",L"x"},{9,L"IX",L"ix"},{5,L"V",L"v"},{4,L"IV",L"iv"},{1,L"I",L"i"}
+        };
+        std::wstring result;
+        for (const auto& p : pairs)
+        {
+            while (num >= p.value)
+            {
+                result += upper ? p.upper : p.lower;
+                num -= p.value;
+            }
+        }
+        return result;
+    };
+
+    auto toAlpha = [](int num, bool upper) -> std::wstring
+    {
+        if (num <= 0)
+            return L"?";
+        std::wstring result;
+        while (num > 0)
+        {
+            --num;  // Make 0-indexed
+            const wchar_t ch = upper
+                ? static_cast<wchar_t>(L'A' + (num % 26))
+                : static_cast<wchar_t>(L'a' + (num % 26));
+            result = ch + result;
+            num /= 26;
+        }
+        return result;
+    };
+
     // Render marker for each child element
     int childIndex = 0;
     for (Element* child : children)
@@ -459,245 +541,29 @@ void ElementLayoutBox::RenderListMarker(ID2D1DeviceContext* context)
             }
             
             case ListStyleType::UpperRoman:
-            {
-                // Roman numerals (I, II, III, IV, V, etc.)
-                auto toRomanNumeral = [](int num) -> std::wstring
-                {
-                    if (num <= 0 || num > 3999)
-                        return L"?";
-                    
-                    const std::vector<std::pair<int, std::wstring>> romanPairs = {
-                        {1000, L"M"}, {900, L"CM"}, {500, L"D"}, {400, L"CD"},
-                        {100, L"C"}, {90, L"XC"}, {50, L"L"}, {40, L"XL"},
-                        {10, L"X"}, {9, L"IX"}, {5, L"V"}, {4, L"IV"}, {1, L"I"}
-                    };
-                    
-                    std::wstring result;
-                    for (const auto& [value, numeral] : romanPairs)
-                    {
-                        while (num >= value)
-                        {
-                            result += numeral;
-                            num -= value;
-                        }
-                    }
-                    return result;
-                };
-                
-                std::wstring romanText = toRomanNumeral(displayIndex) + L".";
-                
-                // Create text format for rendering the roman numeral
-                Microsoft::WRL::ComPtr<IDWriteTextFormat> textFormat;
-                Microsoft::WRL::ComPtr<IDWriteFactory> writeFactory;
-                if (SUCCEEDED(DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, __uuidof(IDWriteFactory), 
-                    reinterpret_cast<IUnknown**>(writeFactory.GetAddressOf()))))
-                {
-                    if (SUCCEEDED(writeFactory->CreateTextFormat(
-                        L"Segoe UI",
-                        nullptr,
-                        DWRITE_FONT_WEIGHT_NORMAL,
-                        DWRITE_FONT_STYLE_NORMAL,
-                        DWRITE_FONT_STRETCH_NORMAL,
-                        markerSize * 2.0f,  // Font size based on marker size
-                        L"en-us",
-                        textFormat.GetAddressOf())))
-                    {
-                        textFormat->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_TRAILING);
-                        textFormat->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_NEAR);
-                        
-                        // Position text to the left of content
-                        D2D1_RECT_F textRect = D2D1::RectF(
-                            markerCenterX - 50.0f,  // Wide enough for roman numerals
-                            markerCenterY - (markerSize * 1.5f),
-                            markerCenterX,
-                            markerCenterY + (markerSize * 1.5f)
-                        );
-                        
-                        context->DrawText(
-                            romanText.c_str(),
-                            static_cast<UINT32>(romanText.length()),
-                            textFormat.Get(),
-                            textRect,
-                            markerBrush.Get()
-                        );
-                    }
-                }
+                RenderTextMarker(context, toRoman(displayIndex, true) + L".",
+                    markerCenterX, markerCenterY, markerSize, markerBrush.Get());
                 break;
-            }
-
-            case ListStyleType::LowerRoman:
-            {
-                // Roman numerals (i, ii, iii, iv, v, etc.)
-                auto toRomanNumeral = [](int num) -> std::wstring
-                {
-                    if (num <= 0 || num > 3999)
-                        return L"?";
-                    
-                    const std::vector<std::pair<int, std::wstring>> romanPairs = {
-                        {1000, L"m"}, {900, L"cm"}, {500, L"d"}, {400, L"cd"},
-                        {100, L"c"}, {90, L"xc"}, {50, L"l"}, {40, L"xl"},
-                        {10, L"x"}, {9, L"ix"}, {5, L"v"}, {4, L"iv"}, {1, L"i"}
-                    };
-                    
-                    std::wstring result;
-                    for (const auto& [value, numeral] : romanPairs)
-                    {
-                        while (num >= value)
-                        {
-                            result += numeral;
-                            num -= value;
-                        }
-                    }
-                    return result;
-                };
-                
-                std::wstring romanText = toRomanNumeral(displayIndex) + L".";
-                
-                // Create text format for rendering the roman numeral
-                Microsoft::WRL::ComPtr<IDWriteTextFormat> textFormat;
-                Microsoft::WRL::ComPtr<IDWriteFactory> writeFactory;
-                if (SUCCEEDED(DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, __uuidof(IDWriteFactory), 
-                    reinterpret_cast<IUnknown**>(writeFactory.GetAddressOf()))))
-                {
-                    if (SUCCEEDED(writeFactory->CreateTextFormat(
-                        L"Segoe UI",
-                        nullptr,
-                        DWRITE_FONT_WEIGHT_NORMAL,
-                        DWRITE_FONT_STYLE_NORMAL,
-                        DWRITE_FONT_STRETCH_NORMAL,
-                        markerSize * 2.0f,  // Font size based on marker size
-                        L"en-us",
-                        textFormat.GetAddressOf())))
-                    {
-                        textFormat->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_TRAILING);
-                        textFormat->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_NEAR);
-                        
-                        // Position text to the left of content
-                        D2D1_RECT_F textRect = D2D1::RectF(
-                            markerCenterX - 50.0f,  // Wide enough for roman numerals
-                            markerCenterY - (markerSize * 1.5f),
-                            markerCenterX,
-                            markerCenterY + (markerSize * 1.5f)
-                        );
-                        
-                        context->DrawText(
-                            romanText.c_str(),
-                            static_cast<UINT32>(romanText.length()),
-                            textFormat.Get(),
-                            textRect,
-                            markerBrush.Get()
-                        );
-                    }
-                }
-                break;
-            }
             
-            case ListStyleType::Decimal:
-            {
-                // Decimal numbers (1., 2., 3., etc.)
-                std::wstring decimalText = std::to_wstring(displayIndex) + L".";
-                
-                // Create text format for rendering the decimal number
-                Microsoft::WRL::ComPtr<IDWriteTextFormat> textFormat;
-                Microsoft::WRL::ComPtr<IDWriteFactory> writeFactory;
-                if (SUCCEEDED(DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, __uuidof(IDWriteFactory), 
-                    reinterpret_cast<IUnknown**>(writeFactory.GetAddressOf()))))
-                {
-                    if (SUCCEEDED(writeFactory->CreateTextFormat(
-                        L"Segoe UI",
-                        nullptr,
-                        DWRITE_FONT_WEIGHT_NORMAL,
-                        DWRITE_FONT_STYLE_NORMAL,
-                        DWRITE_FONT_STRETCH_NORMAL,
-                        markerSize * 2.0f,  // Font size based on marker size
-                        L"en-us",
-                        textFormat.GetAddressOf())))
-                    {
-                        textFormat->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_TRAILING);
-                        textFormat->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_NEAR);
-                        
-                        // Position text to the left of content
-                        D2D1_RECT_F textRect = D2D1::RectF(
-                            markerCenterX - 50.0f,  // Wide enough for numbers
-                            markerCenterY - (markerSize * 1.5f),
-                            markerCenterX,
-                            markerCenterY + (markerSize * 1.5f)
-                        );
-                        
-                        context->DrawText(
-                            decimalText.c_str(),
-                            static_cast<UINT32>(decimalText.length()),
-                            textFormat.Get(),
-                            textRect,
-                            markerBrush.Get()
-                        );
-                    }
-                }
+            case ListStyleType::LowerRoman:
+                RenderTextMarker(context, toRoman(displayIndex, false) + L".",
+                    markerCenterX, markerCenterY, markerSize, markerBrush.Get());
                 break;
-            }
+
+            case ListStyleType::Decimal:
+                RenderTextMarker(context, std::to_wstring(displayIndex) + L".",
+                    markerCenterX, markerCenterY, markerSize, markerBrush.Get());
+                break;
             
             case ListStyleType::LowerAlpha:
-            case ListStyleType::UpperAlpha:
-            {
-                // Alphabetic markers (a, b, c… or A, B, C…)
-                const bool isUpper = (m_ListMarker.type == ListStyleType::UpperAlpha);
-                auto toAlpha = [isUpper](int num) -> std::wstring
-                {
-                    if (num <= 0)
-                        return L"?";
-                    std::wstring result;
-                    while (num > 0)
-                    {
-                        --num;  // Make 0-indexed
-                        wchar_t ch = isUpper
-                            ? static_cast<wchar_t>(L'A' + (num % 26))
-                            : static_cast<wchar_t>(L'a' + (num % 26));
-                        result = ch + result;
-                        num /= 26;
-                    }
-                    return result;
-                };
-                
-                std::wstring alphaText = toAlpha(displayIndex) + L".";
-                
-                // Create text format for rendering the alpha marker
-                Microsoft::WRL::ComPtr<IDWriteTextFormat> textFormat;
-                Microsoft::WRL::ComPtr<IDWriteFactory> writeFactory;
-                if (SUCCEEDED(DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, __uuidof(IDWriteFactory),
-                    reinterpret_cast<IUnknown**>(writeFactory.GetAddressOf()))))
-                {
-                    if (SUCCEEDED(writeFactory->CreateTextFormat(
-                        L"Segoe UI",
-                        nullptr,
-                        DWRITE_FONT_WEIGHT_NORMAL,
-                        DWRITE_FONT_STYLE_NORMAL,
-                        DWRITE_FONT_STRETCH_NORMAL,
-                        markerSize * 2.0f,  // Font size based on marker size
-                        L"en-us",
-                        textFormat.GetAddressOf())))
-                    {
-                        textFormat->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_TRAILING);
-                        textFormat->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_NEAR);
-                        
-                        // Position text to the left of content
-                        D2D1_RECT_F textRect = D2D1::RectF(
-                            markerCenterX - 50.0f,  // Wide enough for letters
-                            markerCenterY - (markerSize * 1.5f),
-                            markerCenterX,
-                            markerCenterY + (markerSize * 1.5f)
-                        );
-                        
-                        context->DrawText(
-                            alphaText.c_str(),
-                            static_cast<UINT32>(alphaText.length()),
-                            textFormat.Get(),
-                            textRect,
-                            markerBrush.Get()
-                        );
-                    }
-                }
+                RenderTextMarker(context, toAlpha(displayIndex, false) + L".",
+                    markerCenterX, markerCenterY, markerSize, markerBrush.Get());
                 break;
-            }
+
+            case ListStyleType::UpperAlpha:
+                RenderTextMarker(context, toAlpha(displayIndex, true) + L".",
+                    markerCenterX, markerCenterY, markerSize, markerBrush.Get());
+                break;
             
             case ListStyleType::None:
             default:
