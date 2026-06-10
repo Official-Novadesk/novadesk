@@ -350,7 +350,7 @@ ui.addLayoutBox({
 ui.addLayoutBox({
     id: "listitem-lowerroman56",
     display: "listitem",
-    listStyleType: "decimal",
+    listStyleType: "upper-alpha",
     x: "20",
     y: "1350",
     flexDirection: "column",

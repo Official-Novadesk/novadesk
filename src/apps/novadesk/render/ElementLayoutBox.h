@@ -39,6 +39,8 @@ public:
         UpperRoman,  // I, II, III, IV, V, etc.
         LowerRoman,  // i, ii, iii, iv, v, etc.
         Decimal,     // 1, 2, 3, 4, 5, etc.
+        LowerAlpha,  // a, b, c, d, e, etc.
+        UpperAlpha,  // A, B, C, D, E, etc.
         None         // No marker
     };
 

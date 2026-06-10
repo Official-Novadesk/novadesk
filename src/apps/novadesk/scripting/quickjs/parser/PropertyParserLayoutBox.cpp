@@ -365,6 +365,10 @@ namespace PropertyParser
                 options.listStyleType = ElementLayoutBox::ListStyleType::LowerRoman;
             else if (listStyleTypeStr == L"decimal")
                 options.listStyleType = ElementLayoutBox::ListStyleType::Decimal;
+            else if (listStyleTypeStr == L"lower-alpha")
+                options.listStyleType = ElementLayoutBox::ListStyleType::LowerAlpha;
+            else if (listStyleTypeStr == L"upper-alpha")
+                options.listStyleType = ElementLayoutBox::ListStyleType::UpperAlpha;
             else if (listStyleTypeStr == L"none")
                 options.listStyleType = ElementLayoutBox::ListStyleType::None;
         }

@@ -636,6 +636,69 @@ void ElementLayoutBox::RenderListMarker(ID2D1DeviceContext* context)
                 break;
             }
             
+            case ListStyleType::LowerAlpha:
+            case ListStyleType::UpperAlpha:
+            {
+                // Alphabetic markers (a, b, c… or A, B, C…)
+                const bool isUpper = (m_ListMarker.type == ListStyleType::UpperAlpha);
+                auto toAlpha = [isUpper](int num) -> std::wstring
+                {
+                    if (num <= 0)
+                        return L"?";
+                    std::wstring result;
+                    while (num > 0)
+                    {
+                        --num;  // Make 0-indexed
+                        wchar_t ch = isUpper
+                            ? static_cast<wchar_t>(L'A' + (num % 26))
+                            : static_cast<wchar_t>(L'a' + (num % 26));
+                        result = ch + result;
+                        num /= 26;
+                    }
+                    return result;
+                };
+                
+                std::wstring alphaText = toAlpha(displayIndex) + L".";
+                
+                // Create text format for rendering the alpha marker
+                Microsoft::WRL::ComPtr<IDWriteTextFormat> textFormat;
+                Microsoft::WRL::ComPtr<IDWriteFactory> writeFactory;
+                if (SUCCEEDED(DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, __uuidof(IDWriteFactory),
+                    reinterpret_cast<IUnknown**>(writeFactory.GetAddressOf()))))
+                {
+                    if (SUCCEEDED(writeFactory->CreateTextFormat(
+                        L"Segoe UI",
+                        nullptr,
+                        DWRITE_FONT_WEIGHT_NORMAL,
+                        DWRITE_FONT_STYLE_NORMAL,
+                        DWRITE_FONT_STRETCH_NORMAL,
+                        markerSize * 2.0f,  // Font size based on marker size
+                        L"en-us",
+                        textFormat.GetAddressOf())))
+                    {
+                        textFormat->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_TRAILING);
+                        textFormat->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_NEAR);
+                        
+                        // Position text to the left of content
+                        D2D1_RECT_F textRect = D2D1::RectF(
+                            markerCenterX - 50.0f,  // Wide enough for letters
+                            markerCenterY - (markerSize * 1.5f),
+                            markerCenterX,
+                            markerCenterY + (markerSize * 1.5f)
+                        );
+                        
+                        context->DrawText(
+                            alphaText.c_str(),
+                            static_cast<UINT32>(alphaText.length()),
+                            textFormat.Get(),
+                            textRect,
+                            markerBrush.Get()
+                        );
+                    }
+                }
+                break;
+            }
+            
             case ListStyleType::None:
             default:
                 // Do nothing
