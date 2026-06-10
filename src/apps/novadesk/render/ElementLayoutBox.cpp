@@ -362,8 +362,8 @@ void ElementLayoutBox::RenderListMarker(ID2D1DeviceContext* context)
     if (children.empty())
         return;  // No children, no markers to render
     
-    Logging::Log(LogLevel::Debug, L"[LIST-MARKER] Rendering markers for listitem '%s' with %d children", 
-        m_Id.c_str(), static_cast<int>(children.size()));
+    // Logging::Log(LogLevel::Debug, L"[LIST-MARKER] Rendering markers for listitem '%s' with %d children", 
+    //     m_Id.c_str(), static_cast<int>(children.size()));
     
     // Auto-calculate starting index based on sibling position
     int startingIndex = 1;
@@ -398,8 +398,8 @@ void ElementLayoutBox::RenderListMarker(ID2D1DeviceContext* context)
         
         const int displayIndex = startingIndex + childIndex;
         
-        Logging::Log(LogLevel::Debug, L"[LIST-MARKER] Child %d: pos(%d,%d) index=%d", 
-            childIndex, child->GetX(), child->GetY(), displayIndex);
+        // Logging::Log(LogLevel::Debug, L"[LIST-MARKER] Child %d: pos(%d,%d) index=%d", 
+        //     childIndex, child->GetX(), child->GetY(), displayIndex);
         
         // Create brush for the marker
         Microsoft::WRL::ComPtr<ID2D1SolidColorBrush> markerBrush;
@@ -415,8 +415,8 @@ void ElementLayoutBox::RenderListMarker(ID2D1DeviceContext* context)
         const float markerCenterY = childAbsoluteY + (m_ListMarker.size * 1.5f);
         const float markerSize = m_ListMarker.size;
         
-        Logging::Log(LogLevel::Debug, L"[LIST-MARKER] Marker at (%.1f, %.1f) size=%.1f type=%d", 
-            markerCenterX, markerCenterY, markerSize, static_cast<int>(m_ListMarker.type));
+        // Logging::Log(LogLevel::Debug, L"[LIST-MARKER] Marker at (%.1f, %.1f) size=%.1f type=%d", 
+        //     markerCenterX, markerCenterY, markerSize, static_cast<int>(m_ListMarker.type));
         
         // Render different marker types
         switch (m_ListMarker.type)
