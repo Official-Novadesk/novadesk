@@ -1,62 +1,12 @@
 param(
-    [string]$BuildDir = "build-mingw",
     [ValidateSet("Debug", "Release")]
     [string]$Configuration = "Debug",
     [string]$Platform = "x64",
-    [switch]$Reconfigure,
     [int]$Jobs = 0
 )
 
 $ErrorActionPreference = "Stop"
 $RepoRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
-
-function Resolve-CMake {
-    $cmd = Get-Command cmake -ErrorAction SilentlyContinue
-    if ($cmd) {
-        return $cmd.Source
-    }
-
-    $candidates = @(
-        "C:\Program Files\CMake\bin\cmake.exe",
-        "C:\Program Files (x86)\CMake\bin\cmake.exe",
-        "C:\msys64\mingw64\bin\cmake.exe",
-        "C:\msys64\ucrt64\bin\cmake.exe",
-        "C:\msys64\clang64\bin\cmake.exe"
-    )
-
-    foreach ($path in $candidates) {
-        if (Test-Path $path) {
-            return $path
-        }
-    }
-
-    throw "cmake.exe was not found in PATH or common install paths. Install CMake or add it to PATH."
-}
-
-function Resolve-MingwTool {
-    param(
-        [string]$ExeName
-    )
-
-    $cmd = Get-Command $ExeName -ErrorAction SilentlyContinue
-    if ($cmd) {
-        return $cmd.Source
-    }
-
-    $candidates = @(
-        "C:\msys64\mingw64\bin\$ExeName",
-        "C:\msys64\ucrt64\bin\$ExeName",
-        "C:\msys64\clang64\bin\$ExeName"
-    )
-
-    foreach ($path in $candidates) {
-        if (Test-Path $path) {
-            return $path
-        }
-    }
-
-    throw "$ExeName was not found in PATH or common MinGW locations."
-}
 
 function Resolve-MSBuild {
     $cmd = Get-Command msbuild -ErrorAction SilentlyContinue
@@ -118,69 +68,13 @@ function Copy-DirectoryContent {
     Copy-Item -Path (Join-Path $SourceDir "*") -Destination $DestinationDir -Recurse -Force
 }
 
-function Get-CachedCMakeBuildType {
-    param(
-        [string]$CacheFilePath
-    )
-
-    if (-not (Test-Path $CacheFilePath)) {
-        return $null
-    }
-
-    $line = Select-String -Path $CacheFilePath -Pattern "^CMAKE_BUILD_TYPE:STRING=" | Select-Object -First 1
-    if (-not $line) {
-        return $null
-    }
-
-    return ($line.Line -replace "^CMAKE_BUILD_TYPE:STRING=", "").Trim()
-}
-
 try {
-    $cmake = Resolve-CMake
     $msbuild = Resolve-MSBuild
-    $mingwMake = Resolve-MingwTool -ExeName "mingw32-make.exe"
-    $mingwCC = Resolve-MingwTool -ExeName "gcc.exe"
-    $mingwCXX = Resolve-MingwTool -ExeName "g++.exe"
-    $mingwBin = Split-Path -Parent $mingwCC
 
     Set-Location $RepoRoot
-    $env:PATH = "$mingwBin;$env:PATH"
 
     $unifiedSolution = Join-Path $RepoRoot "Novadesk-Project.sln"
     Build-Solution -MSBuildPath $msbuild -SolutionPath $unifiedSolution -Config $Configuration -Plat $Platform
-
-    $cmakeBuildType = if ($Configuration -eq "Release") { "MinSizeRel" } else { "Debug" }
-    $effectiveBuildDir = Join-Path $BuildDir $cmakeBuildType
-    $cacheFile = Join-Path $effectiveBuildDir "CMakeCache.txt"
-    $cachedBuildType = Get-CachedCMakeBuildType -CacheFilePath $cacheFile
-    $needsConfigure = $Reconfigure -or -not (Test-Path $cacheFile) -or ($cachedBuildType -ne $cmakeBuildType)
-
-    if ($needsConfigure) {
-        Write-Host "Configuring MinGW build in $effectiveBuildDir..." -ForegroundColor Cyan
-        & $cmake -S . -B $effectiveBuildDir -G "MinGW Makefiles" `
-            -DCMAKE_MAKE_PROGRAM="$mingwMake" `
-            -DCMAKE_C_COMPILER="$mingwCC" `
-            -DCMAKE_CXX_COMPILER="$mingwCXX" `
-            -DCMAKE_BUILD_TYPE="$cmakeBuildType"
-        if ($LASTEXITCODE -ne 0) {
-            throw "CMake configure failed."
-        }
-    } else {
-        Write-Host "Using existing CMake configuration in $effectiveBuildDir (CMAKE_BUILD_TYPE=$cachedBuildType)" -ForegroundColor DarkGray
-    }
-
-    $effectiveJobs = $Jobs
-    if ($effectiveJobs -le 0) {
-        $effectiveJobs = [Environment]::ProcessorCount
-        if ($effectiveJobs -lt 1) {
-            $effectiveJobs = 1
-        }
-    }
-    Write-Host "Building MinGW target(s) from $effectiveBuildDir with $effectiveJobs parallel job(s)..." -ForegroundColor Cyan
-    & $cmake --build $effectiveBuildDir --parallel $effectiveJobs
-    if ($LASTEXITCODE -ne 0) {
-        throw "CMake build failed."
-    }
 
     $distDir = Join-Path $RepoRoot "dist"
     $distNwmDir = Join-Path $distDir "nwm"
@@ -189,15 +83,15 @@ try {
     $distAddonsDir = Join-Path $distDir "Addons"
     $distNwmTemplateDir = Join-Path $distNwmDir "template"
 
-    $novadeskExeSrc = Join-Path $RepoRoot "$effectiveBuildDir\novadesk.exe"
+    $novadeskExeSrc = Join-Path $RepoRoot "src\apps\x64\$Configuration\novadesk\novadesk.exe"
     $widgetsSrc = Join-Path $RepoRoot "src\Widgets\builtin\Widgets"
     $imagesSrc = Join-Path $RepoRoot "src\apps\assets\images"
-    $nwmExeSrc = Join-Path $RepoRoot "src\apps\$Platform\$Configuration\nwm\nwm.exe"
+    $nwmExeSrc = Join-Path $RepoRoot "src\apps\x64\$Configuration\nwm\nwm.exe"
     $nwmTemplateSrc = Join-Path $RepoRoot "src\Widgets\template"
-    $installerStubExeSrc = Join-Path $RepoRoot "src\apps\$Platform\$Configuration\installer_stub\installer_stub.exe"
-    $manageExeSrc = Join-Path $RepoRoot "src\apps\$Platform\$Configuration\manage_novadesk\manage_novadesk.exe"
-    $restartExeSrc = Join-Path $RepoRoot "src\apps\$Platform\$Configuration\restart_novadesk\restart_novadesk.exe"
-    $ndpkgInstallerExeSrc = Join-Path $RepoRoot "src\apps\$Platform\$Configuration\ndpkg_installer\ndpkg_installer.exe"
+    $installerStubExeSrc = Join-Path $RepoRoot "src\apps\x64\$Configuration\installer_stub\installer_stub.exe"
+    $manageExeSrc = Join-Path $RepoRoot "src\apps\x64\$Configuration\manage_novadesk\manage_novadesk.exe"
+    $restartExeSrc = Join-Path $RepoRoot "src\apps\x64\$Configuration\restart_novadesk\restart_novadesk.exe"
+    $ndpkgInstallerExeSrc = Join-Path $RepoRoot "src\apps\x64\$Configuration\ndpkg_installer\ndpkg_installer.exe"
     $addonsBuildRoot = Join-Path $RepoRoot "src\addons\dist\$Platform\$Configuration"
     $addonProjectNames = @("AppVolume", "AudioLevel", "Brightness", "Hotkey", "NowPlaying", "InputBox", "BlurBehind")
 
