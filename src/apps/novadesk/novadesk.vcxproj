@@ -63,6 +63,8 @@
       <AdditionalIncludeDirectories>.;domain;domain\animation;shared;render;scripting\quickjs;scripting\quickjs\parser;..\..\third_party\quick-js;..\..\third_party\json;..\..\third_party\nanosvg;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <LanguageStandard_C>stdc11</LanguageStandard_C>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
       <AdditionalOptions>/w /wd4146 /wd4703 /Zc:__cplusplus %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
@@ -89,17 +91,19 @@
       <AdditionalIncludeDirectories>.;domain;domain\animation;shared;render;scripting\quickjs;scripting\quickjs\parser;..\..\third_party\quick-js;..\..\third_party\json;..\..\third_party\nanosvg;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <LanguageStandard_C>stdc11</LanguageStandard_C>
-      <AdditionalOptions>/w /wd4146 /wd4703 /Zc:__cplusplus %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>/w /wd4146 /wd4703 /Zc:__cplusplus /GS- %(AdditionalOptions)</AdditionalOptions>
+      <WholeProgramOptimization>true</WholeProgramOptimization>
       <FavorSizeOrSpeed>Size</FavorSizeOrSpeed>
-      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <OmitFramePointers>true</OmitFramePointers>
+      <BufferSecurityCheck>false</BufferSecurityCheck>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <GenerateDebugInformation>false</GenerateDebugInformation>
       <AdditionalDependencies>user32.lib;gdi32.lib;opengl32.lib;winmm.lib;powrprof.lib;shell32.lib;comctl32.lib;d2d1.lib;dwrite.lib;windowscodecs.lib;shlwapi.lib;iphlpapi.lib;pdh.lib;wininet.lib;version.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalOptions>/SUBSYSTEM:WINDOWS,5.02 %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>/SUBSYSTEM:WINDOWS,5.02 /OPT:REF /OPT:ICF /LTCG %(AdditionalOptions)</AdditionalOptions>
     </Link>
     <ResourceCompile>
       <AdditionalIncludeDirectories>$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
