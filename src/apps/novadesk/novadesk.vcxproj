@@ -45,13 +45,13 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <OutDir>$(ProjectDir)..\..\dist\</OutDir>
-    <IntDir>$(ProjectDir)..\..\intermediate\novadesk\$(Configuration)\</IntDir>
+    <OutDir>$(ProjectDir)..\$(Platform)\Debug\novadesk\</OutDir>
+    <IntDir>$(ProjectDir)..\$(Platform)\Debug\novadesk\int\</IntDir>
     <TargetName>novadesk</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <OutDir>$(ProjectDir)..\..\dist\</OutDir>
-    <IntDir>$(ProjectDir)..\..\intermediate\novadesk\$(Configuration)\</IntDir>
+    <OutDir>$(ProjectDir)..\$(Platform)\Release\novadesk\</OutDir>
+    <IntDir>$(ProjectDir)..\$(Platform)\Release\novadesk\int\</IntDir>
     <TargetName>novadesk</TargetName>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
