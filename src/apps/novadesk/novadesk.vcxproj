@@ -80,6 +80,9 @@
     <Manifest>
       <AdditionalManifestFiles>$(ProjectDir)Novadesk.exe.manifest%(AdditionalManifestFiles)</AdditionalManifestFiles>
     </Manifest>
+    <PostBuildEvent>
+      <Command>powershell -ExecutionPolicy Bypass -File "$(ProjectDir)..\..\..\CopyItems.ps1" -Configuration "$(Configuration)" -Platform "$(Platform)"</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -112,6 +115,9 @@
     <Manifest>
       <AdditionalManifestFiles>$(ProjectDir)Novadesk.exe.manifest%(AdditionalManifestFiles)</AdditionalManifestFiles>
     </Manifest>
+    <PostBuildEvent>
+      <Command>powershell -ExecutionPolicy Bypass -File "$(ProjectDir)..\..\..\CopyItems.ps1" -Configuration "$(Configuration)" -Platform "$(Platform)"</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="domain\DesktopManager.cpp" />
