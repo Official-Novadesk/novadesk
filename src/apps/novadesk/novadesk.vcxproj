@@ -72,7 +72,7 @@
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalDependencies>user32.lib;gdi32.lib;opengl32.lib;winmm.lib;powrprof.lib;shell32.lib;comctl32.lib;d2d1.lib;dwrite.lib;windowscodecs.lib;shlwapi.lib;iphlpapi.lib;pdh.lib;wininet.lib;version.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalOptions>/SUBSYSTEM:WINDOWS,5.02 %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>/SUBSYSTEM:WINDOWS,5.02 /ENTRY:WinMainCRTStartup %(AdditionalOptions)</AdditionalOptions>
     </Link>
     <ResourceCompile>
       <AdditionalIncludeDirectories>$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -104,7 +104,7 @@
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>false</GenerateDebugInformation>
       <AdditionalDependencies>user32.lib;gdi32.lib;opengl32.lib;winmm.lib;powrprof.lib;shell32.lib;comctl32.lib;d2d1.lib;dwrite.lib;windowscodecs.lib;shlwapi.lib;iphlpapi.lib;pdh.lib;wininet.lib;version.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalOptions>/SUBSYSTEM:WINDOWS,5.02 /OPT:REF /OPT:ICF /LTCG %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>/SUBSYSTEM:WINDOWS,5.02 /ENTRY:WinMainCRTStartup /OPT:REF /OPT:ICF /LTCG %(AdditionalOptions)</AdditionalOptions>
     </Link>
     <ResourceCompile>
       <AdditionalIncludeDirectories>$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
