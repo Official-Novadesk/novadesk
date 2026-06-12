@@ -38,7 +38,7 @@ function Build-Solution {
     }
 
     Write-Host "Building $SolutionPath ($Config|$Plat) with MSBuild..." -ForegroundColor Cyan
-    & $MSBuildPath $SolutionPath /t:Build /m /nologo /p:Configuration=$Config /p:Platform=$Plat
+    & $MSBuildPath $SolutionPath /t:Build /m /nologo /v:minimal /p:Configuration=$Config /p:Platform=$Plat
     if ($LASTEXITCODE -ne 0) {
         throw "MSBuild failed for $SolutionPath ($Config|$Plat)"
     }
