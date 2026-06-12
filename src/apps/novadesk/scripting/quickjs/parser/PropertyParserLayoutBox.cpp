@@ -344,7 +344,7 @@ namespace PropertyParser
                 options.displayType = ElementLayoutBox::DisplayType::Flex;
             else if (displayStr == L"none")
                 options.displayType = ElementLayoutBox::DisplayType::None;
-            else if (displayStr == L"listitem")
+            else if (displayStr == L"list-item")
                 options.displayType = ElementLayoutBox::DisplayType::ListItem;
         }
 
@@ -406,7 +406,7 @@ namespace PropertyParser
                     options.displayType = ElementLayoutBox::DisplayType::Flex;
                 else if (styleDisplay == L"none")
                     options.displayType = ElementLayoutBox::DisplayType::None;
-                else if (styleDisplay == L"listitem")
+                else if (styleDisplay == L"list-item")
                     options.displayType = ElementLayoutBox::DisplayType::ListItem;
             }
             
