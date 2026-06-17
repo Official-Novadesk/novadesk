@@ -167,7 +167,8 @@ bool Element::HasDragAction() const
 ** Set the padding for the element.
 */
 void Element::SetPadding(int left, int top, int right, int bottom) {
-    // Logging::Log(LogLevel::Debug, L"Element SetPadding: [%d, %d, %d, %d]", left, top, right, bottom);
+    // Logging::Log(LogLevel::Debug, L"[PADDING] Element::SetPadding on '%s': L=%d, T=%d, R=%d, B=%d", 
+    //    m_Id.c_str(), left, top, right, bottom);
     m_PaddingLeft = left;
     m_PaddingTop = top;
     m_PaddingRight = right;

@@ -20,7 +20,7 @@
 #include <Windows.h>
 #include <objbase.h>
 
-#include "third_party/kiss_fft130/kiss_fftr.h"
+#include "../../third_party/kiss_fft130/kiss_fftr.h"
 
 const NovadeskHostAPI *g_Host = nullptr;
 

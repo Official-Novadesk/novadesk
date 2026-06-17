@@ -1,0 +1,439 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="Resource Files">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="domain">
+      <UniqueIdentifier>{8B7D0C91-E5F6-4B2A-ABCD-1234567890AB}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="domain\animation">
+      <UniqueIdentifier>{8B7D0C91-E5F6-4B2A-ABCD-1234567890AC}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="render">
+      <UniqueIdentifier>{8B7D0C91-E5F6-4B2A-ABCD-1234567890AD}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="scripting">
+      <UniqueIdentifier>{8B7D0C91-E5F6-4B2A-ABCD-1234567890AE}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="scripting\quickjs">
+      <UniqueIdentifier>{8B7D0C91-E5F6-4B2A-ABCD-1234567890AF}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="scripting\quickjs\engine">
+      <UniqueIdentifier>{8B7D0C91-E5F6-4B2A-ABCD-1234567890B0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="scripting\quickjs\modules">
+      <UniqueIdentifier>{8B7D0C91-E5F6-4B2A-ABCD-1234567890B1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="scripting\quickjs\parser">
+      <UniqueIdentifier>{8B7D0C91-E5F6-4B2A-ABCD-1234567890B2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="shared">
+      <UniqueIdentifier>{8B7D0C91-E5F6-4B2A-ABCD-1234567890B3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="third_party">
+      <UniqueIdentifier>{8B7D0C91-E5F6-4B2A-ABCD-1234567890B4}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="domain\DesktopManager.cpp">
+      <Filter>domain</Filter>
+    </ClCompile>
+    <ClCompile Include="domain\Novadesk.cpp">
+      <Filter>domain</Filter>
+    </ClCompile>
+    <ClCompile Include="domain\Widget.cpp">
+      <Filter>domain</Filter>
+    </ClCompile>
+    <ClCompile Include="domain\WidgetContextMenuHelper.cpp">
+      <Filter>domain</Filter>
+    </ClCompile>
+    <ClCompile Include="domain\WidgetLayoutHelper.cpp">
+      <Filter>domain</Filter>
+    </ClCompile>
+    <ClCompile Include="domain\WidgetWindowChromeHelper.cpp">
+      <Filter>domain</Filter>
+    </ClCompile>
+    <ClCompile Include="domain\animation\AnimationEasing.cpp">
+      <Filter>domain\animation</Filter>
+    </ClCompile>
+    <ClCompile Include="domain\animation\WidgetAnimationHelper.cpp">
+      <Filter>domain\animation</Filter>
+    </ClCompile>
+    <ClCompile Include="render\ArcShape.cpp">
+      <Filter>render</Filter>
+    </ClCompile>
+    <ClCompile Include="render\AreaGraphElement.cpp">
+      <Filter>render</Filter>
+    </ClCompile>
+    <ClCompile Include="render\BarElement.cpp">
+      <Filter>render</Filter>
+    </ClCompile>
+    <ClCompile Include="render\BitmapElement.cpp">
+      <Filter>render</Filter>
+    </ClCompile>
+    <ClCompile Include="render\BoxBorderPaint.cpp">
+      <Filter>render</Filter>
+    </ClCompile>
+    <ClCompile Include="render\ButtonElement.cpp">
+      <Filter>render</Filter>
+    </ClCompile>
+    <ClCompile Include="render\CursorManager.cpp">
+      <Filter>render</Filter>
+    </ClCompile>
+    <ClCompile Include="render\CurveShape.cpp">
+      <Filter>render</Filter>
+    </ClCompile>
+    <ClCompile Include="render\Direct2DHelper.cpp">
+      <Filter>render</Filter>
+    </ClCompile>
+    <ClCompile Include="render\Element.cpp">
+      <Filter>render</Filter>
+    </ClCompile>
+    <ClCompile Include="render\ElementLayoutBox.cpp">
+      <Filter>render</Filter>
+    </ClCompile>
+    <ClCompile Include="render\EllipseShape.cpp">
+      <Filter>render</Filter>
+    </ClCompile>
+    <ClCompile Include="render\FlexLayoutEngine.cpp">
+      <Filter>render</Filter>
+    </ClCompile>
+    <ClCompile Include="render\FontManager.cpp">
+      <Filter>render</Filter>
+    </ClCompile>
+    <ClCompile Include="render\GeneralImage.cpp">
+      <Filter>render</Filter>
+    </ClCompile>
+    <ClCompile Include="render\HistogramElement.cpp">
+      <Filter>render</Filter>
+    </ClCompile>
+    <ClCompile Include="render\ImageElement.cpp">
+      <Filter>render</Filter>
+    </ClCompile>
+    <ClCompile Include="render\LineElement.cpp">
+      <Filter>render</Filter>
+    </ClCompile>
+    <ClCompile Include="render\LineShape.cpp">
+      <Filter>render</Filter>
+    </ClCompile>
+    <ClCompile Include="render\PathShape.cpp">
+      <Filter>render</Filter>
+    </ClCompile>
+    <ClCompile Include="render\RectangleShape.cpp">
+      <Filter>render</Filter>
+    </ClCompile>
+    <ClCompile Include="render\RotatorElement.cpp">
+      <Filter>render</Filter>
+    </ClCompile>
+    <ClCompile Include="render\RoundLineElement.cpp">
+      <Filter>render</Filter>
+    </ClCompile>
+    <ClCompile Include="render\ShapeElement.cpp">
+      <Filter>render</Filter>
+    </ClCompile>
+    <ClCompile Include="render\TextElement.cpp">
+      <Filter>render</Filter>
+    </ClCompile>
+    <ClCompile Include="render\Tooltip.cpp">
+      <Filter>render</Filter>
+    </ClCompile>
+    <ClCompile Include="scripting\quickjs\engine\JSEngine.cpp">
+      <Filter>scripting\quickjs\engine</Filter>
+    </ClCompile>
+    <ClCompile Include="scripting\quickjs\modules\FSModule.cpp">
+      <Filter>scripting\quickjs\modules</Filter>
+    </ClCompile>
+    <ClCompile Include="scripting\quickjs\modules\ModuleSystem.cpp">
+      <Filter>scripting\quickjs\modules</Filter>
+    </ClCompile>
+    <ClCompile Include="scripting\quickjs\modules\NovadeskModule.cpp">
+      <Filter>scripting\quickjs\modules</Filter>
+    </ClCompile>
+    <ClCompile Include="scripting\quickjs\modules\SystemModule.cpp">
+      <Filter>scripting\quickjs\modules</Filter>
+    </ClCompile>
+    <ClCompile Include="scripting\quickjs\modules\WidgetUiBindings.cpp">
+      <Filter>scripting\quickjs\modules</Filter>
+    </ClCompile>
+    <ClCompile Include="scripting\quickjs\modules\WidgetWindowEventBindings.cpp">
+      <Filter>scripting\quickjs\modules</Filter>
+    </ClCompile>
+    <ClCompile Include="scripting\quickjs\parser\PropertyParserAnimation.cpp">
+      <Filter>scripting\quickjs\parser</Filter>
+    </ClCompile>
+    <ClCompile Include="scripting\quickjs\parser\PropertyParserChart.cpp">
+      <Filter>scripting\quickjs\parser</Filter>
+    </ClCompile>
+    <ClCompile Include="scripting\quickjs\parser\PropertyParserElement.cpp">
+      <Filter>scripting\quickjs\parser</Filter>
+    </ClCompile>
+    <ClCompile Include="scripting\quickjs\parser\PropertyParserGradient.cpp">
+      <Filter>scripting\quickjs\parser</Filter>
+    </ClCompile>
+    <ClCompile Include="scripting\quickjs\parser\PropertyParserImage.cpp">
+      <Filter>scripting\quickjs\parser</Filter>
+    </ClCompile>
+    <ClCompile Include="scripting\quickjs\parser\PropertyParserJs.cpp">
+      <Filter>scripting\quickjs\parser</Filter>
+    </ClCompile>
+    <ClCompile Include="scripting\quickjs\parser\PropertyParserLayoutBox.cpp">
+      <Filter>scripting\quickjs\parser</Filter>
+    </ClCompile>
+    <ClCompile Include="scripting\quickjs\parser\PropertyParserShape.cpp">
+      <Filter>scripting\quickjs\parser</Filter>
+    </ClCompile>
+    <ClCompile Include="scripting\quickjs\parser\PropertyParserText.cpp">
+      <Filter>scripting\quickjs\parser</Filter>
+    </ClCompile>
+    <ClCompile Include="scripting\quickjs\parser\PropertyParserWidgetWindow.cpp">
+      <Filter>scripting\quickjs\parser</Filter>
+    </ClCompile>
+    <ClCompile Include="shared\FileUtils.cpp">
+      <Filter>shared</Filter>
+    </ClCompile>
+    <ClCompile Include="shared\Logging.cpp">
+      <Filter>shared</Filter>
+    </ClCompile>
+    <ClCompile Include="shared\MenuUtils.cpp">
+      <Filter>shared</Filter>
+    </ClCompile>
+    <ClCompile Include="shared\PathUtils.cpp">
+      <Filter>shared</Filter>
+    </ClCompile>
+    <ClCompile Include="shared\Settings.cpp">
+      <Filter>shared</Filter>
+    </ClCompile>
+    <ClCompile Include="shared\System.cpp">
+      <Filter>shared</Filter>
+    </ClCompile>
+    <ClCompile Include="shared\Utils.cpp">
+      <Filter>shared</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\third_party\quick-js\quickjs.c">
+      <Filter>third_party</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\third_party\quick-js\libregexp.c">
+      <Filter>third_party</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\third_party\quick-js\libunicode.c">
+      <Filter>third_party</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\third_party\quick-js\dtoa.c">
+      <Filter>third_party</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="domain\DesktopManager.h">
+      <Filter>domain</Filter>
+    </ClInclude>
+    <ClInclude Include="domain\Novadesk.h">
+      <Filter>domain</Filter>
+    </ClInclude>
+    <ClInclude Include="domain\Widget.h">
+      <Filter>domain</Filter>
+    </ClInclude>
+    <ClInclude Include="domain\WidgetContextMenuHelper.h">
+      <Filter>domain</Filter>
+    </ClInclude>
+    <ClInclude Include="domain\WidgetLayoutHelper.h">
+      <Filter>domain</Filter>
+    </ClInclude>
+    <ClInclude Include="domain\WidgetWindowChromeHelper.h">
+      <Filter>domain</Filter>
+    </ClInclude>
+    <ClInclude Include="domain\animation\AnimationEasing.h">
+      <Filter>domain\animation</Filter>
+    </ClInclude>
+    <ClInclude Include="domain\animation\WidgetAnimationHelper.h">
+      <Filter>domain\animation</Filter>
+    </ClInclude>
+    <ClInclude Include="render\ArcShape.h">
+      <Filter>render</Filter>
+    </ClInclude>
+    <ClInclude Include="render\AreaGraphElement.h">
+      <Filter>render</Filter>
+    </ClInclude>
+    <ClInclude Include="render\BarElement.h">
+      <Filter>render</Filter>
+    </ClInclude>
+    <ClInclude Include="render\BitmapElement.h">
+      <Filter>render</Filter>
+    </ClInclude>
+    <ClInclude Include="render\BoxBorderPaint.h">
+      <Filter>render</Filter>
+    </ClInclude>
+    <ClInclude Include="render\BoxBorderTypes.h">
+      <Filter>render</Filter>
+    </ClInclude>
+    <ClInclude Include="render\ButtonElement.h">
+      <Filter>render</Filter>
+    </ClInclude>
+    <ClInclude Include="render\CursorManager.h">
+      <Filter>render</Filter>
+    </ClInclude>
+    <ClInclude Include="render\CurveShape.h">
+      <Filter>render</Filter>
+    </ClInclude>
+    <ClInclude Include="render\Direct2DHelper.h">
+      <Filter>render</Filter>
+    </ClInclude>
+    <ClInclude Include="render\Element.h">
+      <Filter>render</Filter>
+    </ClInclude>
+    <ClInclude Include="render\ElementLayoutBox.h">
+      <Filter>render</Filter>
+    </ClInclude>
+    <ClInclude Include="render\EllipseShape.h">
+      <Filter>render</Filter>
+    </ClInclude>
+    <ClInclude Include="render\FlexLayoutEngine.h">
+      <Filter>render</Filter>
+    </ClInclude>
+    <ClInclude Include="render\FontManager.h">
+      <Filter>render</Filter>
+    </ClInclude>
+    <ClInclude Include="render\GeneralImage.h">
+      <Filter>render</Filter>
+    </ClInclude>
+    <ClInclude Include="render\HistogramElement.h">
+      <Filter>render</Filter>
+    </ClInclude>
+    <ClInclude Include="render\ImageElement.h">
+      <Filter>render</Filter>
+    </ClInclude>
+    <ClInclude Include="render\LineElement.h">
+      <Filter>render</Filter>
+    </ClInclude>
+    <ClInclude Include="render\LineShape.h">
+      <Filter>render</Filter>
+    </ClInclude>
+    <ClInclude Include="render\PathShape.h">
+      <Filter>render</Filter>
+    </ClInclude>
+    <ClInclude Include="render\RectangleShape.h">
+      <Filter>render</Filter>
+    </ClInclude>
+    <ClInclude Include="render\RotatorElement.h">
+      <Filter>render</Filter>
+    </ClInclude>
+    <ClInclude Include="render\RoundLineElement.h">
+      <Filter>render</Filter>
+    </ClInclude>
+    <ClInclude Include="render\ShapeElement.h">
+      <Filter>render</Filter>
+    </ClInclude>
+    <ClInclude Include="render\TextElement.h">
+      <Filter>render</Filter>
+    </ClInclude>
+    <ClInclude Include="render\Tooltip.h">
+      <Filter>render</Filter>
+    </ClInclude>
+    <ClInclude Include="scripting\quickjs\engine\JSEngine.h">
+      <Filter>scripting\quickjs\engine</Filter>
+    </ClInclude>
+    <ClInclude Include="scripting\quickjs\modules\FSModule.h">
+      <Filter>scripting\quickjs\modules</Filter>
+    </ClInclude>
+    <ClInclude Include="scripting\quickjs\modules\ModuleSystem.h">
+      <Filter>scripting\quickjs\modules</Filter>
+    </ClInclude>
+    <ClInclude Include="scripting\quickjs\modules\NovadeskModule.h">
+      <Filter>scripting\quickjs\modules</Filter>
+    </ClInclude>
+    <ClInclude Include="scripting\quickjs\modules\SystemModule.h">
+      <Filter>scripting\quickjs\modules</Filter>
+    </ClInclude>
+    <ClInclude Include="scripting\quickjs\modules\WidgetUiBindings.h">
+      <Filter>scripting\quickjs\modules</Filter>
+    </ClInclude>
+    <ClInclude Include="scripting\quickjs\modules\WidgetWindowEventBindings.h">
+      <Filter>scripting\quickjs\modules</Filter>
+    </ClInclude>
+    <ClInclude Include="scripting\quickjs\parser\PropertyParser.h">
+      <Filter>scripting\quickjs\parser</Filter>
+    </ClInclude>
+    <ClInclude Include="scripting\quickjs\parser\PropertyParserJs.h">
+      <Filter>scripting\quickjs\parser</Filter>
+    </ClInclude>
+    <ClInclude Include="scripting\quickjs\parser\PropertyParserTypes.h">
+      <Filter>scripting\quickjs\parser</Filter>
+    </ClInclude>
+    <ClInclude Include="shared\ColorUtil.h">
+      <Filter>shared</Filter>
+    </ClInclude>
+    <ClInclude Include="shared\FileUtils.h">
+      <Filter>shared</Filter>
+    </ClInclude>
+    <ClInclude Include="shared\Logging.h">
+      <Filter>shared</Filter>
+    </ClInclude>
+    <ClInclude Include="shared\MenuItem.h">
+      <Filter>shared</Filter>
+    </ClInclude>
+    <ClInclude Include="shared\MenuUtils.h">
+      <Filter>shared</Filter>
+    </ClInclude>
+    <ClInclude Include="shared\PathUtils.h">
+      <Filter>shared</Filter>
+    </ClInclude>
+    <ClInclude Include="shared\Settings.h">
+      <Filter>shared</Filter>
+    </ClInclude>
+    <ClInclude Include="shared\System.h">
+      <Filter>shared</Filter>
+    </ClInclude>
+    <ClInclude Include="shared\Utils.h">
+      <Filter>shared</Filter>
+    </ClInclude>
+    <ClInclude Include="framework.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="targetver.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Resource.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Version.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\third_party\quick-js\quickjs.h">
+      <Filter>third_party</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\third_party\quick-js\cutils.h">
+      <Filter>third_party</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\third_party\quick-js\dtoa.h">
+      <Filter>third_party</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\third_party\quick-js\libregexp.h">
+      <Filter>third_party</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\third_party\quick-js\libunicode.h">
+      <Filter>third_party</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\third_party\quick-js\list.h">
+      <Filter>third_party</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="Novadesk.rc">
+      <Filter>Resource Files</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Novadesk.exe.manifest">
+      <Filter>Resource Files</Filter>
+    </None>
+  </ItemGroup>
+</Project>

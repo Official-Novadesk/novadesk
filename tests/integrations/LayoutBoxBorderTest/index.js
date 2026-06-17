@@ -67,3 +67,12 @@ const dottedTest = new widgetWindow({
   script: "./dotted.ui.js",
   show: true
 });
+
+const doubleTest = new widgetWindow({
+  id: "doubleTest",
+  width: 410,
+  height: 200,
+  backgroundColor: "rgba(240, 240, 240, 1.0)",
+  script: "./double.ui.js",
+  show: true
+});

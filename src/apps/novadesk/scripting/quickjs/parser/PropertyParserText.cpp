@@ -119,23 +119,23 @@ namespace PropertyParser
         if (!align.empty())
         {
             std::transform(align.begin(), align.end(), align.begin(), ::towlower);
-            if (align == L"left" || align == L"lefttop")
+            if (align == L"left" || align == L"lefttop" || align == L"left-top")
                 options.textAlign = TEXT_ALIGN_LEFT_TOP;
-            else if (align == L"center" || align == L"centertop")
+            else if (align == L"center" || align == L"centertop" || align == L"center-top")
                 options.textAlign = TEXT_ALIGN_CENTER_TOP;
-            else if (align == L"right" || align == L"righttop")
+            else if (align == L"right" || align == L"righttop" || align == L"right-top")
                 options.textAlign = TEXT_ALIGN_RIGHT_TOP;
-            else if (align == L"leftcenter")
+            else if (align == L"leftcenter" || align == L"left-center")
                 options.textAlign = TEXT_ALIGN_LEFT_CENTER;
-            else if (align == L"centercenter" || align == L"middlecenter" || align == L"middle")
+            else if (align == L"centercenter" || align == L"middlecenter" || align == L"middle" || align == L"center-center" || align == L"middle-center")
                 options.textAlign = TEXT_ALIGN_CENTER_CENTER;
-            else if (align == L"rightcenter")
+            else if (align == L"rightcenter" || align == L"right-center")
                 options.textAlign = TEXT_ALIGN_RIGHT_CENTER;
-            else if (align == L"leftbottom")
+            else if (align == L"leftbottom" || align == L"left-bottom")
                 options.textAlign = TEXT_ALIGN_LEFT_BOTTOM;
-            else if (align == L"centerbottom")
+            else if (align == L"centerbottom" || align == L"center-bottom")
                 options.textAlign = TEXT_ALIGN_CENTER_BOTTOM;
-            else if (align == L"rightbottom")
+            else if (align == L"rightbottom" || align == L"right-bottom")
                 options.textAlign = TEXT_ALIGN_RIGHT_BOTTOM;
         }
 

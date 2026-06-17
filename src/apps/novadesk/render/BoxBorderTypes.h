@@ -24,6 +24,7 @@ namespace BoxBorder
         Outset,
         Groove,
         Ridge,
-        Dotted
+        Dotted,
+        Double
     };
 }

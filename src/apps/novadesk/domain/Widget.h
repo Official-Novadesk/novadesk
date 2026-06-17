@@ -28,10 +28,14 @@
 #include "../render/LineElement.h"
 #include "../render/Tooltip.h"
 #include "../render/CursorManager.h"
+#include "../render/FlexLayoutEngine.h"
 
 #pragma comment(lib, "comctl32.lib")
 
 #include "quickjs.h"
+
+// Forward declarations
+class WidgetLayoutHelper;
 
 namespace PropertyParser {
     struct ImageOptions;
@@ -78,19 +82,8 @@ struct WidgetOptions
 class Widget
 {
 public:
-    struct LayoutConfig
-    {
-        std::wstring direction = L"column"; // "row" | "column"
-        int gap = 0;
-        std::wstring align = L"start";   // "start" | "center" | "end" | "stretch"
-        std::wstring justify = L"start"; // currently used as start/center/end for main axis
-        int paddingLeft = 0;
-        int paddingTop = 0;
-        int paddingRight = 0;
-        int paddingBottom = 0;
-        int minWidth = 0;
-        int minHeight = 0;
-    };
+    // Use FlexLayoutConfig from FlexLayoutEngine
+    using LayoutConfig = FlexLayoutConfig;
     struct AnimationTarget
     {
         bool hasX = false;
@@ -170,6 +163,7 @@ public:
     const WidgetOptions& GetOptions() const { return m_Options; }
     HWND GetWindow() const { return m_hWnd; }
     ZPOSITION GetWindowZPosition() const { return m_WindowZPosition; }
+    ID2D1DeviceContext* GetDeviceContext() const { return m_pContext.Get(); }
 
     void AddImage(const PropertyParser::ImageOptions& options);
     void AddText(const PropertyParser::TextOptions& options);
@@ -212,6 +206,7 @@ public:
     void StartElementKeyframeAnimation(const std::wstring &id, const std::vector<AnimationKeyframe> &keyframes, int durationMs, const std::wstring &easing, int iterationCount);
 
     friend class WidgetAnimationHelper;
+    friend class WidgetLayoutHelper;
 
 private:
     static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);

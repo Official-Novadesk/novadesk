@@ -11,6 +11,7 @@
 #include "../../../shared/ColorUtil.h"
 #include "../../../shared/PathUtils.h"
 #include "../../../shared/Utils.h"
+#include "../../../shared/Logging.h"
 #include "../engine/JSEngine.h"
 #include <filesystem>
 #include <cmath>
@@ -100,6 +101,7 @@ namespace PropertyParser
             if (lower == L"groove") return ElementLayoutBox::BorderStyle::Groove;
             if (lower == L"ridge") return ElementLayoutBox::BorderStyle::Ridge;
             if (lower == L"dotted") return ElementLayoutBox::BorderStyle::Dotted;
+            if (lower == L"double") return ElementLayoutBox::BorderStyle::Double;
             return ElementLayoutBox::BorderStyle::Solid;
         };
 
@@ -240,10 +242,25 @@ namespace PropertyParser
             JS_FreeValue(ctx, styleDir);
         }
         if (options.direction.empty())
-            options.direction = L"column";
+            options.direction = L"ltr";
         std::transform(options.direction.begin(), options.direction.end(), options.direction.begin(), ::towlower);
-        if (options.direction != L"row")
-            options.direction = L"column";
+        if (options.direction != L"rtl")
+            options.direction = L"ltr";
+
+        // Parse flexDirection property
+        options.flexDirection = GetStringProp(ctx, obj, "flexDirection");
+        if (options.flexDirection.empty())
+        {
+            JSValue styleFlexDir = JS_GetPropertyStr(ctx, obj, "style");
+            if (JS_IsObject(styleFlexDir))
+                options.flexDirection = GetStringProp(ctx, styleFlexDir, "flexDirection");
+            JS_FreeValue(ctx, styleFlexDir);
+        }
+        if (options.flexDirection.empty())
+            options.flexDirection = L"row";
+        std::transform(options.flexDirection.begin(), options.flexDirection.end(), options.flexDirection.begin(), ::towlower);
+        if (options.flexDirection != L"rowreverse" && options.flexDirection != L"column" && options.flexDirection != L"columnreverse")
+            options.flexDirection = L"row";
 
         if (!GetIntProp(ctx, obj, "gap", options.gap))
         {
@@ -271,7 +288,10 @@ namespace PropertyParser
 
         int pad = 0;
         if (GetIntProp(ctx, obj, "padding", pad))
+        {
             options.paddingLeft = options.paddingTop = options.paddingRight = options.paddingBottom = pad;
+            // Logging::Log(LogLevel::Debug, L"[PADDING] Parsed single padding value: %d", pad);
+        }
 
         JSValue paddingVal = JS_GetPropertyStr(ctx, obj, "padding");
         if (JS_IsArray(paddingVal))
@@ -295,11 +315,13 @@ namespace PropertyParser
             if (values.size() == 1)
             {
                 options.paddingLeft = options.paddingTop = options.paddingRight = options.paddingBottom = values[0];
+                // Logging::Log(LogLevel::Debug, L"[PADDING] Parsed array padding (1 value): %d", values[0]);
             }
             else if (values.size() == 2)
             {
                 options.paddingLeft = options.paddingRight = values[0];
                 options.paddingTop = options.paddingBottom = values[1];
+                // Logging::Log(LogLevel::Debug, L"[PADDING] Parsed array padding (2 values): H=%d, V=%d", values[0], values[1]);
             }
             else if (values.size() >= 4)
             {
@@ -307,17 +329,55 @@ namespace PropertyParser
                 options.paddingTop = values[1];
                 options.paddingRight = values[2];
                 options.paddingBottom = values[3];
+                // Logging::Log(LogLevel::Debug, L"[PADDING] Parsed array padding (4 values): L=%d, T=%d, R=%d, B=%d", 
+                //     values[0], values[1], values[2], values[3]);
             }
         }
         JS_FreeValue(ctx, paddingVal);
+
+        // Parse display property
+        std::wstring displayStr = GetStringProp(ctx, obj, "display");
+        if (!displayStr.empty())
+        {
+            std::transform(displayStr.begin(), displayStr.end(), displayStr.begin(), ::towlower);
+            if (displayStr == L"flex")
+                options.displayType = ElementLayoutBox::DisplayType::Flex;
+            else if (displayStr == L"none")
+                options.displayType = ElementLayoutBox::DisplayType::None;
+            else if (displayStr == L"list-item")
+                options.displayType = ElementLayoutBox::DisplayType::ListItem;
+        }
+
+        // Parse listStyleType property
+        std::wstring listStyleTypeStr = GetStringProp(ctx, obj, "listStyleType");
+        if (!listStyleTypeStr.empty())
+        {
+            std::transform(listStyleTypeStr.begin(), listStyleTypeStr.end(), listStyleTypeStr.begin(), ::towlower);
+            if (listStyleTypeStr == L"disc")
+                options.listStyleType = ElementLayoutBox::ListStyleType::Disc;
+            else if (listStyleTypeStr == L"circle")
+                options.listStyleType = ElementLayoutBox::ListStyleType::Circle;
+            else if (listStyleTypeStr == L"square")
+                options.listStyleType = ElementLayoutBox::ListStyleType::Square;
+            else if (listStyleTypeStr == L"upper-roman")
+                options.listStyleType = ElementLayoutBox::ListStyleType::UpperRoman;
+            else if (listStyleTypeStr == L"lower-roman")
+                options.listStyleType = ElementLayoutBox::ListStyleType::LowerRoman;
+            else if (listStyleTypeStr == L"decimal")
+                options.listStyleType = ElementLayoutBox::ListStyleType::Decimal;
+            else if (listStyleTypeStr == L"lower-alpha")
+                options.listStyleType = ElementLayoutBox::ListStyleType::LowerAlpha;
+            else if (listStyleTypeStr == L"upper-alpha")
+                options.listStyleType = ElementLayoutBox::ListStyleType::UpperAlpha;
+            else if (listStyleTypeStr == L"none")
+                options.listStyleType = ElementLayoutBox::ListStyleType::None;
+        }
 
         JSValue stylePadding = JS_GetPropertyStr(ctx, obj, "style");
         if (JS_IsObject(stylePadding))
         {
             int padX = 0;
             int padY = 0;
-            int minWidth = 0;
-            int minHeight = 0;
             if (GetIntProp(ctx, stylePadding, "padding", pad))
                 options.paddingLeft = options.paddingTop = options.paddingRight = options.paddingBottom = pad;
             if (GetIntProp(ctx, stylePadding, "paddingX", padX))
@@ -336,10 +396,38 @@ namespace PropertyParser
                 std::transform(justifyContent.begin(), justifyContent.end(), justifyContent.begin(), ::towlower);
                 options.justify = justifyContent;
             }
-            if (GetIntProp(ctx, stylePadding, "minWidth", minWidth) && minWidth > 0)
-                options.minWidth = minWidth;
-            if (GetIntProp(ctx, stylePadding, "minHeight", minHeight) && minHeight > 0)
-                options.minHeight = minHeight;
+            
+            // Parse display from style object as well
+            std::wstring styleDisplay = GetStringProp(ctx, stylePadding, "display");
+            if (!styleDisplay.empty())
+            {
+                std::transform(styleDisplay.begin(), styleDisplay.end(), styleDisplay.begin(), ::towlower);
+                if (styleDisplay == L"flex")
+                    options.displayType = ElementLayoutBox::DisplayType::Flex;
+                else if (styleDisplay == L"none")
+                    options.displayType = ElementLayoutBox::DisplayType::None;
+                else if (styleDisplay == L"list-item")
+                    options.displayType = ElementLayoutBox::DisplayType::ListItem;
+            }
+            
+            // Parse listStyleType from style object as well
+            std::wstring styleListStyleType = GetStringProp(ctx, stylePadding, "listStyleType");
+            if (!styleListStyleType.empty())
+            {
+                std::transform(styleListStyleType.begin(), styleListStyleType.end(), styleListStyleType.begin(), ::towlower);
+                if (styleListStyleType == L"disc")
+                    options.listStyleType = ElementLayoutBox::ListStyleType::Disc;
+                else if (styleListStyleType == L"circle")
+                    options.listStyleType = ElementLayoutBox::ListStyleType::Circle;
+                else if (styleListStyleType == L"square")
+                    options.listStyleType = ElementLayoutBox::ListStyleType::Square;
+                else if (styleListStyleType == L"upper-roman")
+                    options.listStyleType = ElementLayoutBox::ListStyleType::UpperRoman;
+                else if (styleListStyleType == L"lower-roman")
+                    options.listStyleType = ElementLayoutBox::ListStyleType::LowerRoman;
+                else if (styleListStyleType == L"none")
+                    options.listStyleType = ElementLayoutBox::ListStyleType::None;
+            }
         }
         JS_FreeValue(ctx, stylePadding);
     }
@@ -349,6 +437,26 @@ namespace PropertyParser
             return;
 
         ApplyShapeOptions(element, options.shape);
+
+        element->SetDisplayType(options.displayType);
+        
+        // Set list style type
+        element->SetListStyleType(options.listStyleType);
+
+        // Handle display: none by hiding the element
+        if (options.displayType == ElementLayoutBox::DisplayType::None)
+        {
+            element->SetShow(false);
+        }
+        else
+        {
+            // Restore visibility if it was previously hidden by display:none
+            // Note: This respects the element's original visibility state
+            if (!element->IsVisible())
+            {
+                element->SetShow(true);
+            }
+        }
 
         if (options.hasBorderStyle)
         {
@@ -374,6 +482,16 @@ namespace PropertyParser
             shadows.push_back(outShadow);
         }
         element->SetBoxShadows(shadows);
+
+        // Apply padding values to the element
+        // Logging::Log(LogLevel::Debug, L"[PADDING] ApplyLayoutBoxOptions: Setting padding L=%d, T=%d, R=%d, B=%d on element '%s'",
+        //     options.paddingLeft, options.paddingTop, options.paddingRight, options.paddingBottom, 
+        //     element->GetId().c_str());
+        element->SetPadding(
+            options.paddingLeft,
+            options.paddingTop,
+            options.paddingRight,
+            options.paddingBottom);
     }
     void PreFillLayoutBoxOptions(
         LayoutBoxOptions &options,
@@ -385,9 +503,7 @@ namespace PropertyParser
         const int *paddingLeft,
         const int *paddingTop,
         const int *paddingRight,
-        const int *paddingBottom,
-        const int *minWidth,
-        const int *minHeight)
+        const int *paddingBottom)
     {
         if (!element)
             return;
@@ -417,7 +533,8 @@ namespace PropertyParser
             options.boxShadows.push_back(outShadow);
         }
 
-        options.direction = direction ? *direction : L"column";
+        options.direction = direction ? *direction : L"ltr";
+        options.flexDirection = L"row"; // Default flex direction
         options.gap = gap ? *gap : 0;
         options.align = align ? *align : L"";
         options.justify = justify ? *justify : L"";
@@ -425,7 +542,6 @@ namespace PropertyParser
         options.paddingTop = paddingTop ? *paddingTop : element->GetPaddingTop();
         options.paddingRight = paddingRight ? *paddingRight : element->GetPaddingRight();
         options.paddingBottom = paddingBottom ? *paddingBottom : element->GetPaddingBottom();
-        options.minWidth = minWidth ? *minWidth : 0;
-        options.minHeight = minHeight ? *minHeight : 0;
+        options.displayType = element->GetDisplayType();
     }
 }

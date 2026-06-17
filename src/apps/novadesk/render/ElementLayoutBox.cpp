@@ -6,7 +6,9 @@
  * obtain one at <https://www.gnu.org/licenses/gpl-2.0.html>. */
 
 #include "ElementLayoutBox.h"
+#include "TextElement.h"
 #include "Direct2DHelper.h"
+#include "../shared/Logging.h"
 #include <algorithm>
 #include <cmath>
 #include <d2d1effects.h>
@@ -15,6 +17,100 @@
 ElementLayoutBox::ElementLayoutBox(const std::wstring& id, int x, int y, int width, int height)
     : ShapeElement(id, x, y, width, height, ELEMENT_LAYOUT_BOX)
 {
+}
+
+int ElementLayoutBox::GetAutoWidth()
+{
+    // If width is explicitly defined, use it
+    if (m_WDefined)
+        return m_Width;
+    
+    // Calculate auto width based on children and layout direction
+    // NOTE: Do NOT include padding here - Element::GetWidth() will add it
+    const auto& children = GetContainerItems();
+    if (children.empty())
+        return 0; // Element::GetWidth() will add padding
+    
+    // Parse flex direction to determine layout
+    std::wstring flexDir = m_FlexDirection;
+    std::transform(flexDir.begin(), flexDir.end(), flexDir.begin(), ::towlower);
+    const bool isHorizontal = (flexDir == L"row" || flexDir == L"rowreverse");
+    
+    int contentWidth = 0;
+    
+    if (isHorizontal)
+    {
+        // Horizontal layout (row): sum all children widths + gaps
+        for (size_t i = 0; i < children.size(); ++i)
+        {
+            Element* child = children[i];
+            if (!child) continue;
+            contentWidth += child->GetWidth();
+            
+            // Add gap between items (not after last item)
+            if (i < children.size() - 1)
+                contentWidth += m_LayoutGap;
+        }
+    }
+    else
+    {
+        // Vertical layout (column): use maximum child width
+        for (Element* child : children)
+        {
+            if (!child) continue;
+            contentWidth = std::max(contentWidth, child->GetWidth());
+        }
+    }
+    
+    // Return content width WITHOUT padding (Element::GetWidth() adds it)
+    return contentWidth;
+}
+
+int ElementLayoutBox::GetAutoHeight()
+{
+    // If height is explicitly defined, use it
+    if (m_HDefined)
+        return m_Height;
+    
+    // Calculate auto height based on children and layout direction
+    // NOTE: Do NOT include padding here - Element::GetHeight() will add it
+    const auto& children = GetContainerItems();
+    if (children.empty())
+        return 0; // Element::GetHeight() will add padding
+    
+    // Parse flex direction to determine layout
+    std::wstring flexDir = m_FlexDirection;
+    std::transform(flexDir.begin(), flexDir.end(), flexDir.begin(), ::towlower);
+    const bool isHorizontal = (flexDir == L"row" || flexDir == L"rowreverse");
+    
+    int contentHeight = 0;
+    
+    if (isHorizontal)
+    {
+        // Horizontal layout (row): use maximum child height
+        for (Element* child : children)
+        {
+            if (!child) continue;
+            contentHeight = std::max(contentHeight, child->GetHeight());
+        }
+    }
+    else
+    {
+        // Vertical layout (column): sum all children heights + gaps
+        for (size_t i = 0; i < children.size(); ++i)
+        {
+            Element* child = children[i];
+            if (!child) continue;
+            contentHeight += child->GetHeight();
+            
+            // Add gap between items (not after last item)
+            if (i < children.size() - 1)
+                contentHeight += m_LayoutGap;
+        }
+    }
+    
+    // Return content height WITHOUT padding (Element::GetHeight() adds it)
+    return contentHeight;
 }
 
 bool ElementLayoutBox::HitTestLocal(const D2D1_POINT_2F& point)
@@ -47,7 +143,16 @@ bool ElementLayoutBox::CreateGeometry(ID2D1Factory* factory, Microsoft::WRL::Com
         return false;
     Microsoft::WRL::ComPtr<ID2D1RoundedRectangleGeometry> rounded;
     D2D1_ROUNDED_RECT rect;
-    rect.rect = D2D1::RectF((float)m_X, (float)m_Y, (float)(m_X + m_Width), (float)(m_Y + m_Height));
+    
+    // Use Element::GetWidth() and GetHeight() which handle auto-sizing and padding
+    const int totalWidth = const_cast<ElementLayoutBox*>(this)->GetWidth();
+    const int totalHeight = const_cast<ElementLayoutBox*>(this)->GetHeight();
+    
+    rect.rect = D2D1::RectF(
+        (float)m_X, 
+        (float)m_Y, 
+        (float)(m_X + totalWidth), 
+        (float)(m_Y + totalHeight));
     rect.radiusX = m_RadiusX;
     rect.radiusY = m_RadiusY;
     if (FAILED(factory->CreateRoundedRectangleGeometry(rect, rounded.GetAddressOf())))
@@ -66,7 +171,20 @@ void ElementLayoutBox::Render(ID2D1DeviceContext* context)
     TryCreateStrokeBrush(context, strokeBrush);
     TryCreateFillBrush(context, fillBrush);
     D2D1_ROUNDED_RECT rect;
-    rect.rect = D2D1::RectF((float)m_X, (float)m_Y, (float)(m_X + m_Width), (float)(m_Y + m_Height));
+    
+    // Use Element::GetWidth() and GetHeight() which handle auto-sizing and padding
+    const int totalWidth = GetWidth();
+    const int totalHeight = GetHeight();
+    
+    // Logging::Log(LogLevel::Debug, L"[AUTO-SIZE] Render '%s': WDefined=%d HDefined=%d, total W=%d H=%d (includes padding L=%d T=%d R=%d B=%d)",
+    //     m_Id.c_str(), m_WDefined, m_HDefined, totalWidth, totalHeight,
+    //     m_PaddingLeft, m_PaddingTop, m_PaddingRight, m_PaddingBottom);
+    
+    rect.rect = D2D1::RectF(
+        (float)m_X, 
+        (float)m_Y, 
+        (float)(m_X + totalWidth), 
+        (float)(m_Y + totalHeight));
     rect.radiusX = m_RadiusX;
     rect.radiusY = m_RadiusY;
     for (const auto& shadow : m_BoxShadows)
@@ -89,6 +207,10 @@ void ElementLayoutBox::Render(ID2D1DeviceContext* context)
     {
         BoxBorderPaint::PaintForElement(context, rect, BuildBorderPaintParams(), strokeBrush.Get());
     }
+    
+    // Render list marker if this is a list item
+    RenderListMarker(context);
+    
     RenderBevel(context);
     RestoreRenderTransform(context, originalTransform);
 }
@@ -224,4 +346,301 @@ BoxBorderPaintParams ElementLayoutBox::BuildBorderPaintParams() const
     params.strokeLineJoin = m_StrokeLineJoin;
     params.strokeDashOffset = m_StrokeDashOffset;
     return params;
+}
+
+void ElementLayoutBox::RenderTextMarker(
+    ID2D1DeviceContext* context,
+    const std::wstring& text,
+    float markerCenterX, float markerCenterY, float markerSize,
+    ID2D1SolidColorBrush* brush)
+{
+    Microsoft::WRL::ComPtr<IDWriteTextFormat> textFormat;
+    Microsoft::WRL::ComPtr<IDWriteFactory> writeFactory;
+    if (FAILED(DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, __uuidof(IDWriteFactory),
+        reinterpret_cast<IUnknown**>(writeFactory.GetAddressOf()))))
+        return;
+
+    if (FAILED(writeFactory->CreateTextFormat(
+        L"Segoe UI",
+        nullptr,
+        DWRITE_FONT_WEIGHT_NORMAL,
+        DWRITE_FONT_STYLE_NORMAL,
+        DWRITE_FONT_STRETCH_NORMAL,
+        markerSize * 2.0f,
+        L"en-us",
+        textFormat.GetAddressOf())))
+        return;
+
+    textFormat->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_TRAILING);
+    textFormat->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_NEAR);
+
+    const D2D1_RECT_F textRect = D2D1::RectF(
+        markerCenterX - 50.0f,
+        markerCenterY - (markerSize * 1.5f),
+        markerCenterX,
+        markerCenterY + (markerSize * 1.5f)
+    );
+
+    context->DrawText(
+        text.c_str(),
+        static_cast<UINT32>(text.length()),
+        textFormat.Get(),
+        textRect,
+        brush
+    );
+}
+
+void ElementLayoutBox::RenderListMarker(ID2D1DeviceContext* context)
+{
+    Logging::Log(LogLevel::Debug, L"[LIST-MARKER] ==== RenderListMarker START for '%s' ====", m_Id.c_str());
+    Logging::Log(LogLevel::Debug, L"[LIST-MARKER] DisplayType=%d (ListItem=%d), context=%p", 
+        static_cast<int>(m_DisplayType), static_cast<int>(DisplayType::ListItem), context);
+    Logging::Log(LogLevel::Debug, L"[LIST-MARKER] ListStyleType=%d, marker color=0x%X, alpha=%d", 
+        static_cast<int>(m_ListMarker.type), m_ListMarker.color, m_ListMarker.alpha);
+    
+    // Only render marker for list items
+    if (m_DisplayType != DisplayType::ListItem || !context)
+    {
+        Logging::Log(LogLevel::Debug, L"[LIST-MARKER] SKIP: Not a listitem or no context");
+        return;
+    }
+    
+    // Don't render if marker type is None
+    if (m_ListMarker.type == ListStyleType::None)
+    {
+        Logging::Log(LogLevel::Debug, L"[LIST-MARKER] SKIP: Marker type is None");
+        return;
+    }
+    
+    // Check if this listitem has children
+    const auto& children = GetContainerItems();
+    Logging::Log(LogLevel::Debug, L"[LIST-MARKER] Children count: %d", static_cast<int>(children.size()));
+    
+    if (children.empty())
+    {
+        Logging::Log(LogLevel::Debug, L"[LIST-MARKER] SKIP: No children");
+        return;  // No children, no markers to render
+    }
+    
+    Logging::Log(LogLevel::Debug, L"[LIST-MARKER] Rendering markers for listitem '%s' with %d children", 
+        m_Id.c_str(), static_cast<int>(children.size()));
+    
+    // Auto-calculate starting index based on sibling position
+    int startingIndex = 1;
+    Element* container = GetContainer();
+    Logging::Log(LogLevel::Debug, L"[LIST-MARKER] Container=%p", container);
+    
+    if (container)
+    {
+        const auto& siblings = container->GetContainerItems();
+        Logging::Log(LogLevel::Debug, L"[LIST-MARKER] Siblings count: %d", static_cast<int>(siblings.size()));
+        
+        for (Element* sibling : siblings)
+        {
+            if (sibling == this)
+            {
+                Logging::Log(LogLevel::Debug, L"[LIST-MARKER] Found self, stopping");
+                break;  // Found ourselves, stop counting
+            }
+            
+            // Count only list items with same list style type
+            ElementLayoutBox* siblingBox = dynamic_cast<ElementLayoutBox*>(sibling);
+            if (siblingBox && 
+                siblingBox->GetDisplayType() == DisplayType::ListItem &&
+                siblingBox->GetListStyleType() == m_ListMarker.type)
+            {
+                // Add the number of children in the sibling (each child gets a marker)
+                const auto& siblingChildren = siblingBox->GetContainerItems();
+                int count = std::max(1, static_cast<int>(siblingChildren.size()));
+                Logging::Log(LogLevel::Debug, L"[LIST-MARKER] Sibling '%s' has %d children, adding %d", 
+                    siblingBox->GetId().c_str(), static_cast<int>(siblingChildren.size()), count);
+                startingIndex += count;
+            }
+        }
+    }
+    
+    Logging::Log(LogLevel::Debug, L"[LIST-MARKER] Final startingIndex=%d", startingIndex);
+
+    // Helper lambdas for converting an index to a marker string
+    auto toRoman = [](int num, bool upper) -> std::wstring
+    {
+        if (num <= 0 || num > 3999)
+            return L"?";
+        struct Pair { int value; const wchar_t* upper; const wchar_t* lower; };
+        const Pair pairs[] = {
+            {1000,L"M",L"m"},{900,L"CM",L"cm"},{500,L"D",L"d"},{400,L"CD",L"cd"},
+            {100,L"C",L"c"},{90,L"XC",L"xc"},{50,L"L",L"l"},{40,L"XL",L"xl"},
+            {10,L"X",L"x"},{9,L"IX",L"ix"},{5,L"V",L"v"},{4,L"IV",L"iv"},{1,L"I",L"i"}
+        };
+        std::wstring result;
+        for (const auto& p : pairs)
+        {
+            while (num >= p.value)
+            {
+                result += upper ? p.upper : p.lower;
+                num -= p.value;
+            }
+        }
+        return result;
+    };
+
+    auto toAlpha = [](int num, bool upper) -> std::wstring
+    {
+        if (num <= 0)
+            return L"?";
+        std::wstring result;
+        while (num > 0)
+        {
+            --num;  // Make 0-indexed
+            const wchar_t ch = upper
+                ? static_cast<wchar_t>(L'A' + (num % 26))
+                : static_cast<wchar_t>(L'a' + (num % 26));
+            result = ch + result;
+            num /= 26;
+        }
+        return result;
+    };
+
+    // Render marker for each child element
+    int childIndex = 0;
+    for (Element* child : children)
+    {
+        if (!child || !child->IsVisible())
+        {
+            Logging::Log(LogLevel::Debug, L"[LIST-MARKER] Child %d: skipped (null or not visible)", childIndex);
+            continue;
+        }
+        
+        const int displayIndex = startingIndex + childIndex;
+        
+        Logging::Log(LogLevel::Debug, L"[LIST-MARKER] Child %d: pos(%d,%d) displayIndex=%d", 
+            childIndex, child->GetX(), child->GetY(), displayIndex);
+        
+        // Calculate marker size based on child element
+        float markerSize = m_ListMarker.size;
+        
+        // If child is a text element, scale marker size based on font size
+        TextElement* textChild = dynamic_cast<TextElement*>(child);
+        if (textChild)
+        {
+            int fontSize = textChild->GetFontSize();
+            // Scale marker: use roughly half the font size for visual balance
+            markerSize = static_cast<float>(fontSize) * 0.5f;
+            
+            Logging::Log(LogLevel::Debug, L"[LIST-MARKER] Text child fontSize=%d, scaled markerSize=%.1f", 
+                fontSize, markerSize);
+        }
+        else
+        {
+            // For non-text elements (shapes, images, bars, etc.), 
+            // scale based on element height for better visual proportion
+            int childHeight = child->GetHeight();
+            if (childHeight > 0)
+            {
+                // Use 20% of height as marker size for good proportion
+                markerSize = static_cast<float>(childHeight) * 0.2f;
+                
+                Logging::Log(LogLevel::Debug, L"[LIST-MARKER] Non-text child height=%d, scaled markerSize=%.1f", 
+                    childHeight, markerSize);
+            }
+        }
+        
+        // Clamp marker size to reasonable bounds
+        if (markerSize < 4.0f) markerSize = 4.0f;   // Minimum size
+        if (markerSize > 24.0f) markerSize = 24.0f; // Maximum size
+        
+        // Create brush for the marker
+        Microsoft::WRL::ComPtr<ID2D1SolidColorBrush> markerBrush;
+        if (!Direct2D::CreateSolidBrush(context, m_ListMarker.color, m_ListMarker.alpha / 255.0f, &markerBrush))
+        {
+            Logging::Log(LogLevel::Debug, L"[LIST-MARKER] Failed to create brush");
+            continue;
+        }
+        
+        // Calculate marker position
+        // Children have RELATIVE positions, so we need to add the parent's position
+        // to get the absolute screen position
+        const float childAbsoluteX = (float)(m_X + child->GetX());
+        const float childAbsoluteY = (float)(m_Y + child->GetY());
+        const float markerCenterX = childAbsoluteX + m_ListMarker.offsetX;
+        const float markerCenterY = childAbsoluteY + (markerSize * 1.5f);
+        
+        Logging::Log(LogLevel::Debug, L"[LIST-MARKER] Parent pos=(%d,%d), Child rel=(%d,%d), Child abs=(%.1f,%.1f)", 
+            m_X, m_Y, child->GetX(), child->GetY(), childAbsoluteX, childAbsoluteY);
+        Logging::Log(LogLevel::Debug, L"[LIST-MARKER] Final marker at (%.1f, %.1f) size=%.1f type=%d", 
+            markerCenterX, markerCenterY, markerSize, static_cast<int>(m_ListMarker.type));
+        
+        // Render different marker types
+        switch (m_ListMarker.type)
+        {
+            case ListStyleType::Disc:
+            {
+                // Filled circle (•)
+                D2D1_ELLIPSE disc = D2D1::Ellipse(
+                    D2D1::Point2F(markerCenterX, markerCenterY),
+                    markerSize / 2.0f,
+                    markerSize / 2.0f
+                );
+                context->FillEllipse(disc, markerBrush.Get());
+                break;
+            }
+            
+            case ListStyleType::Circle:
+            {
+                // Hollow circle (○)
+                D2D1_ELLIPSE circle = D2D1::Ellipse(
+                    D2D1::Point2F(markerCenterX, markerCenterY),
+                    markerSize / 2.0f,
+                    markerSize / 2.0f
+                );
+                context->DrawEllipse(circle, markerBrush.Get(), 1.0f);
+                break;
+            }
+            
+            case ListStyleType::Square:
+            {
+                // Filled square (■)
+                D2D1_RECT_F square = D2D1::RectF(
+                    markerCenterX - (markerSize / 2.0f),
+                    markerCenterY - (markerSize / 2.0f),
+                    markerCenterX + (markerSize / 2.0f),
+                    markerCenterY + (markerSize / 2.0f)
+                );
+                context->FillRectangle(square, markerBrush.Get());
+                break;
+            }
+            
+            case ListStyleType::UpperRoman:
+                RenderTextMarker(context, toRoman(displayIndex, true) + L".",
+                    markerCenterX, markerCenterY, markerSize, markerBrush.Get());
+                break;
+            
+            case ListStyleType::LowerRoman:
+                RenderTextMarker(context, toRoman(displayIndex, false) + L".",
+                    markerCenterX, markerCenterY, markerSize, markerBrush.Get());
+                break;
+
+            case ListStyleType::Decimal:
+                RenderTextMarker(context, std::to_wstring(displayIndex) + L".",
+                    markerCenterX, markerCenterY, markerSize, markerBrush.Get());
+                break;
+            
+            case ListStyleType::LowerAlpha:
+                RenderTextMarker(context, toAlpha(displayIndex, false) + L".",
+                    markerCenterX, markerCenterY, markerSize, markerBrush.Get());
+                break;
+
+            case ListStyleType::UpperAlpha:
+                RenderTextMarker(context, toAlpha(displayIndex, true) + L".",
+                    markerCenterX, markerCenterY, markerSize, markerBrush.Get());
+                break;
+            
+            case ListStyleType::None:
+            default:
+                // Do nothing
+                break;
+        }
+        
+        childIndex++;
+    }
 }

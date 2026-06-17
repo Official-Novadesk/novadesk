@@ -13,7 +13,7 @@
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{E20BA349-7E3A-4BF3-8DB8-1D4C45C4CC11}</ProjectGuid>
+    <ProjectGuid>{2617169D-E5A2-4CA8-9F93-8BB7C4F6A504}</ProjectGuid>
     <RootNamespace>Hotkey</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>

@@ -1,0 +1,15 @@
+import { app, widgetWindow } from "novadesk";
+
+console.log("=== LayoutApiTest Integration ===");
+
+const win = new widgetWindow({
+  id: "LayoutApiTestWindow(AlignItems)",
+  x: 180,
+  y: 140,
+  // width: 520,
+  // height: 520,
+  backgroundColor: "rgba(255, 255, 255, 0.95)",
+  script: "./script.ui.js",
+  show: true
+});
+

@@ -13,7 +13,7 @@
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{E20BA349-7E3A-4BF3-8DB8-1D4C45C4CC11}</ProjectGuid>
+    <ProjectGuid>{5A4AB5B5-9115-4F10-9008-B8EA7D57A533}</ProjectGuid>
     <RootNamespace>Brightness</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>

@@ -11,6 +11,8 @@
 #include "Settings.h"
 #include "Resource.h"
 #include "Utils.h"
+#include "../render/FlexLayoutEngine.h"
+#include "WidgetLayoutHelper.h"
 #include <vector>
 #include <windowsx.h>
 #include <algorithm>
@@ -31,6 +33,7 @@
 #include "PathShape.h"
 #include "CurveShape.h"
 #include "ShapeElement.h"
+#include "ElementLayoutBox.h"
 #include "ColorUtil.h"
 #include "WidgetWindowChromeHelper.h"
 #include "WidgetAnimationHelper.h"
@@ -1728,94 +1731,17 @@ void Widget::ReleaseCombinedConsumes(PathShape *target)
 
 void Widget::UpdateContainerForElement(Element *element, const std::wstring &newContainerId)
 {
-    if (!element)
-        return;
-
-    Element *currentContainer = element->GetContainer();
-    if (newContainerId.empty())
-    {
-        if (currentContainer)
-        {
-            currentContainer->RemoveContainerItem(element);
-            if (IsLayoutContainer(currentContainer->GetId()))
-            {
-                ApplyLayoutForContainer(currentContainer);
-            }
-            element->SetContainer(nullptr);
-        }
-        element->SetContainerId(L"");
-        return;
-    }
-
-    if (element->GetId() == newContainerId)
-    {
-        Logging::Log(LogLevel::Error, L"Container cannot self-reference: %s", newContainerId.c_str());
-        return;
-    }
-
-    Element *newContainer = FindElementById(newContainerId);
-    if (!newContainer)
-    {
-        Logging::Log(LogLevel::Error, L"Invalid container: %s", newContainerId.c_str());
-        return;
-    }
-
-    if (element->IsContainer())
-    {
-        Logging::Log(LogLevel::Error, L"Container cannot be contained: %s", element->GetId().c_str());
-        return;
-    }
-
-    // Allow nested layout containers (LayoutBox tree). Keep legacy protection
-    // for non-layout containers to avoid behavior changes in older widgets.
-    if (newContainer->IsContained() && !IsLayoutContainer(newContainer->GetId()))
-    {
-        Logging::Log(LogLevel::Error, L"Nested containers are not allowed: %s", newContainerId.c_str());
-        return;
-    }
-
-    if (WouldCreateContainerCycle(element, newContainer))
-    {
-        Logging::Log(LogLevel::Error, L"Container cycle detected for: %s", newContainerId.c_str());
-        return;
-    }
-
-    if (currentContainer != newContainer)
-    {
-        if (currentContainer)
-        {
-            currentContainer->RemoveContainerItem(element);
-            if (IsLayoutContainer(currentContainer->GetId()))
-            {
-                ApplyLayoutForContainer(currentContainer);
-            }
-        }
-        newContainer->AddContainerItem(element);
-        element->SetContainer(newContainer);
-    }
-
-    element->SetContainerId(newContainerId);
-    if (IsLayoutContainer(newContainer->GetId()))
-    {
-        ApplyLayoutForContainer(newContainer);
-    }
+    WidgetLayoutHelper::UpdateContainerForElement(*this, element, newContainerId);
 }
 
 void Widget::SetLayoutConfig(const std::wstring &id, const LayoutConfig &config)
 {
-    if (id.empty())
-        return;
-    m_LayoutConfigs[id] = config;
-    ReflowLayout(id);
+    WidgetLayoutHelper::SetLayoutConfig(*this, id, config);
 }
 
 bool Widget::TryGetLayoutConfig(const std::wstring &id, LayoutConfig &config) const
 {
-    auto it = m_LayoutConfigs.find(id);
-    if (it == m_LayoutConfigs.end())
-        return false;
-    config = it->second;
-    return true;
+    return WidgetLayoutHelper::TryGetLayoutConfig(*this, id, config);
 }
 
 void Widget::StartElementAnimation(const std::wstring &id, const AnimationTarget &to, const AnimationTarget &from, int durationMs, const std::wstring &easing, int iterationCount)
@@ -1830,244 +1756,32 @@ void Widget::StartElementKeyframeAnimation(const std::wstring &id, const std::ve
 
 bool Widget::IsLayoutContainer(const std::wstring &id) const
 {
-    return !id.empty() && m_LayoutConfigs.find(id) != m_LayoutConfigs.end();
+    return WidgetLayoutHelper::IsLayoutContainer(*this, id);
 }
 
 void Widget::ReflowLayout(const std::wstring &id)
 {
-    if (id.empty())
-        return;
-    Element *container = FindElementById(id);
-    if (!container)
-        return;
-    ApplyLayoutForContainer(container);
+    WidgetLayoutHelper::ReflowLayout(*this, id);
 }
 
 void Widget::ApplyLayoutForContainer(Element *container)
 {
-    if (!container)
-        return;
-
-    auto cfgIt = m_LayoutConfigs.find(container->GetId());
-    if (cfgIt == m_LayoutConfigs.end())
-        return;
-
-    const LayoutConfig &cfg = cfgIt->second;
-    const auto &items = container->GetContainerItems();
-    if (items.empty())
-        return;
-
-    if (cfg.minWidth > 0 || cfg.minHeight > 0)
-    {
-        const int currentW = container->GetWidth();
-        const int currentH = container->GetHeight();
-        const int targetW = (cfg.minWidth > 0 && currentW < cfg.minWidth) ? cfg.minWidth : currentW;
-        const int targetH = (cfg.minHeight > 0 && currentH < cfg.minHeight) ? cfg.minHeight : currentH;
-        if (targetW != currentW || targetH != currentH)
-        {
-            container->SetSize(targetW, targetH);
-        }
-    }
-
-    GfxRect bounds = container->GetBounds();
-    int innerW = bounds.Width - cfg.paddingLeft - cfg.paddingRight;
-    int innerH = bounds.Height - cfg.paddingTop - cfg.paddingBottom;
-    if (innerW < 0) innerW = 0;
-    if (innerH < 0) innerH = 0;
-
-    std::wstring dir = cfg.direction;
-    std::transform(dir.begin(), dir.end(), dir.begin(), ::towlower);
-    const bool isRow = (dir == L"row");
-
-    int mainTotal = 0;
-    for (Element *child : items)
-    {
-        if (!child) continue;
-        mainTotal += isRow ? child->GetWidth() : child->GetHeight();
-    }
-    if (items.size() > 1)
-    {
-        mainTotal += cfg.gap * static_cast<int>(items.size() - 1);
-    }
-
-    int mainAvail = isRow ? innerW : innerH;
-    int mainStart = 0;
-    std::wstring justify = cfg.justify;
-    std::transform(justify.begin(), justify.end(), justify.begin(), ::towlower);
-    if (justify == L"center")
-    {
-        mainStart = (mainAvail - mainTotal) / 2;
-    }
-    else if (justify == L"end")
-    {
-        mainStart = (mainAvail - mainTotal);
-    }
-    if (mainStart < 0) mainStart = 0;
-
-    int cursor = mainStart;
-    for (Element *child : items)
-    {
-        if (!child) continue;
-
-        int childW = child->GetWidth();
-        int childH = child->GetHeight();
-
-        std::wstring align = cfg.align;
-        std::transform(align.begin(), align.end(), align.begin(), ::towlower);
-
-        int crossPos = 0;
-        if (isRow)
-        {
-            if (align == L"center") crossPos = (innerH - childH) / 2;
-            else if (align == L"end") crossPos = (innerH - childH);
-            else crossPos = 0;
-
-            child->SetPosition(cfg.paddingLeft + cursor, cfg.paddingTop + (crossPos < 0 ? 0 : crossPos));
-            cursor += childW + cfg.gap;
-        }
-        else
-        {
-            if (align == L"center") crossPos = (innerW - childW) / 2;
-            else if (align == L"end") crossPos = (innerW - childW);
-            else crossPos = 0;
-
-            child->SetPosition(cfg.paddingLeft + (crossPos < 0 ? 0 : crossPos), cfg.paddingTop + cursor);
-            cursor += childH + cfg.gap;
-        }
-    }
+    WidgetLayoutHelper::ApplyLayoutForContainer(*this, container);
 }
 
 bool Widget::WouldCreateContainerCycle(Element *element, Element *container) const
 {
-    if (!element || !container)
-        return false;
-    if (element == container)
-        return true;
-
-    Element *cursor = container;
-    while (cursor)
-    {
-        if (cursor == element)
-            return true;
-        cursor = cursor->GetContainer();
-    }
-    return false;
+    return WidgetLayoutHelper::WouldCreateContainerCycle(element, container);
 }
 
 void Widget::RenderContainerChildren(Element *container)
 {
-    if (!container || !container->IsContainer() || !m_pContext)
-        return;
-
-    GfxRect bounds = container->GetBounds();
-    D2D1_RECT_F clipRect = D2D1::RectF(
-        (float)bounds.X, (float)bounds.Y,
-        (float)(bounds.X + bounds.Width), (float)(bounds.Y + bounds.Height));
-
-    Microsoft::WRL::ComPtr<ID2D1Layer> layer;
-    m_pContext->CreateLayer(layer.GetAddressOf());
-    if (!layer)
-        return;
-
-    Microsoft::WRL::ComPtr<ID2D1BitmapBrush> opacityBrush;
-    bool hasOpacityMask = false;
-    const bool isLayoutContainer = IsLayoutContainer(container->GetId());
-
-    // Layout containers are structural wrappers; they should clip children,
-    // but must not apply alpha masking from their own fill/stroke.
-    if (!isLayoutContainer && bounds.Width > 0 && bounds.Height > 0)
-    {
-        Microsoft::WRL::ComPtr<ID2D1BitmapRenderTarget> maskTarget;
-        HRESULT hr = m_pContext->CreateCompatibleRenderTarget(
-            D2D1::SizeF((FLOAT)bounds.Width, (FLOAT)bounds.Height),
-            maskTarget.GetAddressOf());
-        if (SUCCEEDED(hr) && maskTarget)
-        {
-            Microsoft::WRL::ComPtr<ID2D1DeviceContext> maskContext;
-            maskTarget.As(&maskContext);
-            if (maskContext)
-            {
-                maskContext->BeginDraw();
-                maskContext->Clear(D2D1::ColorF(0, 0, 0, 0));
-
-                D2D1_MATRIX_3X2_F originalTransform;
-                maskContext->GetTransform(&originalTransform);
-                D2D1_MATRIX_3X2_F translate = D2D1::Matrix3x2F::Translation((FLOAT)-bounds.X, (FLOAT)-bounds.Y);
-                maskContext->SetTransform(translate * originalTransform);
-
-                // Render the container itself to build a pixel-alpha mask.
-                container->Render(maskContext.Get());
-
-                maskContext->SetTransform(originalTransform);
-                if (SUCCEEDED(maskContext->EndDraw()))
-                {
-                    Microsoft::WRL::ComPtr<ID2D1Bitmap> maskBitmap;
-                    if (SUCCEEDED(maskTarget->GetBitmap(maskBitmap.GetAddressOf())) && maskBitmap)
-                    {
-                        D2D1_BITMAP_BRUSH_PROPERTIES1 props = D2D1::BitmapBrushProperties1(
-                            D2D1_EXTEND_MODE_CLAMP,
-                            D2D1_EXTEND_MODE_CLAMP,
-                            D2D1_INTERPOLATION_MODE_LINEAR);
-                        D2D1_BRUSH_PROPERTIES brushProps = D2D1::BrushProperties(1.0f);
-                        Microsoft::WRL::ComPtr<ID2D1BitmapBrush1> brush1;
-                        if (SUCCEEDED(m_pContext->CreateBitmapBrush(maskBitmap.Get(), &props, &brushProps, brush1.GetAddressOf())))
-                        {
-                            brush1->SetTransform(D2D1::Matrix3x2F::Translation((FLOAT)bounds.X, (FLOAT)bounds.Y));
-                            opacityBrush = brush1;
-                            hasOpacityMask = true;
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    if (hasOpacityMask)
-    {
-        m_pContext->PushLayer(D2D1::LayerParameters(clipRect, nullptr, D2D1_ANTIALIAS_MODE_PER_PRIMITIVE,
-                                                    D2D1::Matrix3x2F::Identity(), 1.0f, opacityBrush.Get()),
-                              layer.Get());
-    }
-    else
-    {
-        m_pContext->PushLayer(D2D1::LayerParameters(clipRect), layer.Get());
-    }
-
-    D2D1_MATRIX_3X2_F originalTransform;
-    m_pContext->GetTransform(&originalTransform);
-    D2D1_MATRIX_3X2_F translate = D2D1::Matrix3x2F::Translation((float)bounds.X, (float)bounds.Y);
-    m_pContext->SetTransform(translate * originalTransform);
-
-    for (Element *child : container->GetContainerItems())
-    {
-        if (!child || !child->IsVisible())
-            continue;
-        child->Render(m_pContext.Get());
-        if (child->IsContainer())
-        {
-            RenderContainerChildren(child);
-        }
-    }
-
-    m_pContext->SetTransform(originalTransform);
-    m_pContext->PopLayer();
+    WidgetLayoutHelper::RenderContainerChildren(*this, container);
 }
 
 bool Widget::HitTestContainerChildren(Element *container, int x, int y, Element *&outElement)
 {
-    Element *outActionElement = nullptr;
-    Element *outMouseActionElement = nullptr;
-    Element *outToolTipElement = nullptr;
-    return HitTestContainerChildrenDetailed(
-        container,
-        x,
-        y,
-        WM_MOUSEMOVE,
-        0,
-        outElement,
-        outActionElement,
-        outMouseActionElement,
-        outToolTipElement);
+    return WidgetLayoutHelper::HitTestContainerChildren(container, x, y, outElement);
 }
 
 bool Widget::HitTestContainerChildrenDetailed(
@@ -2081,69 +1795,9 @@ bool Widget::HitTestContainerChildrenDetailed(
     Element *&outMouseActionElement,
     Element *&outToolTipElement)
 {
-    if (!container || !container->IsContainer() || !container->IsVisible())
-        return false;
-
-    GfxRect bounds = container->GetBounds();
-    if (x < bounds.X || x >= bounds.X + bounds.Width ||
-        y < bounds.Y || y >= bounds.Y + bounds.Height)
-    {
-        return false;
-    }
-
-    if (ShapeElement *shapeContainer = dynamic_cast<ShapeElement *>(container))
-    {
-        if (!shapeContainer->HitTest(x, y))
-        {
-            return false;
-        }
-    }
-
-    int localX = x - bounds.X;
-    int localY = y - bounds.Y;
-    bool foundAny = false;
-
-    const auto &items = container->GetContainerItems();
-    for (auto it = items.rbegin(); it != items.rend(); ++it)
-    {
-        Element *child = *it;
-        if (!child || !child->IsVisible())
-            continue;
-
-        if (child->IsContainer())
-        {
-            if (HitTestContainerChildrenDetailed(
-                    child,
-                    localX,
-                    localY,
-                    message,
-                    wParam,
-                    outHitElement,
-                    outActionElement,
-                    outMouseActionElement,
-                    outToolTipElement))
-            {
-                foundAny = true;
-            }
-        }
-
-        if (!child->HitTest(localX, localY))
-        {
-            continue;
-        }
-
-        foundAny = true;
-        if (!outHitElement)
-            outHitElement = child;
-        if (!outActionElement && child->HasAction(message, wParam))
-            outActionElement = child;
-        if (!outMouseActionElement && child->HasMouseAction())
-            outMouseActionElement = child;
-        if (!outToolTipElement && child->HasToolTip())
-            outToolTipElement = child;
-    }
-
-    return foundAny;
+    return WidgetLayoutHelper::HitTestContainerChildrenDetailed(
+        *this, container, x, y, message, wParam,
+        outHitElement, outActionElement, outMouseActionElement, outToolTipElement);
 }
 
 /*
@@ -2221,9 +1875,7 @@ void Widget::ApplyParsedPropertiesToElement(Element *element, JSContext *ctx, JS
                 &cfg.paddingLeft,
                 &cfg.paddingTop,
                 &cfg.paddingRight,
-                &cfg.paddingBottom,
-                &cfg.minWidth,
-                &cfg.minHeight);
+                &cfg.paddingBottom);
         }
         else
         {
@@ -2235,6 +1887,7 @@ void Widget::ApplyParsedPropertiesToElement(Element *element, JSContext *ctx, JS
             PropertyParser::ApplyLayoutBoxOptions(layout, parsed);
             LayoutConfig nextCfg{};
             nextCfg.direction = parsed.direction;
+            nextCfg.flexDirection = parsed.flexDirection;
             nextCfg.gap = parsed.gap;
             nextCfg.align = parsed.align.empty() ? L"start" : parsed.align;
             nextCfg.justify = parsed.justify.empty() ? L"start" : parsed.justify;
@@ -2242,8 +1895,9 @@ void Widget::ApplyParsedPropertiesToElement(Element *element, JSContext *ctx, JS
             nextCfg.paddingTop = parsed.paddingTop;
             nextCfg.paddingRight = parsed.paddingRight;
             nextCfg.paddingBottom = parsed.paddingBottom;
-            nextCfg.minWidth = parsed.minWidth;
-            nextCfg.minHeight = parsed.minHeight;
+            // Logging::Log(LogLevel::Debug, L"[PADDING] SetLayoutConfig for '%s': L=%d, T=%d, R=%d, B=%d, flexDirection='%s'",
+            //     element->GetId().c_str(), nextCfg.paddingLeft, nextCfg.paddingTop, 
+            //     nextCfg.paddingRight, nextCfg.paddingBottom, nextCfg.flexDirection.c_str());
             SetLayoutConfig(element->GetId(), nextCfg);
             UpdateContainerForElement(element, parsed.shape.containerId);
         }

@@ -22,12 +22,25 @@ namespace
         return style == BoxBorder::Style::Dotted;
     }
 
+    bool IsDouble(BoxBorder::Style style)
+    {
+        return style == BoxBorder::Style::Double;
+    }
+
     bool AllDotted(const BoxBorderPaintParams& params)
     {
         return IsDotted(params.styleTop) &&
             IsDotted(params.styleRight) &&
             IsDotted(params.styleBottom) &&
             IsDotted(params.styleLeft);
+    }
+
+    bool AllDouble(const BoxBorderPaintParams& params)
+    {
+        return IsDouble(params.styleTop) &&
+            IsDouble(params.styleRight) &&
+            IsDouble(params.styleBottom) &&
+            IsDouble(params.styleLeft);
     }
 
     bool IsVisible(BoxBorder::Style style)
@@ -37,7 +50,8 @@ namespace
             style == BoxBorder::Style::Outset ||
             style == BoxBorder::Style::Groove ||
             style == BoxBorder::Style::Ridge ||
-            style == BoxBorder::Style::Dotted;
+            style == BoxBorder::Style::Dotted ||
+            style == BoxBorder::Style::Double;
     }
 
     bool IsSingleLayerJoinStyle(BoxBorder::Style style)
@@ -505,6 +519,31 @@ namespace
         for (float distance = 0.0f; distance < totalLength - 0.01f; distance += actualStep)
             dotAt(distance);
     }
+
+    // Double border: Draw outer and inner stripes (Chromium-style)
+    // The border is split into thirds: outer third, gap, inner third
+    void DrawDoubleBorder(ID2D1DeviceContext* context, const D2D1_ROUNDED_RECT& outer,
+        float borderWidth, ID2D1Brush* brush)
+    {
+        if (!context || !brush || borderWidth <= 0.0f)
+            return;
+
+        Microsoft::WRL::ComPtr<ID2D1Factory> factory;
+        context->GetFactory(&factory);
+        if (!factory)
+            return;
+
+        // Calculate third of border width for double border stripes
+        const float thirdOfWidth = (borderWidth + 1.0f) / 3.0f;
+
+        // Draw outer stripe (outer edge to 1/3 inward)
+        FillBorderBand(context, outer, thirdOfWidth, brush);
+
+        // Draw inner stripe (2/3 inward to inner edge)
+        const float innerStripeStart = borderWidth - thirdOfWidth;
+        const D2D1_ROUNDED_RECT innerStripeOuter = InsetRoundedRect(outer, innerStripeStart);
+        FillBorderBand(context, innerStripeOuter, thirdOfWidth, brush);
+    }
 }
 
 D2D1_ROUNDED_RECT BoxBorderPaint::BuildBorderGeometryRect(const D2D1_ROUNDED_RECT& elementRect,
@@ -573,6 +612,10 @@ void BoxBorderPaint::Paint(ID2D1DeviceContext* context, const D2D1_ROUNDED_RECT&
         IsDotted(params.styleRight) &&
         IsDotted(params.styleBottom) &&
         IsDotted(params.styleLeft);
+    const bool allDouble = IsDouble(params.styleTop) &&
+        IsDouble(params.styleRight) &&
+        IsDouble(params.styleBottom) &&
+        IsDouble(params.styleLeft);
 
     const D2D1_ROUNDED_RECT outer = D2D1::RoundedRect(rect.rect, radiusX, radiusY);
     if (allSolid)
@@ -603,6 +646,12 @@ void BoxBorderPaint::Paint(ID2D1DeviceContext* context, const D2D1_ROUNDED_RECT&
     if (allDotted)
     {
         FillDottedRoundedBorder(context, outer, w, strokeBrush);
+        return;
+    }
+
+    if (allDouble)
+    {
+        DrawDoubleBorder(context, outer, w, strokeBrush);
         return;
     }
 

@@ -349,7 +349,8 @@ namespace PropertyParser
         bool hasBoxShadowError = false;
         std::wstring boxShadowError;
 
-        std::wstring direction = L"column";
+        std::wstring direction = L"ltr";
+        std::wstring flexDirection = L"row";
         int gap = 0;
         std::wstring align;
         std::wstring justify;
@@ -357,8 +358,8 @@ namespace PropertyParser
         int paddingTop = 0;
         int paddingRight = 0;
         int paddingBottom = 0;
-        int minWidth = 0;
-        int minHeight = 0;
+        ElementLayoutBox::DisplayType displayType = ElementLayoutBox::DisplayType::Flex;
+        ElementLayoutBox::ListStyleType listStyleType = ElementLayoutBox::ListStyleType::Disc;
     };
 
     struct AnimationKeyframeOptions

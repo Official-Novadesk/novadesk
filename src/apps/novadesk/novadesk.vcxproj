@@ -1,0 +1,270 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>17.0</VCProjectVersion>
+    <Keyword>Win32Proj</Keyword>
+    <ProjectGuid>{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}</ProjectGuid>
+    <RootNamespace>novadesk</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+    <WholeProgramOptimization>false</WholeProgramOptimization>
+    <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+    <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="Shared">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <OutDir>$(ProjectDir)..\$(Platform)\Debug\novadesk\</OutDir>
+    <IntDir>$(ProjectDir)..\$(Platform)\Debug\novadesk\int\</IntDir>
+    <TargetName>novadesk</TargetName>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <OutDir>$(ProjectDir)..\$(Platform)\Release\novadesk\</OutDir>
+    <IntDir>$(ProjectDir)..\$(Platform)\Release\novadesk\int\</IntDir>
+    <TargetName>novadesk</TargetName>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>_DEBUG;_UNICODE;UNICODE;NOMINMAX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <AdditionalIncludeDirectories>.;domain;domain\animation;shared;render;scripting\quickjs;scripting\quickjs\parser;..\..\third_party\quick-js;..\..\third_party\json;..\..\third_party\nanosvg;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <LanguageStandard_C>stdc11</LanguageStandard_C>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <AdditionalOptions>/wd4146 /wd4703 /Zc:__cplusplus %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>user32.lib;gdi32.lib;opengl32.lib;winmm.lib;powrprof.lib;shell32.lib;comctl32.lib;d2d1.lib;dwrite.lib;windowscodecs.lib;shlwapi.lib;iphlpapi.lib;pdh.lib;wininet.lib;version.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalOptions>/SUBSYSTEM:WINDOWS,5.02 /ENTRY:WinMainCRTStartup %(AdditionalOptions)</AdditionalOptions>
+    </Link>
+    <ResourceCompile>
+      <AdditionalIncludeDirectories>$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
+    <Manifest>
+      <AdditionalManifestFiles>$(ProjectDir)Novadesk.exe.manifest%(AdditionalManifestFiles)</AdditionalManifestFiles>
+    </Manifest>
+    <PostBuildEvent>
+      <Command>powershell -ExecutionPolicy Bypass -File "$(ProjectDir)..\..\..\CopyItems.ps1" -Configuration "$(Configuration)" -Platform "$(Platform)"</Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>NDEBUG;_UNICODE;UNICODE;NOMINMAX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <AdditionalIncludeDirectories>.;domain;domain\animation;shared;render;scripting\quickjs;scripting\quickjs\parser;..\..\third_party\quick-js;..\..\third_party\json;..\..\third_party\nanosvg;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <LanguageStandard_C>stdc11</LanguageStandard_C>
+      <AdditionalOptions>/wd4146 /wd4703 /Zc:__cplusplus %(AdditionalOptions)</AdditionalOptions>
+      <WholeProgramOptimization>true</WholeProgramOptimization>
+      <FavorSizeOrSpeed>Size</FavorSizeOrSpeed>
+      <OmitFramePointers>true</OmitFramePointers>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <GenerateDebugInformation>false</GenerateDebugInformation>
+      <AdditionalDependencies>user32.lib;gdi32.lib;opengl32.lib;winmm.lib;powrprof.lib;shell32.lib;comctl32.lib;d2d1.lib;dwrite.lib;windowscodecs.lib;shlwapi.lib;iphlpapi.lib;pdh.lib;wininet.lib;version.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalOptions>/SUBSYSTEM:WINDOWS,5.02 /ENTRY:WinMainCRTStartup /OPT:REF /OPT:ICF /LTCG %(AdditionalOptions)</AdditionalOptions>
+    </Link>
+    <ResourceCompile>
+      <AdditionalIncludeDirectories>$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
+    <Manifest>
+      <AdditionalManifestFiles>$(ProjectDir)Novadesk.exe.manifest%(AdditionalManifestFiles)</AdditionalManifestFiles>
+    </Manifest>
+    <PostBuildEvent>
+      <Command>powershell -ExecutionPolicy Bypass -File "$(ProjectDir)..\..\..\CopyItems.ps1" -Configuration "$(Configuration)" -Platform "$(Platform)"</Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="domain\DesktopManager.cpp" />
+    <ClCompile Include="domain\Novadesk.cpp" />
+    <ClCompile Include="domain\Widget.cpp" />
+    <ClCompile Include="domain\WidgetContextMenuHelper.cpp" />
+    <ClCompile Include="domain\WidgetLayoutHelper.cpp" />
+    <ClCompile Include="domain\WidgetWindowChromeHelper.cpp" />
+    <ClCompile Include="domain\animation\AnimationEasing.cpp" />
+    <ClCompile Include="domain\animation\WidgetAnimationHelper.cpp" />
+    <ClCompile Include="render\ArcShape.cpp" />
+    <ClCompile Include="render\AreaGraphElement.cpp" />
+    <ClCompile Include="render\BarElement.cpp" />
+    <ClCompile Include="render\BitmapElement.cpp" />
+    <ClCompile Include="render\BoxBorderPaint.cpp" />
+    <ClCompile Include="render\ButtonElement.cpp" />
+    <ClCompile Include="render\CursorManager.cpp" />
+    <ClCompile Include="render\CurveShape.cpp" />
+    <ClCompile Include="render\Direct2DHelper.cpp" />
+    <ClCompile Include="render\Element.cpp" />
+    <ClCompile Include="render\ElementLayoutBox.cpp" />
+    <ClCompile Include="render\EllipseShape.cpp" />
+    <ClCompile Include="render\FlexLayoutEngine.cpp" />
+    <ClCompile Include="render\FontManager.cpp" />
+    <ClCompile Include="render\GeneralImage.cpp" />
+    <ClCompile Include="render\HistogramElement.cpp" />
+    <ClCompile Include="render\ImageElement.cpp" />
+    <ClCompile Include="render\LineElement.cpp" />
+    <ClCompile Include="render\LineShape.cpp" />
+    <ClCompile Include="render\PathShape.cpp" />
+    <ClCompile Include="render\RectangleShape.cpp" />
+    <ClCompile Include="render\RotatorElement.cpp" />
+    <ClCompile Include="render\RoundLineElement.cpp" />
+    <ClCompile Include="render\ShapeElement.cpp" />
+    <ClCompile Include="render\TextElement.cpp" />
+    <ClCompile Include="render\Tooltip.cpp" />
+    <ClCompile Include="scripting\quickjs\engine\JSEngine.cpp" />
+    <ClCompile Include="scripting\quickjs\modules\FSModule.cpp" />
+    <ClCompile Include="scripting\quickjs\modules\ModuleSystem.cpp" />
+    <ClCompile Include="scripting\quickjs\modules\NovadeskModule.cpp" />
+    <ClCompile Include="scripting\quickjs\modules\SystemModule.cpp" />
+    <ClCompile Include="scripting\quickjs\modules\WidgetUiBindings.cpp" />
+    <ClCompile Include="scripting\quickjs\modules\WidgetWindowEventBindings.cpp" />
+    <ClCompile Include="scripting\quickjs\parser\PropertyParserAnimation.cpp" />
+    <ClCompile Include="scripting\quickjs\parser\PropertyParserChart.cpp" />
+    <ClCompile Include="scripting\quickjs\parser\PropertyParserElement.cpp" />
+    <ClCompile Include="scripting\quickjs\parser\PropertyParserGradient.cpp" />
+    <ClCompile Include="scripting\quickjs\parser\PropertyParserImage.cpp" />
+    <ClCompile Include="scripting\quickjs\parser\PropertyParserJs.cpp" />
+    <ClCompile Include="scripting\quickjs\parser\PropertyParserLayoutBox.cpp" />
+    <ClCompile Include="scripting\quickjs\parser\PropertyParserShape.cpp" />
+    <ClCompile Include="scripting\quickjs\parser\PropertyParserText.cpp" />
+    <ClCompile Include="scripting\quickjs\parser\PropertyParserWidgetWindow.cpp" />
+    <ClCompile Include="shared\FileUtils.cpp" />
+    <ClCompile Include="shared\Logging.cpp" />
+    <ClCompile Include="shared\MenuUtils.cpp" />
+    <ClCompile Include="shared\PathUtils.cpp" />
+    <ClCompile Include="shared\Settings.cpp" />
+    <ClCompile Include="shared\System.cpp" />
+    <ClCompile Include="shared\Utils.cpp" />
+    <ClCompile Include="..\..\third_party\quick-js\quickjs.c">
+      <AdditionalOptions>/w %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="..\..\third_party\quick-js\libregexp.c">
+      <AdditionalOptions>/w %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="..\..\third_party\quick-js\libunicode.c">
+      <AdditionalOptions>/w %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="..\..\third_party\quick-js\dtoa.c">
+      <AdditionalOptions>/w %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="domain\DesktopManager.h" />
+    <ClInclude Include="domain\Novadesk.h" />
+    <ClInclude Include="domain\Widget.h" />
+    <ClInclude Include="domain\WidgetContextMenuHelper.h" />
+    <ClInclude Include="domain\WidgetLayoutHelper.h" />
+    <ClInclude Include="domain\WidgetWindowChromeHelper.h" />
+    <ClInclude Include="domain\animation\AnimationEasing.h" />
+    <ClInclude Include="domain\animation\WidgetAnimationHelper.h" />
+    <ClInclude Include="render\ArcShape.h" />
+    <ClInclude Include="render\AreaGraphElement.h" />
+    <ClInclude Include="render\BarElement.h" />
+    <ClInclude Include="render\BitmapElement.h" />
+    <ClInclude Include="render\BoxBorderPaint.h" />
+    <ClInclude Include="render\BoxBorderTypes.h" />
+    <ClInclude Include="render\ButtonElement.h" />
+    <ClInclude Include="render\CursorManager.h" />
+    <ClInclude Include="render\CurveShape.h" />
+    <ClInclude Include="render\Direct2DHelper.h" />
+    <ClInclude Include="render\Element.h" />
+    <ClInclude Include="render\ElementLayoutBox.h" />
+    <ClInclude Include="render\EllipseShape.h" />
+    <ClInclude Include="render\FlexLayoutEngine.h" />
+    <ClInclude Include="render\FontManager.h" />
+    <ClInclude Include="render\GeneralImage.h" />
+    <ClInclude Include="render\HistogramElement.h" />
+    <ClInclude Include="render\ImageElement.h" />
+    <ClInclude Include="render\LineElement.h" />
+    <ClInclude Include="render\LineShape.h" />
+    <ClInclude Include="render\PathShape.h" />
+    <ClInclude Include="render\RectangleShape.h" />
+    <ClInclude Include="render\RotatorElement.h" />
+    <ClInclude Include="render\RoundLineElement.h" />
+    <ClInclude Include="render\ShapeElement.h" />
+    <ClInclude Include="render\TextElement.h" />
+    <ClInclude Include="render\Tooltip.h" />
+    <ClInclude Include="scripting\quickjs\engine\JSEngine.h" />
+    <ClInclude Include="scripting\quickjs\modules\FSModule.h" />
+    <ClInclude Include="scripting\quickjs\modules\ModuleSystem.h" />
+    <ClInclude Include="scripting\quickjs\modules\NovadeskModule.h" />
+    <ClInclude Include="scripting\quickjs\modules\SystemModule.h" />
+    <ClInclude Include="scripting\quickjs\modules\WidgetUiBindings.h" />
+    <ClInclude Include="scripting\quickjs\modules\WidgetWindowEventBindings.h" />
+    <ClInclude Include="scripting\quickjs\parser\PropertyParser.h" />
+    <ClInclude Include="scripting\quickjs\parser\PropertyParserJs.h" />
+    <ClInclude Include="scripting\quickjs\parser\PropertyParserTypes.h" />
+    <ClInclude Include="shared\ColorUtil.h" />
+    <ClInclude Include="shared\FileUtils.h" />
+    <ClInclude Include="shared\Logging.h" />
+    <ClInclude Include="shared\MenuItem.h" />
+    <ClInclude Include="shared\MenuUtils.h" />
+    <ClInclude Include="shared\PathUtils.h" />
+    <ClInclude Include="shared\Settings.h" />
+    <ClInclude Include="shared\System.h" />
+    <ClInclude Include="shared\Utils.h" />
+    <ClInclude Include="framework.h" />
+    <ClInclude Include="targetver.h" />
+    <ClInclude Include="Resource.h" />
+    <ClInclude Include="Version.h" />
+    <ClInclude Include="..\..\third_party\quick-js\quickjs.h" />
+    <ClInclude Include="..\..\third_party\quick-js\cutils.h" />
+    <ClInclude Include="..\..\third_party\quick-js\dtoa.h" />
+    <ClInclude Include="..\..\third_party\quick-js\libregexp.h" />
+    <ClInclude Include="..\..\third_party\quick-js\libunicode.h" />
+    <ClInclude Include="..\..\third_party\quick-js\list.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="Novadesk.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Novadesk.exe.manifest" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

@@ -352,7 +352,8 @@ namespace novadesk::scripting::quickjs
         static JSValue CreateTypedElementObject(JSContext *ctx, JSValueConst srcOptions, const char *typeName)
         {
             JSValue obj = JS_NewObject(ctx);
-            JS_SetPropertyStr(ctx, obj, "type", JS_NewString(ctx, typeName));
+            // Only set 'elementType' (no longer setting 'type' for backward compatibility)
+            JS_SetPropertyStr(ctx, obj, "elementType", JS_NewString(ctx, typeName));
             if (JS_IsObject(srcOptions))
             {
                 JSPropertyEnum *tab = nullptr;
@@ -365,7 +366,8 @@ namespace novadesk::scripting::quickjs
                         const char *key = JS_ToCString(ctx, keyV);
                         if (key)
                         {
-                            if (std::strcmp(key, "type") != 0)
+                            // Skip 'elementType' and 'type' to avoid overwriting
+                            if (std::strcmp(key, "elementType") != 0 && std::strcmp(key, "type") != 0)
                             {
                                 JSValue val = JS_GetProperty(ctx, srcOptions, tab[i].atom);
                                 JS_SetPropertyStr(ctx, obj, key, val);
@@ -386,7 +388,13 @@ namespace novadesk::scripting::quickjs
             (void)thisVal;
             if (!widget || !JS_IsObject(obj))
                 return JS_UNDEFINED;
-            std::wstring type = ReadObjectString(ctx, obj, "type");
+            
+            // Only check 'elementType' - no fallback to 'type'
+            std::wstring type = ReadObjectString(ctx, obj, "elementType");
+            if (type.empty())
+            {
+                return ThrowTypeError(ctx, "addLayoutBox", "children item must have 'elementType' property");
+            }
             std::transform(type.begin(), type.end(), type.begin(), ::towlower);
 
             JSValue argvLocal[1] = { obj };
@@ -414,7 +422,7 @@ namespace novadesk::scripting::quickjs
                 return JsWidgetAddAreaGraph(ctx, thisVal, 1, argvLocal);
             if (type == L"layoutbox")
                 return JS_UNDEFINED;
-            return ThrowTypeError(ctx, "addLayoutBox", "children item has unsupported type");
+            return ThrowTypeError(ctx, "addLayoutBox", Utils::ToString(L"children item has unsupported elementType: " + type).c_str());
         }
 
         static JSValue JsWidgetAddLayoutBox(JSContext *ctx, JSValueConst thisVal, int argc, JSValueConst *argv);
@@ -443,8 +451,17 @@ namespace novadesk::scripting::quickjs
                 }
 
                 JS_SetPropertyStr(ctx, child, "container", JS_NewString(ctx, Utils::ToString(layoutId).c_str()));
-                std::wstring type = ReadObjectString(ctx, child, "type");
+                
+                // Only check 'elementType' - no fallback to 'type'
+                std::wstring type = ReadObjectString(ctx, child, "elementType");
+                if (type.empty())
+                {
+                    JS_FreeValue(ctx, child);
+                    JS_FreeValue(ctx, childrenVal);
+                    return ThrowTypeError(ctx, "addLayoutBox", "children item must have 'elementType' property");
+                }
                 std::transform(type.begin(), type.end(), type.begin(), ::towlower);
+                
                 JSValue res = JS_UNDEFINED;
                 if (type == L"layoutbox")
                 {
@@ -496,6 +513,7 @@ namespace novadesk::scripting::quickjs
 
             Widget::LayoutConfig cfg;
             cfg.direction = layoutOptions.direction;
+            cfg.flexDirection = layoutOptions.flexDirection;
             cfg.gap = layoutOptions.gap;
             if (!layoutOptions.align.empty())
                 cfg.align = layoutOptions.align;
@@ -505,10 +523,9 @@ namespace novadesk::scripting::quickjs
             cfg.paddingTop = layoutOptions.paddingTop;
             cfg.paddingRight = layoutOptions.paddingRight;
             cfg.paddingBottom = layoutOptions.paddingBottom;
-            if (layoutOptions.minWidth > 0)
-                cfg.minWidth = layoutOptions.minWidth;
-            if (layoutOptions.minHeight > 0)
-                cfg.minHeight = layoutOptions.minHeight;
+
+            // Logging::Log(LogLevel::Debug, L"[PADDING] JsWidgetAddLayoutBox SetLayoutConfig for '%s': L=%d, T=%d, R=%d, B=%d",
+            //     shapeOptions.id.c_str(), cfg.paddingLeft, cfg.paddingTop, cfg.paddingRight, cfg.paddingBottom);
 
             widget->SetLayoutConfig(shapeOptions.id, cfg);
             JSValue childRes = AddLayoutBoxChildren(ctx, widget, thisVal, argv[0], shapeOptions.id);
@@ -853,9 +870,7 @@ namespace novadesk::scripting::quickjs
                         &cfg.paddingLeft,
                         &cfg.paddingTop,
                         &cfg.paddingRight,
-                        &cfg.paddingBottom,
-                        &cfg.minWidth,
-                        &cfg.minHeight);
+                        &cfg.paddingBottom);
                 }
                 else
                 {
@@ -868,6 +883,7 @@ namespace novadesk::scripting::quickjs
 
                 Widget::LayoutConfig nextCfg{};
                 nextCfg.direction = options.direction;
+                nextCfg.flexDirection = options.flexDirection;
                 nextCfg.gap = options.gap;
                 nextCfg.align = options.align.empty() ? L"start" : options.align;
                 nextCfg.justify = options.justify.empty() ? L"start" : options.justify;
@@ -875,8 +891,6 @@ namespace novadesk::scripting::quickjs
                 nextCfg.paddingTop = options.paddingTop;
                 nextCfg.paddingRight = options.paddingRight;
                 nextCfg.paddingBottom = options.paddingBottom;
-                nextCfg.minWidth = options.minWidth;
-                nextCfg.minHeight = options.minHeight;
                 widget->SetLayoutConfig(id, nextCfg);
             }
             else if (auto *shape = dynamic_cast<ShapeElement *>(element))
@@ -974,7 +988,7 @@ namespace novadesk::scripting::quickjs
             return JS_UNDEFINED;
         }
 
-        JSValue GetElementPropertyValue(JSContext *ctx, Element *element, const std::string &prop)
+        JSValue GetElementPropertyValue(JSContext *ctx, Widget *widget, Element *element, const std::string &prop)
         {
             const GfxRect contentBounds = element->GetBounds();
             GfxRect outerBounds = element->GetBackgroundBounds();
@@ -1129,35 +1143,35 @@ namespace novadesk::scripting::quickjs
                     return JS_NewString(ctx, Utils::ToString(t->GetFontPath()).c_str());
                 if (prop == "textAlign")
                 {
-                    const char *alStr = "lefttop";
+                    const char *alStr = "left-top";
                     switch (t->GetTextAlign())
                     {
                     case TEXT_ALIGN_LEFT_TOP:
-                        alStr = "lefttop";
+                        alStr = "left-top";
                         break;
                     case TEXT_ALIGN_CENTER_TOP:
-                        alStr = "centertop";
+                        alStr = "center-top";
                         break;
                     case TEXT_ALIGN_RIGHT_TOP:
-                        alStr = "righttop";
+                        alStr = "right-top";
                         break;
                     case TEXT_ALIGN_LEFT_CENTER:
-                        alStr = "leftcenter";
+                        alStr = "left-center";
                         break;
                     case TEXT_ALIGN_CENTER_CENTER:
-                        alStr = "centercenter";
+                        alStr = "center-center";
                         break;
                     case TEXT_ALIGN_RIGHT_CENTER:
-                        alStr = "rightcenter";
+                        alStr = "right-center";
                         break;
                     case TEXT_ALIGN_LEFT_BOTTOM:
-                        alStr = "leftbottom";
+                        alStr = "left-bottom";
                         break;
                     case TEXT_ALIGN_CENTER_BOTTOM:
-                        alStr = "centerbottom";
+                        alStr = "center-bottom";
                         break;
                     case TEXT_ALIGN_RIGHT_BOTTOM:
-                        alStr = "rightbottom";
+                        alStr = "right-bottom";
                         break;
                     default:
                         break;
@@ -1680,6 +1694,66 @@ namespace novadesk::scripting::quickjs
 
                 if (layoutBox)
                 {
+                    if (prop == "display")
+                    {
+                        auto displayToStr = [](ElementLayoutBox::DisplayType d) -> const char *
+                        {
+                            switch (d)
+                            {
+                            case ElementLayoutBox::DisplayType::Flex: return "flex";
+                            case ElementLayoutBox::DisplayType::None: return "none";
+                            case ElementLayoutBox::DisplayType::ListItem: return "list-item";
+                            default: return "flex";
+                            }
+                        };
+                        return JS_NewString(ctx, displayToStr(layoutBox->GetDisplayType()));
+                    }
+                    if (prop == "listStyleType")
+                    {
+                        auto styleToStr = [](ElementLayoutBox::ListStyleType t) -> const char *
+                        {
+                            switch (t)
+                            {
+                            case ElementLayoutBox::ListStyleType::Disc: return "disc";
+                            case ElementLayoutBox::ListStyleType::Circle: return "circle";
+                            case ElementLayoutBox::ListStyleType::Square: return "square";
+                            case ElementLayoutBox::ListStyleType::UpperRoman: return "upper-roman";
+                            case ElementLayoutBox::ListStyleType::LowerRoman: return "lower-roman";
+                            case ElementLayoutBox::ListStyleType::Decimal: return "decimal";
+                            case ElementLayoutBox::ListStyleType::LowerAlpha: return "lower-alpha";
+                            case ElementLayoutBox::ListStyleType::UpperAlpha: return "upper-alpha";
+                            case ElementLayoutBox::ListStyleType::None: return "none";
+                            default: return "disc";
+                            }
+                        };
+                        return JS_NewString(ctx, styleToStr(layoutBox->GetListStyleType()));
+                    }
+                    
+                    // Layout configuration properties
+                    Widget::LayoutConfig cfg{};
+                    if (widget->TryGetLayoutConfig(element->GetId(), cfg))
+                    {
+                        if (prop == "direction")
+                        {
+                            return JS_NewString(ctx, Utils::ToString(cfg.direction).c_str());
+                        }
+                        if (prop == "flexDirection")
+                        {
+                            return JS_NewString(ctx, Utils::ToString(cfg.flexDirection).c_str());
+                        }
+                        if (prop == "gap")
+                        {
+                            return JS_NewInt32(ctx, cfg.gap);
+                        }
+                        if (prop == "alignItems" || prop == "align")
+                        {
+                            return JS_NewString(ctx, Utils::ToString(cfg.align).c_str());
+                        }
+                        if (prop == "justifyContent" || prop == "justify")
+                        {
+                            return JS_NewString(ctx, Utils::ToString(cfg.justify).c_str());
+                        }
+                    }
                     if (prop == "borderStyle")
                     {
                         auto styleToStr = [](ElementLayoutBox::BorderStyle s) -> const char *
@@ -1692,6 +1766,7 @@ namespace novadesk::scripting::quickjs
                             case ElementLayoutBox::BorderStyle::Groove: return "groove";
                             case ElementLayoutBox::BorderStyle::Ridge: return "ridge";
                             case ElementLayoutBox::BorderStyle::Dotted: return "dotted";
+                            case ElementLayoutBox::BorderStyle::Double: return "double";
                             default: return "solid";
                             }
                         };
@@ -1797,7 +1872,7 @@ namespace novadesk::scripting::quickjs
             {
                 return JS_NULL;
             }
-            return GetElementPropertyValue(ctx, element, prop);
+            return GetElementPropertyValue(ctx, widget, element, prop);
         }
 
         void JsWidgetFinalizer(JSRuntime *, JSValue)
@@ -1819,18 +1894,6 @@ namespace novadesk::scripting::quickjs
             JS_CFUNC_DEF("addAreaGraph", 1, JsWidgetAddAreaGraph),
             JS_CFUNC_DEF("addLayout", 1, JsWidgetAddLayout),
             JS_CFUNC_DEF("addLayoutBox", 1, JsWidgetAddLayoutBox),
-            JS_CFUNC_MAGIC_DEF("text", 1, JsWidgetElementFactory, 0),
-            JS_CFUNC_MAGIC_DEF("image", 1, JsWidgetElementFactory, 1),
-            JS_CFUNC_MAGIC_DEF("shape", 1, JsWidgetElementFactory, 2),
-            JS_CFUNC_MAGIC_DEF("button", 1, JsWidgetElementFactory, 3),
-            JS_CFUNC_MAGIC_DEF("bitmap", 1, JsWidgetElementFactory, 4),
-            JS_CFUNC_MAGIC_DEF("rotator", 1, JsWidgetElementFactory, 5),
-            JS_CFUNC_MAGIC_DEF("bar", 1, JsWidgetElementFactory, 6),
-            JS_CFUNC_MAGIC_DEF("line", 1, JsWidgetElementFactory, 7),
-            JS_CFUNC_MAGIC_DEF("histogram", 1, JsWidgetElementFactory, 8),
-            JS_CFUNC_MAGIC_DEF("roundLine", 1, JsWidgetElementFactory, 9),
-            JS_CFUNC_MAGIC_DEF("areaGraph", 1, JsWidgetElementFactory, 10),
-            JS_CFUNC_MAGIC_DEF("layoutBox", 1, JsWidgetElementFactory, 11),
             JS_CFUNC_DEF("animate", 1, JsWidgetAnimate),
             JS_CFUNC_DEF("setElementProperty", 3, JsWidgetSetElementProperty),
             JS_CFUNC_DEF("setElementProperties", 2, JsWidgetSetElementProperties),

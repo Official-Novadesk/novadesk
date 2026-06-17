@@ -48,31 +48,15 @@
 #include "libregexp.h"
 #include "dtoa.h"
 
-#if defined(EMSCRIPTEN) || defined(_MSC_VER)
+#if defined(_MSC_VER)
 #define DIRECT_DISPATCH  0
 #else
 #define DIRECT_DISPATCH  1
 #endif
 
-#if defined(__APPLE__)
-#define MALLOC_OVERHEAD  0
-#else
 #define MALLOC_OVERHEAD  8
-#endif
 
-#if defined(__NEWLIB__)
-#define NO_TM_GMTOFF
-#endif
-
-#if defined(__sun)
-#include <alloca.h>
-#define NO_TM_GMTOFF
-#endif
-
-// atomic_store etc. are completely busted in recent versions of tcc;
-// somehow the compiler forgets to load |ptr| into %rdi when calling
-// the __atomic_*() helpers in its lib/stdatomic.c and lib/atomic.S
-#if !defined(__TINYC__) && !defined(EMSCRIPTEN) && !defined(__wasi__) && !__STDC_NO_ATOMICS__ && !defined(__DJGPP)
+#if !defined(__TINYC__) && !__STDC_NO_ATOMICS__
 #include "quickjs-c-atomics.h"
 #define CONFIG_ATOMICS
 #endif
@@ -228,7 +212,11 @@ typedef enum JSErrorEnum {
 /* rope depth at which we rebalance */
 #define JS_STRING_ROPE_MAX_DEPTH 60
 
-#define __exception __attribute__((warn_unused_result))
+#if defined(_MSC_VER) && !defined(__clang__)
+#  define __exception
+#else
+#  define __exception __attribute__((warn_unused_result))
+#endif
 
 typedef struct JSShape JSShape;
 typedef struct JSString JSString;
@@ -1977,9 +1965,6 @@ JSRuntime *JS_NewRuntime2(const JSMallocFunctions *mf, void *opaque)
     rt->js_class_id_alloc = JS_CLASS_INIT_COUNT;
 
     rt->stack_size = JS_DEFAULT_STACK_SIZE;
-#ifdef __wasi__
-    rt->stack_size = 0;
-#endif
 
     JS_UpdateStackTop(rt);
 
@@ -2702,15 +2687,11 @@ JSRuntime *JS_GetRuntime(JSContext *ctx)
 
 static void update_stack_limit(JSRuntime *rt)
 {
-#if defined(__wasi__)
-    rt->stack_limit = 0; /* no limit */
-#else
     if (rt->stack_size == 0) {
         rt->stack_limit = 0; /* no limit */
     } else {
         rt->stack_limit = rt->stack_top - rt->stack_size;
     }
-#endif
 }
 
 void JS_SetMaxStackSize(JSRuntime *rt, size_t stack_size)
@@ -46830,7 +46811,6 @@ static const JSCFunctionListEntry js_math_obj[] = {
 /* OS dependent. d = argv[0] is in ms from 1970. Return the difference
    between UTC time and local time 'd' in minutes */
 static int getTimezoneOffset(int64_t time) {
-#if defined(_WIN32)
     DWORD r;
     TIME_ZONE_INFORMATION t;
     r = GetTimeZoneInformation(&t);
@@ -46839,45 +46819,6 @@ static int getTimezoneOffset(int64_t time) {
     if (r == TIME_ZONE_ID_DAYLIGHT)
          return (int)(t.Bias + t.DaylightBias);
     return (int)t.Bias;
-#else
-    time_t ti;
-    struct tm tm;
-
-    time /= 1000; /* convert to seconds */
-    if (sizeof(time_t) == 4) {
-        /* on 32-bit systems, we need to clamp the time value to the
-           range of `time_t`. This is better than truncating values to
-           32 bits and hopefully provides the same result as 64-bit
-           implementation of localtime_r.
-         */
-        if ((time_t)-1 < 0) {
-            if (time < INT32_MIN) {
-                time = INT32_MIN;
-            } else if (time > INT32_MAX) {
-                time = INT32_MAX;
-            }
-        } else {
-            if (time < 0) {
-                time = 0;
-            } else if (time > UINT32_MAX) {
-                time = UINT32_MAX;
-            }
-        }
-    }
-    ti = time;
-    localtime_r(&ti, &tm);
-#ifdef NO_TM_GMTOFF
-    struct tm gmt;
-    gmtime_r(&ti, &gmt);
-
-    /* disable DST adjustment on the local tm struct */
-    tm.tm_isdst = 0;
-
-    return (int)difftime(mktime(&gmt), mktime(&tm)) / 60;
-#else
-    return -tm.tm_gmtoff / 60;
-#endif /* NO_TM_GMTOFF */
-#endif
 }
 
 /* RegExp */

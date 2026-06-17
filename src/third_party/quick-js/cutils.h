@@ -32,9 +32,6 @@
 #if !defined(_MSC_VER)
 #include <sys/time.h>
 #endif
-#if defined(__APPLE__)
-#include <mach-o/dyld.h>
-#endif
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
@@ -50,29 +47,12 @@ extern "C" {
 #define alloca _alloca
 #define ssize_t ptrdiff_t
 #endif
-#if defined(__APPLE__)
-#include <malloc/malloc.h>
-#elif defined(__linux__) || defined(__ANDROID__) || defined(__CYGWIN__) || defined(__GLIBC__)
-#include <malloc.h>
-#elif defined(__FreeBSD__)
-#include <malloc_np.h>
-#elif defined(_WIN32)
+#if defined(_WIN32)
 #include <winsock2.h>
 #include <windows.h>
 #include <process.h> // _beginthread
 #endif
-#if !defined(_WIN32) && !defined(EMSCRIPTEN) && !defined(__wasi__) && !defined(__DJGPP)
-#include <errno.h>
-#include <pthread.h>
-#endif
-#if !defined(_WIN32)
-#include <limits.h>
-#include <unistd.h>
-#endif
 
-#if defined(__sun)
-#undef __maybe_unused
-#endif
 
 #if defined(_MSC_VER) && !defined(__clang__)
 #  define likely(x)       (x)
@@ -597,12 +577,8 @@ static inline uint64_t js__hrtime_ns(void);
 
 static inline size_t js__malloc_usable_size(const void *ptr)
 {
-#if defined(__APPLE__)
-    return malloc_size(ptr);
-#elif defined(_WIN32)
+#if defined(_WIN32)
     return _msize((void *)ptr);
-#elif defined(__linux__) || defined(__ANDROID__) || defined(__CYGWIN__) || defined(__FreeBSD__) || defined(__GLIBC__)
-    return malloc_usable_size((void *)ptr);
 #else
     return 0;
 #endif
@@ -612,27 +588,11 @@ static inline int js_exepath(char* buffer, size_t* size);
 
 /* Cross-platform threading APIs. */
 
-#if defined(EMSCRIPTEN) || defined(__wasi__) || defined(__DJGPP)
-
-#define JS_HAVE_THREADS 0
-
-#else
-
-#define JS_HAVE_THREADS 1
-
-#if defined(_WIN32)
 #define JS_ONCE_INIT INIT_ONCE_STATIC_INIT
 typedef INIT_ONCE js_once_t;
 typedef CRITICAL_SECTION js_mutex_t;
 typedef CONDITION_VARIABLE js_cond_t;
 typedef HANDLE js_thread_t;
-#else
-#define JS_ONCE_INIT PTHREAD_ONCE_INIT
-typedef pthread_once_t js_once_t;
-typedef pthread_mutex_t js_mutex_t;
-typedef pthread_cond_t js_cond_t;
-typedef pthread_t js_thread_t;
-#endif
 
 static inline void js_once(js_once_t *guard, void (*callback)(void));
 
@@ -656,8 +616,6 @@ enum {
 static inline int js_thread_create(js_thread_t *thrd, void (*start)(void *), void *arg,
                      int flags);
 static inline int js_thread_join(js_thread_t thrd);
-
-#endif /* !defined(EMSCRIPTEN) && !defined(__wasi__) */
 
 // JS requires strict rounding behavior. Turn on 64-bits double precision
 // and disable x87 80-bits extended precision for intermediate floating-point
@@ -1536,7 +1494,6 @@ static inline void rqsort(void *base, size_t nmemb, size_t size, cmp_f cmp, void
 
 /*---- Portable time functions ----*/
 
-#ifdef _WIN32
  // From: https://stackoverflow.com/a/26085827
 static int gettimeofday_msvc(struct timeval *tp)
 {
@@ -1578,35 +1535,13 @@ static inline uint64_t js__hrtime_ns(void) {
   result = (double) counter.QuadPart / scaled_freq;
   return (uint64_t) result;
 }
-#else
-static inline uint64_t js__hrtime_ns(void) {
-#ifdef __DJGPP
-  struct timeval tv;
-  if (gettimeofday(&tv, NULL))
-    abort();
-  return tv.tv_sec * NANOSEC + tv.tv_usec * 1000;
-#else
-  struct timespec t;
-
-  if (clock_gettime(CLOCK_MONOTONIC, &t))
-    abort();
-
-  return t.tv_sec * NANOSEC + t.tv_nsec;
-#endif
-}
-#endif
 
 static inline int64_t js__gettimeofday_us(void) {
     struct timeval tv;
-#ifdef _WIN32
     gettimeofday_msvc(&tv);
-#else
-    gettimeofday(&tv, NULL);
-#endif
     return ((int64_t)tv.tv_sec * 1000000) + tv.tv_usec;
 }
 
-#if defined(_WIN32)
 static inline int js_exepath(char *buffer, size_t *size_ptr) {
     int utf8_len, utf16_buffer_len, utf16_len;
     WCHAR* utf16_buffer;
@@ -1653,66 +1588,9 @@ error:
     free(utf16_buffer);
     return -1;
 }
-#elif defined(__APPLE__)
-static inline int js_exepath(char *buffer, size_t *size) {
-    /* realpath(exepath) may be > PATH_MAX so double it to be on the safe side. */
-    char abspath[PATH_MAX * 2 + 1];
-    char exepath[PATH_MAX + 1];
-    uint32_t exepath_size;
-    size_t abspath_size;
-
-    if (buffer == NULL || size == NULL || *size == 0)
-        return -1;
-
-    exepath_size = sizeof(exepath);
-    if (_NSGetExecutablePath(exepath, &exepath_size))
-        return -1;
-
-    if (realpath(exepath, abspath) != abspath)
-        return -1;
-
-    abspath_size = strlen(abspath);
-    if (abspath_size == 0)
-        return -1;
-
-    *size -= 1;
-    if (*size > abspath_size)
-        *size = abspath_size;
-
-    memcpy(buffer, abspath, *size);
-    buffer[*size] = '\0';
-
-    return 0;
-}
-#elif defined(__linux__) || defined(__GNU__)
-static inline int js_exepath(char *buffer, size_t *size) {
-    ssize_t n;
-
-    if (buffer == NULL || size == NULL || *size == 0)
-        return -1;
-
-    n = *size - 1;
-    if (n > 0)
-        n = readlink("/proc/self/exe", buffer, n);
-
-    if (n == -1)
-        return n;
-
-    buffer[n] = '\0';
-    *size = n;
-
-    return 0;
-}
-#else
-static inline int js_exepath(char* buffer, size_t* size_ptr) {
-    return -1;
-}
-#endif
 
 /*--- Cross-platform threading APIs. ----*/
 
-#if JS_HAVE_THREADS
-#if defined(_WIN32)
 typedef void (*js__once_cb)(void);
 
 typedef struct {
@@ -1808,184 +1686,6 @@ static inline int js_thread_join(js_thread_t thrd)
     CloseHandle(thrd);
     return 0;
 }
-
-#else /* !defined(_WIN32) */
-
-static inline void js_once(js_once_t *guard, void (*callback)(void)) {
-    if (pthread_once(guard, callback))
-        abort();
-}
-
-static inline void js_mutex_init(js_mutex_t *mutex) {
-    if (pthread_mutex_init(mutex, NULL))
-        abort();
-}
-
-static inline void js_mutex_destroy(js_mutex_t *mutex) {
-    if (pthread_mutex_destroy(mutex))
-        abort();
-}
-
-static inline void js_mutex_lock(js_mutex_t *mutex) {
-    if (pthread_mutex_lock(mutex))
-        abort();
-}
-
-static inline void js_mutex_unlock(js_mutex_t *mutex) {
-    if (pthread_mutex_unlock(mutex))
-        abort();
-}
-
-static inline void js_cond_init(js_cond_t *cond) {
-#if defined(__APPLE__) && defined(__MACH__)
-    if (pthread_cond_init(cond, NULL))
-        abort();
-#else
-    pthread_condattr_t attr;
-
-    if (pthread_condattr_init(&attr))
-        abort();
-
-    if (pthread_condattr_setclock(&attr, CLOCK_MONOTONIC))
-        abort();
-
-    if (pthread_cond_init(cond, &attr))
-        abort();
-
-    if (pthread_condattr_destroy(&attr))
-        abort();
-#endif
-}
-
-static inline void js_cond_destroy(js_cond_t *cond) {
-#if defined(__APPLE__) && defined(__MACH__)
-    /* It has been reported that destroying condition variables that have been
-     * signalled but not waited on can sometimes result in application crashes.
-     * See https://codereview.chromium.org/1323293005.
-     */
-    pthread_mutex_t mutex;
-    struct timespec ts;
-    int err;
-
-    if (pthread_mutex_init(&mutex, NULL))
-        abort();
-
-    if (pthread_mutex_lock(&mutex))
-        abort();
-
-    ts.tv_sec = 0;
-    ts.tv_nsec = 1;
-
-    err = pthread_cond_timedwait_relative_np(cond, &mutex, &ts);
-    if (err != 0 && err != ETIMEDOUT)
-        abort();
-
-    if (pthread_mutex_unlock(&mutex))
-        abort();
-
-    if (pthread_mutex_destroy(&mutex))
-        abort();
-#endif /* defined(__APPLE__) && defined(__MACH__) */
-
-    if (pthread_cond_destroy(cond))
-        abort();
-}
-
-static inline void js_cond_signal(js_cond_t *cond) {
-    if (pthread_cond_signal(cond))
-        abort();
-}
-
-static inline void js_cond_broadcast(js_cond_t *cond) {
-    if (pthread_cond_broadcast(cond))
-        abort();
-}
-
-static inline void js_cond_wait(js_cond_t *cond, js_mutex_t *mutex) {
-#if defined(__APPLE__) && defined(__MACH__)
-    int r;
-
-    errno = 0;
-    r = pthread_cond_wait(cond, mutex);
-
-    /* Workaround for a bug in OS X at least up to 13.6
-     * See https://github.com/libuv/libuv/issues/4165
-     */
-    if (r == EINVAL && errno == EBUSY)
-        return;
-    if (r)
-        abort();
-#else
-    if (pthread_cond_wait(cond, mutex))
-        abort();
-#endif
-}
-
-static inline int js_cond_timedwait(js_cond_t *cond, js_mutex_t *mutex, uint64_t timeout) {
-    int r;
-    struct timespec ts;
-
-#if !defined(__APPLE__)
-    timeout += js__hrtime_ns();
-#endif
-
-    ts.tv_sec = timeout / NANOSEC;
-    ts.tv_nsec = timeout % NANOSEC;
-#if defined(__APPLE__) && defined(__MACH__)
-    r = pthread_cond_timedwait_relative_np(cond, mutex, &ts);
-#else
-    r = pthread_cond_timedwait(cond, mutex, &ts);
-#endif
-
-    if (r == 0)
-        return 0;
-
-    if (r == ETIMEDOUT)
-        return -1;
-
-    abort();
-
-    /* Pacify some compilers. */
-    return -1;
-}
-
-static inline int js_thread_create(js_thread_t *thrd, void (*start)(void *), void *arg,
-                     int flags)
-{
-    union {
-        void (*x)(void *);
-        void *(*f)(void *);
-    } u = {start};
-    pthread_attr_t attr;
-    int ret;
-
-    if (flags & ~JS_THREAD_CREATE_DETACHED)
-        return -1;
-    if (pthread_attr_init(&attr))
-        return -1;
-    ret = -1;
-    if (pthread_attr_setstacksize(&attr, 2<<20))
-        goto fail;
-    if (flags & JS_THREAD_CREATE_DETACHED)
-        if (pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED))
-            goto fail;
-    if (pthread_create(thrd, &attr, u.f, arg))
-        goto fail;
-    ret = 0;
-fail:
-    pthread_attr_destroy(&attr);
-    return ret;
-}
-
-static inline int js_thread_join(js_thread_t thrd)
-{
-    if (pthread_join(thrd, NULL))
-        return -1;
-    return 0;
-}
-
-#endif /* !defined(_WIN32) */
-#endif /* JS_HAVE_THREADS */
 
 #ifdef __cplusplus
 } /* extern "C" { */

@@ -12,6 +12,8 @@
     <ClCompile Include="main.cpp">
       <Filter>Addon</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\third_party\kiss_fft130\kiss_fft.c" />
+    <ClCompile Include="..\..\third_party\kiss_fft130\kiss_fftr.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="resource.h">

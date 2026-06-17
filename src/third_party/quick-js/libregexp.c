@@ -31,12 +31,7 @@
 #include "cutils.h"
 #include "libregexp.h"
 
-#if defined(__sun)
-#include <alloca.h>
-#endif
-
 /*
-  TODO:
 
   - Add a lock step execution mode (=linear time execution guaranteed)
     when the regular expression is "simple" i.e. no backreference nor
