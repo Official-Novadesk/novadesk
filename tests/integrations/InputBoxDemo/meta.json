@@ -1,0 +1,21 @@
+{
+  "name": "InputBoxDemo",
+  "main": "index.js",
+  "version": "1.0.0.0",
+  "author": "NSTechBytes",
+  "description": "Demo widget showcasing the Direct2D-rendered InputBox element that composites between other elements like CSS.",
+  "icon": "",
+  "preview": "",
+  "excludeItems": [],
+  "setup": {
+    "createDesktopShortcut": false,
+    "createStartupShortcut": false,
+    "runOnStartup": false,
+    "installDir": "%ProgramFiles%\\InputBoxDemo",
+    "startMenuFolder": "InputBoxDemo",
+    "setupName": "setup",
+    "setupIcon": "",
+    "enableUninstall": false,
+    "launchAfterInstall": false
+  }
+}

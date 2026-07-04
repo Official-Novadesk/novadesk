@@ -1804,6 +1804,46 @@ namespace JSEngine
         }
     }
 
+    void CallEventCallbackWithText(int callbackId, Widget *widget, const std::wstring &text)
+    {
+        if (!g_context || callbackId <= 0 || callbackId >= static_cast<int>(g_eventCallbacks.size()))
+        {
+            return;
+        }
+
+        JSValue callback = g_eventCallbacks[callbackId];
+        if (JS_IsUndefined(callback) || JS_IsNull(callback))
+        {
+            return;
+        }
+
+        JSValue arg = JS_NewObject(g_context);
+        if (widget)
+        {
+            JS_SetPropertyStr(g_context, arg, "widgetId",
+                              JS_NewString(g_context, Utils::ToString(widget->GetOptions().id).c_str()));
+        }
+
+        // e.data and e.value both carry the current text (mirrors the Web InputEvent API).
+        const std::string utf8 = Utils::ToString(text);
+        JS_SetPropertyStr(g_context, arg, "data",  JS_NewString(g_context, utf8.c_str()));
+        JS_SetPropertyStr(g_context, arg, "value", JS_NewString(g_context, utf8.c_str()));
+
+        JSValue argv[1] = {arg};
+        const std::wstring ownerScriptPath = GetWidgetOwnerScriptPath(widget);
+        ScriptExecutionScope scope(ownerScriptPath);
+        JSValue ret = JS_Call(g_context, callback, JS_UNDEFINED, 1, argv);
+        JS_FreeValue(g_context, arg);
+        if (JS_IsException(ret))
+        {
+            LogQuickJsException(g_context);
+        }
+        else
+        {
+            JS_FreeValue(g_context, ret);
+        }
+    }
+
     int RegisterEventCallback(JSContext *ctx, JSValueConst fn)
     {
         if (!ctx || !JS_IsFunction(ctx, fn))

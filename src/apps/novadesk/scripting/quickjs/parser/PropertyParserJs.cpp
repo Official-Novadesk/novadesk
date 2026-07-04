@@ -190,6 +190,7 @@ namespace Js
             }
             if (ColorUtil::ParseRGBA(v, color, alpha))
             {
+                gradient.type = GRADIENT_NONE;
                 hasColor = true;
             }
         }

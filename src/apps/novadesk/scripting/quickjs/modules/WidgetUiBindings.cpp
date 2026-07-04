@@ -28,6 +28,7 @@
 #include "../../render/PathShape.h"
 #include "../../render/TextElement.h"
 #include "../../render/ElementLayoutBox.h"
+#include "../../render/InputBoxElement.h"
 #include "../../shared/FileUtils.h"
 #include "../../shared/Logging.h"
 #include "../../shared/PathUtils.h"
@@ -73,6 +74,37 @@ namespace novadesk::scripting::quickjs
                 widget = GetUiWidget(ctx, thisVal);
             }
             return widget;
+        }
+
+        std::wstring ToGradientOrRGBAString(const GradientInfo &gradient, COLORREF color, BYTE alpha)
+        {
+            if (gradient.type == GRADIENT_NONE || gradient.stops.empty())
+            {
+                return ColorUtil::ToRGBAString(color, alpha);
+            }
+
+            std::wstring result;
+            if (gradient.type == GRADIENT_LINEAR)
+            {
+                wchar_t buf[64];
+                swprintf_s(buf, L"linearGradient(%.1f", gradient.angle);
+                result = buf;
+            }
+            else if (gradient.type == GRADIENT_RADIAL)
+            {
+                result = L"radialGradient(" + gradient.shape;
+            }
+            else
+            {
+                return ColorUtil::ToRGBAString(color, alpha);
+            }
+
+            for (const auto &stop : gradient.stops)
+            {
+                result += L", " + ColorUtil::ToRGBAString(stop.color, stop.alpha);
+            }
+            result += L")";
+            return result;
         }
 
         JSValue ThrowTypeError(JSContext *ctx, const char *method, const char *usage)
@@ -223,6 +255,19 @@ namespace novadesk::scripting::quickjs
             PropertyParser::TextOptions options;
             PropertyParser::ParseTextOptions(ctx, argv[0], options, PathUtils::GetScriptBaseDir(widget->GetOptions().scriptPath, JSEngine::GetEntryScriptDir()));
             widget->AddText(options);
+            return JS_UNDEFINED;
+        }
+
+        JSValue JsWidgetAddInputBox(JSContext *ctx, JSValueConst thisVal, int argc, JSValueConst *argv)
+        {
+            Widget *widget = GetAnyWidget(ctx, thisVal);
+            if (!widget)
+                return JS_UNDEFINED;
+            if (argc < 1 || !JS_IsObject(argv[0]))
+                return ThrowTypeError(ctx, "addInputBox", "expected options object");
+            PropertyParser::InputBoxOptions options;
+            PropertyParser::ParseInputBoxOptions(ctx, argv[0], options, PathUtils::GetScriptBaseDir(widget->GetOptions().scriptPath, JSEngine::GetEntryScriptDir()));
+            widget->AddInputBox(options);
             return JS_UNDEFINED;
         }
 
@@ -406,6 +451,8 @@ namespace novadesk::scripting::quickjs
                 return JsWidgetAddShape(ctx, thisVal, 1, argvLocal);
             if (type == L"button")
                 return JsWidgetAddButton(ctx, thisVal, 1, argvLocal);
+            if (type == L"inputbox")
+                return JsWidgetAddInputBox(ctx, thisVal, 1, argvLocal);
             if (type == L"bitmap")
                 return JsWidgetAddBitmap(ctx, thisVal, 1, argvLocal);
             if (type == L"rotator")
@@ -561,6 +608,7 @@ namespace novadesk::scripting::quickjs
             case 9: typeName = "roundLine"; break;
             case 10: typeName = "areaGraph"; break;
             case 11: typeName = "layoutBox"; break;
+            case 12: typeName = "inputBox"; break;
             }
             return CreateTypedElementObject(ctx, argv[0], typeName);
         }
@@ -920,6 +968,13 @@ namespace novadesk::scripting::quickjs
                 PropertyParser::PreFillAreaGraphOptions(options, graph);
                 PropertyParser::ParseAreaGraphOptions(ctx, argv[1], options, baseDir);
                 PropertyParser::ApplyAreaGraphOptions(graph, options);
+            }
+            else if (auto *input = dynamic_cast<InputBoxElement *>(element))
+            {
+                PropertyParser::InputBoxOptions options;
+                PropertyParser::PreFillInputBoxOptions(options, input);
+                PropertyParser::ParseInputBoxOptions(ctx, argv[1], options, baseDir);
+                PropertyParser::ApplyInputBoxOptions(input, options);
             }
 
             widget->Redraw();
@@ -1636,7 +1691,10 @@ namespace novadesk::scripting::quickjs
                 }
                 if (prop == "fillColor" && shape->HasFill())
                 {
-                    const std::wstring c = ColorUtil::ToRGBAString(shape->GetFillColor(), shape->GetFillAlpha());
+                    const std::wstring c = ToGradientOrRGBAString(
+                        shape->GetFillGradient(),
+                        shape->GetFillColor(),
+                        shape->GetFillAlpha());
                     return JS_NewString(ctx, Utils::ToString(c).c_str());
                 }
 
@@ -1761,11 +1819,13 @@ namespace novadesk::scripting::quickjs
                             switch (s)
                             {
                             case ElementLayoutBox::BorderStyle::None: return "none";
+                            case ElementLayoutBox::BorderStyle::Hidden: return "hidden";
                             case ElementLayoutBox::BorderStyle::Inset: return "inset";
                             case ElementLayoutBox::BorderStyle::Outset: return "outset";
                             case ElementLayoutBox::BorderStyle::Groove: return "groove";
                             case ElementLayoutBox::BorderStyle::Ridge: return "ridge";
                             case ElementLayoutBox::BorderStyle::Dotted: return "dotted";
+                            case ElementLayoutBox::BorderStyle::Dashed: return "dashed";
                             case ElementLayoutBox::BorderStyle::Double: return "double";
                             default: return "solid";
                             }
@@ -1839,6 +1899,70 @@ namespace novadesk::scripting::quickjs
                     }
                 }
             }
+            else if (element->GetType() == ELEMENT_INPUT_BOX)
+            {
+                auto *input = static_cast<InputBoxElement *>(element);
+                if (prop == "text")
+                    return JS_NewString(ctx, Utils::ToString(input->GetText()).c_str());
+                if (prop == "placeholder")
+                    return JS_NewString(ctx, Utils::ToString(input->GetPlaceholder()).c_str());
+                if (prop == "focused")
+                    return JS_NewBool(ctx, input->IsFocused() ? 1 : 0);
+                if (prop == "fontFace")
+                    return JS_NewString(ctx, Utils::ToString(input->GetFontFace()).c_str());
+                if (prop == "fontSize")
+                    return JS_NewInt32(ctx, input->GetFontSize());
+                if (prop == "fontColor" || prop == "textColor")
+                    return JS_NewString(ctx, Utils::ToString(ToGradientOrRGBAString(input->GetFontGradient(), input->GetFontColor(), input->GetFontAlpha())).c_str());
+                if (prop == "placeholderColor")
+                    return JS_NewString(ctx, Utils::ToString(ToGradientOrRGBAString(input->GetPlaceholderGradient(), input->GetPlaceholderColor(), input->GetPlaceholderAlpha())).c_str());
+                if (prop == "caretColor")
+                    return JS_NewString(ctx, Utils::ToString(ToGradientOrRGBAString(input->GetCaretGradient(), input->GetCaretColor(), input->GetCaretAlpha())).c_str());
+                if (prop == "selectionColor")
+                    return JS_NewString(ctx, Utils::ToString(ToGradientOrRGBAString(input->GetSelectionGradient(), input->GetSelectionColor(), input->GetSelectionAlpha())).c_str());
+                if (prop == "password")
+                    return JS_NewBool(ctx, input->IsPasswordMode() ? 1 : 0);
+                if (prop == "maxLength")
+                    return JS_NewInt32(ctx, input->GetMaxLength());
+                if (prop == "multiline")
+                    return JS_NewBool(ctx, input->IsMultiline() ? 1 : 0);
+                if (prop == "inputType")
+                {
+                    const char *typeName = "any";
+                    switch (input->GetInputType())
+                    {
+                    case InputType::Integer:     typeName = "integer";     break;
+                    case InputType::Float:       typeName = "float";       break;
+                    case InputType::Letters:     typeName = "letters";     break;
+                    case InputType::Alphanumeric:typeName = "alphanumeric";break;
+                    case InputType::Hex:         typeName = "hex";         break;
+                    case InputType::Email:       typeName = "email";       break;
+                    case InputType::Custom:      typeName = "custom";      break;
+                    default:                     typeName = "any";         break;
+                    }
+                    return JS_NewString(ctx, typeName);
+                }
+                if (prop == "allowedChars")
+                    return JS_NewString(ctx, Utils::ToString(input->GetAllowedChars()).c_str());
+                if (prop == "borderColor")
+                    return JS_NewString(ctx, Utils::ToString(ToGradientOrRGBAString(input->GetBorderGradient(), input->GetBorderColor(), input->GetBorderAlpha())).c_str());
+                if (prop == "borderWidth")
+                    return JS_NewInt32(ctx, (int)input->GetBorderWidth());
+                if (prop == "borderRadius")
+                    return JS_NewInt32(ctx, (int)input->GetBorderRadius());
+                if (prop == "fillColor")
+                {
+                    if (input->HasFillColor() || input->GetFillGradient().type != GRADIENT_NONE)
+                        return JS_NewString(ctx, Utils::ToString(ToGradientOrRGBAString(input->GetFillGradient(), input->GetFillColor(), input->GetFillAlpha())).c_str());
+                    return JS_UNDEFINED;
+                }
+                if (prop == "borderFocusColor")
+                {
+                    if (input->HasBorderFocusColor() || input->GetBorderFocusGradient().type != GRADIENT_NONE)
+                        return JS_NewString(ctx, Utils::ToString(ToGradientOrRGBAString(input->GetBorderFocusGradient(), input->GetBorderFocusColor(), input->GetBorderFocusAlpha())).c_str());
+                    return JS_UNDEFINED;
+                }
+            }
 
             return JS_UNDEFINED;
         }
@@ -1884,6 +2008,7 @@ namespace novadesk::scripting::quickjs
             JS_CFUNC_DEF("addImage", 1, JsWidgetAddImage),
             JS_CFUNC_DEF("addButton", 1, JsWidgetAddButton),
             JS_CFUNC_DEF("addText", 1, JsWidgetAddText),
+            JS_CFUNC_DEF("addInputBox", 1, JsWidgetAddInputBox),
             JS_CFUNC_DEF("addBar", 1, JsWidgetAddBar),
             JS_CFUNC_DEF("addLine", 1, JsWidgetAddLine),
             JS_CFUNC_DEF("addHistogram", 1, JsWidgetAddHistogram),

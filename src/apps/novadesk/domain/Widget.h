@@ -29,6 +29,7 @@
 #include "../render/Tooltip.h"
 #include "../render/CursorManager.h"
 #include "../render/FlexLayoutEngine.h"
+#include "../render/InputBoxElement.h"
 
 #pragma comment(lib, "comctl32.lib")
 
@@ -49,6 +50,7 @@ namespace PropertyParser {
     struct RoundLineOptions;
     struct ShapeOptions;
     struct AreaGraphOptions;
+    struct InputBoxOptions;
 }
 
 #include "MenuItem.h"
@@ -177,6 +179,7 @@ public:
     void AddShape(const PropertyParser::ShapeOptions& options);
     void AddAreaGraph(const PropertyParser::AreaGraphOptions& options);
     void AddLayoutBox(const PropertyParser::ShapeOptions& options);
+    void AddInputBox(const PropertyParser::InputBoxOptions& options);
 
     void SetElementProperties(const std::wstring& id, JSContext* ctx, JSValueConst options);
     void SetGroupProperties(const std::wstring& group, JSContext* ctx, JSValueConst options);
@@ -188,6 +191,9 @@ public:
     void ClearContextMenu();
     void SetContextMenuDisabled(bool disabled) { m_ContextMenuDisabled = disabled; }
     void SetShowDefaultContextMenuItems(bool show) { m_ShowDefaultContextMenuItems = show; }
+
+    InputBoxElement* GetFocusedInputBox() const { return m_FocusedInputBox; }
+    void SetFocusedInputBox(InputBoxElement* inputElem) { m_FocusedInputBox = inputElem; }
 
     void BeginUpdate();
     void EndUpdate();
@@ -287,6 +293,12 @@ private:
     CursorManager m_CursorManager;
     HICON m_ToolbarIconHandle = nullptr;
     bool m_ToolbarIconOwned = false;
+
+    // Text Selection State
+    TextElement* m_TextSelectionElement = nullptr;
+
+    // Input box focus state
+    InputBoxElement* m_FocusedInputBox = nullptr;
 
     void ApplyToolbarStyle();
     void ApplyToolbarIcon();

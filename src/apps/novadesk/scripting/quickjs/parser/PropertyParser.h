@@ -24,6 +24,7 @@ class BitmapElement;
 class RotatorElement;
 class GeneralImage;
 class ElementLayoutBox;
+class InputBoxElement;
 
 namespace PropertyParser
 {
@@ -45,6 +46,7 @@ namespace PropertyParser
     void ParseLayoutBoxOptions(JSContext *ctx, JSValueConst obj, LayoutBoxOptions &options, const std::wstring &baseDir = L"");
     void ParseAnimationOptions(JSContext *ctx, JSValueConst obj, AnimationOptions &options);
     void ParseAreaGraphOptions(JSContext *ctx, JSValueConst obj, AreaGraphOptions &options, const std::wstring &baseDir = L"");
+    void ParseInputBoxOptions(JSContext *ctx, JSValueConst obj, InputBoxOptions &options, const std::wstring &baseDir = L"");
 
     void ApplyElementOptions(Element *element, const ElementOptions &options);
     void ApplyImageOptions(ImageElement *element, const ImageOptions &options);
@@ -59,6 +61,7 @@ namespace PropertyParser
     void ApplyShapeOptions(ShapeElement *element, const ShapeOptions &options);
     void ApplyLayoutBoxOptions(ElementLayoutBox *element, const LayoutBoxOptions &options);
     void ApplyAreaGraphOptions(AreaGraphElement *element, const AreaGraphOptions &options);
+    void ApplyInputBoxOptions(InputBoxElement *element, const InputBoxOptions &options);
 
     void PreFillElementOptions(ElementOptions &options, Element *element);
     void PreFillImageOptions(ImageOptions &options, ImageElement *element);
@@ -83,6 +86,7 @@ namespace PropertyParser
         const int *paddingRight = nullptr,
         const int *paddingBottom = nullptr);
     void PreFillAreaGraphOptions(AreaGraphOptions &options, AreaGraphElement *element);
+    void PreFillInputBoxOptions(InputBoxOptions &options, InputBoxElement *element);
 
     void ParseGeneralImageOptions(JSContext *ctx, JSValueConst obj, GeneralImageOptions &options);
     void ApplyGeneralImageOptions(GeneralImage *image, const GeneralImageOptions &options);

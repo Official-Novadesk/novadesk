@@ -23,6 +23,7 @@
 #include "../../../render/LineElement.h"
 #include "../../../render/RoundLineElement.h"
 #include "../../../render/TextElement.h"
+#include "../../../render/InputBoxElement.h"
 
 namespace PropertyParser
 {
@@ -201,6 +202,69 @@ namespace PropertyParser
         bool underLine = false;
         bool strikeThrough = false;
         TextCase textCase = TEXT_CASE_NORMAL;
+        bool textSelection = false;
+        COLORREF selectionBackgroundColor = 0xFF9033; // #3390FF selection blue
+        BYTE selectionBackgroundAlpha = 120;          
+        bool hasSelectionTextColor = false;
+        COLORREF selectionTextColor = RGB(255, 255, 255);
+        BYTE selectionTextAlpha = 255;
+    };
+
+    // Options for the Direct2D-rendered input box element.
+    struct InputBoxOptions : public ElementOptions
+    {
+        std::wstring text;
+        std::wstring placeholder;
+        std::wstring fontFace = L"Segoe UI";
+        int fontSize = 14;
+        COLORREF fontColor = RGB(240, 240, 240);
+        BYTE fontAlpha = 255;
+        int fontWeight = 400;
+        bool italic = false;
+        TextAlignment textAlign = TEXT_ALIGN_LEFT_CENTER;
+        std::wstring fontPath;
+
+        COLORREF placeholderColor = RGB(150, 150, 150);
+        BYTE placeholderAlpha = 255;
+        COLORREF caretColor = RGB(255, 255, 255);
+        BYTE caretAlpha = 255;
+        COLORREF selectionColor = RGB(135, 206, 235);
+        BYTE selectionAlpha = 128;
+
+        bool hasFillColor = true;
+        COLORREF fillColor = RGB(30, 30, 34);
+        BYTE fillAlpha = 255;
+
+        bool password = false;
+        int maxLength = 0;
+        bool multiline = false;
+        InputType inputType = InputType::Any;
+        std::wstring allowedChars; // used when inputType == Custom
+
+        // Border (solid only)
+        float borderWidth = 1.0f;
+        float borderRadius = 8.0f;
+        COLORREF borderColor = RGB(0, 0, 0);
+        BYTE borderColorAlpha = 255;
+        bool hasBorderFocusColor = false;
+        COLORREF borderFocusColor = RGB(0, 0, 0);
+        BYTE borderFocusColorAlpha = 255;
+
+        // Gradients
+        GradientInfo fontGradient;
+        GradientInfo placeholderGradient;
+        GradientInfo caretGradient;
+        GradientInfo selectionGradient;
+        GradientInfo fillGradient;
+        GradientInfo borderGradient;
+        GradientInfo borderFocusGradient;
+
+        // JS callback ids (resolved via GetEventCallbackProp).
+        int onTextChangeCallbackId = -1;
+        int onEnterCallbackId = -1;
+        int onFocusCallbackId = -1;
+        int onBlurCallbackId = -1;
+        int onInvalidInputCallbackId = -1; // fired when a typed char is rejected by inputType
     };
 
     struct BarOptions : public ElementOptions

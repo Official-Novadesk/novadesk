@@ -394,8 +394,128 @@ void TextElement::Render(ID2D1DeviceContext *context)
                 }
             }
 
-            // Draw main text
-            context->DrawTextLayout(D2D1::Point2F(layoutX, layoutY), pLayout.Get(), pBrush.Get());
+            // Draw text selection highlight FIRST (before text) if enabled and active
+            if (m_TextSelection && HasTextSelection())
+            {
+                std::wstring processedText = GetProcessedText();
+                UINT32 textLength = (UINT32)processedText.length();
+                
+                if (m_SelectionStart < textLength && m_SelectionEnd <= textLength && m_SelectionStart < m_SelectionEnd)
+                {
+                    // Get selection metrics
+                    UINT32 actualCount = 0;
+                    std::vector<DWRITE_HIT_TEST_METRICS> metrics;
+                    
+                    // First call to get count
+                    pLayout->HitTestTextRange(m_SelectionStart, m_SelectionEnd - m_SelectionStart, layoutX, layoutY, nullptr, 0, &actualCount);
+                    
+                    if (actualCount > 0)
+                    {
+                        metrics.resize(actualCount);
+                        pLayout->HitTestTextRange(m_SelectionStart, m_SelectionEnd - m_SelectionStart, layoutX, layoutY, metrics.data(), actualCount, &actualCount);
+                        
+                        // Draw selection background rectangles BEHIND the text
+                        Microsoft::WRL::ComPtr<ID2D1SolidColorBrush> selectionBrush;
+                        float bgOpacity = m_SelectionBackgroundAlpha / 255.0f;
+                        D2D1_COLOR_F bgColor = D2D1::ColorF(
+                            GetRValue(m_SelectionBackgroundColor) / 255.0f,
+                            GetGValue(m_SelectionBackgroundColor) / 255.0f,
+                            GetBValue(m_SelectionBackgroundColor) / 255.0f,
+                            bgOpacity
+                        );
+                        hr = context->CreateSolidColorBrush(bgColor, selectionBrush.GetAddressOf());
+                        
+                        if (SUCCEEDED(hr) && selectionBrush)
+                        {
+                            for (UINT32 i = 0; i < actualCount; ++i)
+                            {
+                                D2D1_RECT_F selectionRect = D2D1::RectF(
+                                    metrics[i].left,
+                                    metrics[i].top,
+                                    metrics[i].left + metrics[i].width,
+                                    metrics[i].top + metrics[i].height
+                                );
+                                context->FillRectangle(selectionRect, selectionBrush.Get());
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Draw main text (on top of selection highlight)
+            if (m_TextSelection && HasTextSelection() && m_HasSelectionTextColor)
+            {
+                // If we have custom selection text color, we need special rendering
+                std::wstring processedText = GetProcessedText();
+                UINT32 textLength = (UINT32)processedText.length();
+                
+                if (m_SelectionStart < textLength && m_SelectionEnd <= textLength && m_SelectionStart < m_SelectionEnd)
+                {
+                    Microsoft::WRL::ComPtr<ID2D1SolidColorBrush> selectionTextBrush;
+                    float textOpacity = m_SelectionTextAlpha / 255.0f;
+                    D2D1_COLOR_F textColor = D2D1::ColorF(
+                        GetRValue(m_SelectionTextColor) / 255.0f,
+                        GetGValue(m_SelectionTextColor) / 255.0f,
+                        GetBValue(m_SelectionTextColor) / 255.0f,
+                        textOpacity
+                    );
+                    hr = context->CreateSolidColorBrush(textColor, selectionTextBrush.GetAddressOf());
+                    
+                    if (SUCCEEDED(hr) && selectionTextBrush)
+                    {
+                        // Create a new layout to apply custom color to selected range
+                        Microsoft::WRL::ComPtr<IDWriteTextLayout> pCustomLayout;
+                        hr = Direct2D::GetWriteFactory()->CreateTextLayout(
+                            processedText.c_str(), (UINT32)processedText.length(), pTextFormat.Get(),
+                            layoutW, layoutH, pCustomLayout.GetAddressOf());
+                        
+                        if (SUCCEEDED(hr))
+                        {
+                            ApplyInlineTextStyles(pCustomLayout.Get(), m_Segments, processedText, m_LetterSpacing, m_UnderLine, m_StrikeThrough);
+                            
+                            // Apply segment colors
+                            for (const auto &segment : m_Segments)
+                            {
+                                DWRITE_TEXT_RANGE range = {segment.startPos, segment.length};
+                                if (segment.style.gradient.has_value() && segment.style.gradient->type != GRADIENT_NONE)
+                                {
+                                    Microsoft::WRL::ComPtr<ID2D1Brush> pSegmentGradientBrush;
+                                    if (Direct2D::CreateGradientBrush(context, layoutRect, segment.style.gradient.value(), &pSegmentGradientBrush))
+                                    {
+                                        pCustomLayout->SetDrawingEffect(pSegmentGradientBrush.Get(), range);
+                                    }
+                                }
+                                else if (segment.style.color.has_value())
+                                {
+                                    Microsoft::WRL::ComPtr<ID2D1SolidColorBrush> pSegmentBrush;
+                                    BYTE a = segment.style.alpha.value_or(255);
+                                    if (Direct2D::CreateSolidBrush(context, segment.style.color.value(), a / 255.0f, &pSegmentBrush))
+                                    {
+                                        pCustomLayout->SetDrawingEffect(pSegmentBrush.Get(), range);
+                                    }
+                                }
+                            }
+                            
+                            // Set the custom color for the selected range
+                            DWRITE_TEXT_RANGE selectedRange = {m_SelectionStart, m_SelectionEnd - m_SelectionStart};
+                            pCustomLayout->SetDrawingEffect(selectionTextBrush.Get(), selectedRange);
+                            
+                            // Draw the text with custom selection color
+                            context->DrawTextLayout(D2D1::Point2F(layoutX, layoutY), pCustomLayout.Get(), pBrush.Get());
+                        }
+                    }
+                }
+                else
+                {
+                    // No selection or outside bounds, draw normally
+                    context->DrawTextLayout(D2D1::Point2F(layoutX, layoutY), pLayout.Get(), pBrush.Get());
+                }
+            }
+            else
+            {
+                // No custom selection text color, draw normally
+                context->DrawTextLayout(D2D1::Point2F(layoutX, layoutY), pLayout.Get(), pBrush.Get());
+            }
         }
     }
 
@@ -886,4 +1006,222 @@ void TextElement::ParseInlineStyles()
         seg.length = 1;
         m_Segments.push_back(seg);
     }
+}
+
+// Text Selection Implementation
+
+UINT32 TextElement::HitTestTextPosition(int x, int y)
+{
+    std::wstring fontFace = m_FontFace.empty() ? L"Arial" : m_FontFace;
+
+    Microsoft::WRL::ComPtr<IDWriteFontCollection> pCollection;
+    if (!m_FontPath.empty())
+    {
+        pCollection = FontManager::GetFontCollection(m_FontPath);
+        if (pCollection)
+        {
+            UINT32 index;
+            BOOL exists;
+            if (FAILED(pCollection->FindFamilyName(fontFace.c_str(), &index, &exists)) || !exists)
+            {
+                pCollection = nullptr;
+            }
+        }
+    }
+
+    Microsoft::WRL::ComPtr<IDWriteTextFormat> pTextFormat;
+    HRESULT hr = Direct2D::GetWriteFactory()->CreateTextFormat(
+        fontFace.c_str(), pCollection.Get(),
+        (DWRITE_FONT_WEIGHT)m_FontWeight,
+        m_Italic ? DWRITE_FONT_STYLE_ITALIC : DWRITE_FONT_STYLE_NORMAL,
+        DWRITE_FONT_STRETCH_NORMAL, (float)m_FontSize, L"",
+        pTextFormat.GetAddressOf());
+    if (FAILED(hr))
+        return 0;
+
+    GfxRect bounds = GetBounds();
+    float layoutW = (float)bounds.Width - m_PaddingLeft - m_PaddingRight;
+    float layoutH = (float)bounds.Height - m_PaddingTop - m_PaddingBottom;
+    if (layoutW < 0)
+        layoutW = 1;
+    if (layoutH < 0)
+        layoutH = 1;
+
+    ApplyTextAlignment(pTextFormat.Get(), m_TextAlign);
+    ApplyClipSettings(pTextFormat.Get(), m_textClip, m_WDefined);
+
+    std::wstring processedText = GetProcessedText();
+    if (processedText.empty())
+        return 0;
+
+    Microsoft::WRL::ComPtr<IDWriteTextLayout> pLayout;
+    hr = Direct2D::GetWriteFactory()->CreateTextLayout(
+        processedText.c_str(), (UINT32)processedText.length(), pTextFormat.Get(),
+        layoutW, layoutH, pLayout.GetAddressOf());
+    if (FAILED(hr))
+        return 0;
+
+    ApplyInlineTextStyles(pLayout.Get(), m_Segments, processedText, m_LetterSpacing, m_UnderLine, m_StrikeThrough);
+
+    // Get point relative to layout area
+    float relX = (float)x - (bounds.X + m_PaddingLeft);
+    float relY = (float)y - (bounds.Y + m_PaddingTop);
+
+    BOOL isTrailingHit = FALSE;
+    BOOL isInside = FALSE;
+    DWRITE_HIT_TEST_METRICS hitMetrics = {};
+    pLayout->HitTestPoint(relX, relY, &isTrailingHit, &isInside, &hitMetrics);
+
+    if (!isInside)
+    {
+        // Clamp to text bounds
+        if (relX < 0) return 0;
+        if (relX >= layoutW || relY >= layoutH) return (UINT32)processedText.length();
+    }
+
+    UINT32 position = hitMetrics.textPosition;
+    if (isTrailingHit)
+    {
+        position += hitMetrics.length;
+    }
+
+    // Clamp to valid range
+    if (position > (UINT32)processedText.length())
+        position = (UINT32)processedText.length();
+
+    return position;
+}
+
+void TextElement::HandleTextSelectionMouseDown(int x, int y)
+{
+    if (!m_TextSelection)
+        return;
+
+    UINT32 position = HitTestTextPosition(x, y);
+    m_IsSelecting = true;
+    m_SelectionAnchor = position;
+    m_SelectionStart = position;
+    m_SelectionEnd = position;
+}
+
+void TextElement::HandleTextSelectionMouseMove(int x, int y)
+{
+    if (!m_TextSelection || !m_IsSelecting)
+        return;
+
+    UINT32 position = HitTestTextPosition(x, y);
+    
+    if (position < m_SelectionAnchor)
+    {
+        m_SelectionStart = position;
+        m_SelectionEnd = m_SelectionAnchor;
+    }
+    else
+    {
+        m_SelectionStart = m_SelectionAnchor;
+        m_SelectionEnd = position;
+    }
+}
+
+void TextElement::HandleTextSelectionMouseUp()
+{
+    m_IsSelecting = false;
+}
+
+void TextElement::ClearTextSelection()
+{
+    m_SelectionStart = 0;
+    m_SelectionEnd = 0;
+    m_SelectionAnchor = 0;
+    m_IsSelecting = false;
+}
+
+std::wstring TextElement::GetSelectedText() const
+{
+    if (!HasTextSelection())
+        return L"";
+
+    std::wstring processedText = GetProcessedText();
+    if (m_SelectionEnd > processedText.length())
+        return L"";
+
+    return processedText.substr(m_SelectionStart, m_SelectionEnd - m_SelectionStart);
+}
+
+void TextElement::SelectAll()
+{
+    std::wstring processedText = GetProcessedText();
+    m_SelectionStart = 0;
+    m_SelectionEnd = (UINT32)processedText.length();
+    m_SelectionAnchor = 0;
+}
+
+void TextElement::FindWordBoundaries(UINT32 position, UINT32& wordStart, UINT32& wordEnd)
+{
+    std::wstring processedText = GetProcessedText();
+    UINT32 textLength = (UINT32)processedText.length();
+    
+    if (position >= textLength)
+    {
+        wordStart = wordEnd = textLength;
+        return;
+    }
+
+    // Find word start (move left until we hit non-word character or start)
+    wordStart = position;
+    while (wordStart > 0)
+    {
+        wchar_t c = processedText[wordStart - 1];
+        // Word characters: letters, numbers, underscore
+        if (iswalnum(c) || c == L'_')
+        {
+            wordStart--;
+        }
+        else
+        {
+            break;
+        }
+    }
+
+    // Find word end (move right until we hit non-word character or end)
+    wordEnd = position;
+    while (wordEnd < textLength)
+    {
+        wchar_t c = processedText[wordEnd];
+        // Word characters: letters, numbers, underscore
+        if (iswalnum(c) || c == L'_')
+        {
+            wordEnd++;
+        }
+        else
+        {
+            break;
+        }
+    }
+
+    // If we didn't find any word characters, select the current position
+    if (wordStart == wordEnd && position < textLength)
+    {
+        wordStart = position;
+        wordEnd = position + 1;
+    }
+}
+
+void TextElement::SelectWordAt(UINT32 position)
+{
+    UINT32 wordStart, wordEnd;
+    FindWordBoundaries(position, wordStart, wordEnd);
+    
+    m_SelectionStart = wordStart;
+    m_SelectionEnd = wordEnd;
+    m_SelectionAnchor = wordStart;
+}
+
+void TextElement::HandleTextSelectionDoubleClick(int x, int y)
+{
+    if (!m_TextSelection)
+        return;
+
+    UINT32 position = HitTestTextPosition(x, y);
+    SelectWordAt(position);
 }

@@ -23,6 +23,7 @@ namespace MenuUtils {
 
                 UINT flags = MF_POPUP | MF_STRING;
                 if (item.checked) flags |= MF_CHECKED;
+                if (item.disabled) flags |= MF_GRAYED;
 
                 AppendMenuW(hMenu, flags, (UINT_PTR)hSubMenu, item.text.c_str());
             }
@@ -30,6 +31,7 @@ namespace MenuUtils {
             {
                 UINT flags = MF_STRING;
                 if (item.checked) flags |= MF_CHECKED;
+                if (item.disabled) flags |= MF_GRAYED;
                 AppendMenuW(hMenu, flags, item.id, item.text.c_str());
             }
         }

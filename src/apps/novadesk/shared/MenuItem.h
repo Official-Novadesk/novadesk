@@ -14,5 +14,6 @@ struct MenuItem {
     int id;
     bool isSeparator = false;
     bool checked = false;
+    bool disabled = false;
     std::vector<MenuItem> children;
 };

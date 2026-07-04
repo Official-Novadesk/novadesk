@@ -1,6 +1,6 @@
-const styles = ["solid", "inset", "outset", "groove", "ridge", "dotted", "none"];
+const styles = ["solid", "inset", "outset", "groove", "ridge", "dotted", "dashed", "none"];
 const perSideStyles = [
-  ["inset", "outset", "groove", "dotted"]
+  ["inset", "outset", "groove", "dashed"]
 ];
 
 ui.beginUpdate();
@@ -13,13 +13,14 @@ for (let i = 0; i < styles.length; i++) {
     y: 80 + Math.floor(i / 5) * 150,
     width: 100,
     height: 100,
-    backgroundColor: "rgb(0, 0, 0)",
+    backgroundColor: "rgb(255, 0, 200)",
+    fillColor:"green",
     borderWidth: 15,
     borderColor: "cyan",
     borderStyle: style,
     borderRadius: 2,
     children: [{
-      type: "text",
+      elementType: "text",
       id: "text_" + style,
       // text: style,
       x: 50,
@@ -45,7 +46,7 @@ for (let i = 0; i < perSideStyles.length; i++) {
     borderColor: "rgb(200, 100, 100)",
     borderStyle: styleArr,
     // children: [{
-    //   type: "text",
+    //   elementType: "text",
     //   id: "text_perside_" + i,
     //   text: styleArr.length + " sides",
     //   x: 10,

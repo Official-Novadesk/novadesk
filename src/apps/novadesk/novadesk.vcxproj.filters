@@ -48,6 +48,9 @@
     <ClCompile Include="domain\DesktopManager.cpp">
       <Filter>domain</Filter>
     </ClCompile>
+    <ClCompile Include="domain\InputBoxContextMenuHelper.cpp">
+      <Filter>domain</Filter>
+    </ClCompile>
     <ClCompile Include="domain\Novadesk.cpp">
       <Filter>domain</Filter>
     </ClCompile>
@@ -144,6 +147,9 @@
     <ClCompile Include="render\TextElement.cpp">
       <Filter>render</Filter>
     </ClCompile>
+    <ClCompile Include="render\InputBoxElement.cpp">
+      <Filter>render</Filter>
+    </ClCompile>
     <ClCompile Include="render\Tooltip.cpp">
       <Filter>render</Filter>
     </ClCompile>
@@ -195,6 +201,9 @@
     <ClCompile Include="scripting\quickjs\parser\PropertyParserText.cpp">
       <Filter>scripting\quickjs\parser</Filter>
     </ClCompile>
+    <ClCompile Include="scripting\quickjs\parser\PropertyParserInputBox.cpp">
+      <Filter>scripting\quickjs\parser</Filter>
+    </ClCompile>
     <ClCompile Include="scripting\quickjs\parser\PropertyParserWidgetWindow.cpp">
       <Filter>scripting\quickjs\parser</Filter>
     </ClCompile>
@@ -234,6 +243,9 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="domain\DesktopManager.h">
+      <Filter>domain</Filter>
+    </ClInclude>
+    <ClInclude Include="domain\InputBoxContextMenuHelper.h">
       <Filter>domain</Filter>
     </ClInclude>
     <ClInclude Include="domain\Novadesk.h">
@@ -333,6 +345,9 @@
       <Filter>render</Filter>
     </ClInclude>
     <ClInclude Include="render\TextElement.h">
+      <Filter>render</Filter>
+    </ClInclude>
+    <ClInclude Include="render\InputBoxElement.h">
       <Filter>render</Filter>
     </ClInclude>
     <ClInclude Include="render\Tooltip.h">

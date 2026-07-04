@@ -19,12 +19,14 @@ namespace BoxBorder
     enum class Style
     {
         None,
+        Hidden,
         Solid,
         Inset,
         Outset,
         Groove,
         Ridge,
         Dotted,
+        Dashed,
         Double
     };
 }

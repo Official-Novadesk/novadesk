@@ -4,9 +4,12 @@ var spacing = 45;
 ui.addText({
     id: "basic-styles",
     x: 20, y: startY,
-    text: "Basic: <b>Bold</b>, <i>Italic</i>, <u>Underline</u>, <s>Strike</s>",
+    text: "Basic: <b>Bold</b>, <i>Italic</i>, \n <u>Underline</u>, <s>Strike</s>",
     fontSize: 18,
-    fontColor: "#FFFFFF"
+    fontColor: "#FFFFFF",
+    textSelection: true,
+    // selectionTextColor:"blue",
+    // selectionBackgroundColor:"#eb232332"
 });
 
 ui.addText({

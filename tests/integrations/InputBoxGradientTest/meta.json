@@ -1,0 +1,21 @@
+{
+  "name": "InputBoxGradientTest",
+  "main": "index.js",
+  "version": "1.0.0.0",
+  "author": "NSTechBytes",
+  "description": "Integration test verifying that every gradient-capable color property of the InputBox element (fillColor, borderColor, borderFocusColor, fontColor, placeholderColor, caretColor, selectionColor) renders correctly and round-trips through getElementProperty / setElementProperty.",
+  "icon": "",
+  "preview": "",
+  "excludeItems": [],
+  "setup": {
+    "createDesktopShortcut": false,
+    "createStartupShortcut": false,
+    "runOnStartup": false,
+    "installDir": "%ProgramFiles%\\InputBoxGradientTest",
+    "startMenuFolder": "InputBoxGradientTest",
+    "setupName": "setup",
+    "setupIcon": "",
+    "enableUninstall": false,
+    "launchAfterInstall": false
+  }
+}

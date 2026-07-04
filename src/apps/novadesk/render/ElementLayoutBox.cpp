@@ -161,6 +161,11 @@ bool ElementLayoutBox::CreateGeometry(ID2D1Factory* factory, Microsoft::WRL::Com
     return true;
 }
 
+GfxRect ElementLayoutBox::GetBackgroundBounds()
+{
+    return GetBounds();
+}
+
 void ElementLayoutBox::Render(ID2D1DeviceContext* context)
 {
     D2D1_MATRIX_3X2_F originalTransform;
@@ -192,7 +197,27 @@ void ElementLayoutBox::Render(ID2D1DeviceContext* context)
         if (!shadow.inset)
             RenderSingleShadow(context, rect, shadow);
     }
+    RenderBackground(context);
+
     D2D1_ROUNDED_RECT fillRect = rect;
+    auto isVisibleBorderStyle = [](BorderStyle style)
+        {
+            return style != BorderStyle::None && style != BorderStyle::Hidden;
+        };
+    const bool hasVisibleBorder =
+        isVisibleBorderStyle(m_BorderStyleTop) ||
+        isVisibleBorderStyle(m_BorderStyleRight) ||
+        isVisibleBorderStyle(m_BorderStyleBottom) ||
+        isVisibleBorderStyle(m_BorderStyleLeft);
+    if (hasVisibleBorder && m_HasStroke && m_StrokeWidth > 0.0f)
+    {
+        fillRect.rect.left += m_StrokeWidth;
+        fillRect.rect.top += m_StrokeWidth;
+        fillRect.rect.right -= m_StrokeWidth;
+        fillRect.rect.bottom -= m_StrokeWidth;
+    }
+    fillRect.radiusX = m_RadiusX;
+    fillRect.radiusY = m_RadiusY;
     if (fillBrush)
     {
         if (fillRect.rect.right > fillRect.rect.left && fillRect.rect.bottom > fillRect.rect.top)

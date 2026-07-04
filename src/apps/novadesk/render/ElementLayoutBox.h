@@ -61,6 +61,7 @@ public:
     void Render(ID2D1DeviceContext *context) override;
     bool HitTestLocal(const D2D1_POINT_2F &point) override;
     bool CreateGeometry(ID2D1Factory *factory, Microsoft::WRL::ComPtr<ID2D1Geometry> &geometry) const override;
+    GfxRect GetBackgroundBounds() override;
 
     int GetAutoWidth() override;
     int GetAutoHeight() override;
