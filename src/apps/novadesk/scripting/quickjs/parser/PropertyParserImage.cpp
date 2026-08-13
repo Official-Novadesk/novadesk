@@ -24,8 +24,17 @@
 namespace PropertyParser
 {
     using namespace Js;
-    void ParseGeneralImageOptions(JSContext *ctx, JSValueConst obj, GeneralImageOptions &options)
+    void ParseGeneralImageOptions(JSContext *ctx, JSValueConst obj, GeneralImageOptions &options, const std::wstring &baseDir)
     {
+        options.fallbackPath = GetStringProp(ctx, obj, "fallbackPath");
+        if (!options.fallbackPath.empty())
+        {
+            if (!PathUtils::IsURL(options.fallbackPath))
+            {
+                options.fallbackPath = PathUtils::ResolvePath(options.fallbackPath, baseDir);
+            }
+        }
+
         std::wstring imageFlip = GetStringProp(ctx, obj, "imageFlip");
         std::transform(imageFlip.begin(), imageFlip.end(), imageFlip.begin(), ::towlower);
         if (imageFlip == L"horizontal")
@@ -87,14 +96,18 @@ namespace PropertyParser
     void ParseImageOptions(JSContext *ctx, JSValueConst obj, ImageOptions &options, const std::wstring &baseDir)
     {
         ParseElementOptions(ctx, obj, options, baseDir);
-        ParseGeneralImageOptions(ctx, obj, options);
+        ParseGeneralImageOptions(ctx, obj, options, baseDir);
 
         options.path = GetStringProp(ctx, obj, "path");
         if (!options.path.empty())
         {
-            options.path = PathUtils::ResolvePath(options.path, baseDir);
-            std::error_code ec;
-            const bool exists = std::filesystem::exists(std::filesystem::path(options.path), ec);
+            // Don't resolve URLs as local paths
+            if (!PathUtils::IsURL(options.path))
+            {
+                options.path = PathUtils::ResolvePath(options.path, baseDir);
+                std::error_code ec;
+                const bool exists = std::filesystem::exists(std::filesystem::path(options.path), ec);
+            }
         }
 
         std::wstring aspect = GetStringProp(ctx, obj, "preserveAspectRatio");
@@ -124,12 +137,20 @@ namespace PropertyParser
     void ParseButtonOptions(JSContext *ctx, JSValueConst obj, ButtonOptions &options, const std::wstring &baseDir)
     {
         ParseElementOptions(ctx, obj, options, baseDir);
-        ParseGeneralImageOptions(ctx, obj, options);
+        ParseGeneralImageOptions(ctx, obj, options, baseDir);
         
         std::wstring buttonImageName = GetStringProp(ctx, obj, "buttonImageName");
         if (!buttonImageName.empty())
         {
-            options.buttonImageName = PathUtils::ResolvePath(buttonImageName, baseDir);
+            // Don't resolve URLs as local paths
+            if (!PathUtils::IsURL(buttonImageName))
+            {
+                options.buttonImageName = PathUtils::ResolvePath(buttonImageName, baseDir);
+            }
+            else
+            {
+                options.buttonImageName = buttonImageName;
+            }
         }
 
         GetEventCallbackProp(ctx, obj, "buttonAction", options.onLeftMouseUpCallbackId);
@@ -138,7 +159,7 @@ namespace PropertyParser
     void ParseBitmapOptions(JSContext *ctx, JSValueConst obj, BitmapOptions &options, const std::wstring &baseDir)
     {
         ParseElementOptions(ctx, obj, options, baseDir);
-        ParseGeneralImageOptions(ctx, obj, options);
+        ParseGeneralImageOptions(ctx, obj, options, baseDir);
 
         // Bitmap meter behavior is frame-driven; width/height are ignored.
         options.width = 0;
@@ -162,7 +183,15 @@ namespace PropertyParser
         std::wstring bitmapImageName = GetStringProp(ctx, obj, "bitmapImageName");
         if (!bitmapImageName.empty())
         {
-            options.bitmapImageName = PathUtils::ResolvePath(bitmapImageName, baseDir);
+            // Don't resolve URLs as local paths
+            if (!PathUtils::IsURL(bitmapImageName))
+            {
+                options.bitmapImageName = PathUtils::ResolvePath(bitmapImageName, baseDir);
+            }
+            else
+            {
+                options.bitmapImageName = bitmapImageName;
+            }
         }
 
         GetIntProp(ctx, obj, "bitmapFrames", options.bitmapFrames);
@@ -193,7 +222,7 @@ namespace PropertyParser
     void ParseRotatorOptions(JSContext *ctx, JSValueConst obj, RotatorOptions &options, const std::wstring &baseDir)
     {
         ParseElementOptions(ctx, obj, options, baseDir);
-        ParseGeneralImageOptions(ctx, obj, options);
+        ParseGeneralImageOptions(ctx, obj, options, baseDir);
 
         options.hasImageCrop = false;
 
@@ -212,7 +241,15 @@ namespace PropertyParser
         std::wstring rotatorImageName = GetStringProp(ctx, obj, "rotatorImageName");
         if (!rotatorImageName.empty())
         {
-            options.rotatorImageName = PathUtils::ResolvePath(rotatorImageName, baseDir);
+            // Don't resolve URLs as local paths
+            if (!PathUtils::IsURL(rotatorImageName))
+            {
+                options.rotatorImageName = PathUtils::ResolvePath(rotatorImageName, baseDir);
+            }
+            else
+            {
+                options.rotatorImageName = rotatorImageName;
+            }
         }
 
         { float tmp = static_cast<float>(options.offsetX); if (GetFloatProp(ctx, obj, "offsetX", tmp)) options.offsetX = static_cast<double>(tmp); }
@@ -227,6 +264,7 @@ namespace PropertyParser
     {
         if (!image)
             return;
+        image->SetFallbackPath(options.fallbackPath);
         image->SetImageFlip(options.imageFlip);
         if (options.hasImageCrop)
             image->SetImageCrop(options.imageCropX, options.imageCropY, options.imageCropW, options.imageCropH, options.imageCropOrigin);
@@ -251,6 +289,7 @@ namespace PropertyParser
             element->SetScaleMargins(options.scaleMarginLeft, options.scaleMarginTop, options.scaleMarginRight, options.scaleMarginBottom);
         element->SetTile(options.tile);
         
+        element->SetFallbackPath(options.fallbackPath);
         element->SetImageFlip(options.imageFlip);
         if (options.hasImageCrop)
             element->SetImageCrop(options.imageCropX, options.imageCropY, options.imageCropW, options.imageCropH, options.imageCropOrigin);
@@ -271,6 +310,7 @@ namespace PropertyParser
         if (!options.buttonImageName.empty())
             element->UpdateImage(options.buttonImageName);
 
+        element->SetFallbackPath(options.fallbackPath);
         element->SetUseExifOrientation(options.useExifOrientation);
         element->SetGrayscale(options.grayscale);
         element->SetImageAlpha(options.imageAlpha);
@@ -306,6 +346,7 @@ namespace PropertyParser
         element->SetBitmapAlign(options.bitmapAlign);
         element->SetBitmapSeparation(options.bitmapSeparation);
 
+        element->SetFallbackPath(options.fallbackPath);
         element->SetUseExifOrientation(options.useExifOrientation);
         element->SetGrayscale(options.grayscale);
         element->SetImageAlpha(options.imageAlpha);
@@ -334,6 +375,7 @@ namespace PropertyParser
         element->SetMinValue(options.minValue);
         element->SetMaxValue(options.maxValue);
 
+        element->SetFallbackPath(options.fallbackPath);
         element->SetUseExifOrientation(options.useExifOrientation);
         element->SetGrayscale(options.grayscale);
         element->SetImageAlpha(options.imageAlpha);
@@ -346,6 +388,7 @@ namespace PropertyParser
     void PreFillGeneralImageOptions(GeneralImageOptions &options, GeneralImage *image)
     {
         if (!image) return;
+        options.fallbackPath = image->GetFallbackPath();
         options.imageFlip = image->GetImageFlip();
         options.hasImageCrop = image->HasImageCrop();
         if (options.hasImageCrop)
@@ -382,6 +425,7 @@ namespace PropertyParser
         options.preserveAspectRatio = element->GetPreserveAspectRatio();
         options.tile = element->IsTile();
 
+        options.fallbackPath = element->GetFallbackPath();
         options.imageFlip = element->GetImageFlip();
         options.hasImageCrop = element->HasImageCrop();
         if (options.hasImageCrop)
@@ -424,6 +468,7 @@ namespace PropertyParser
         PreFillElementOptions(options, element);
 
         options.buttonImageName = element->GetImagePath();
+        options.fallbackPath = element->GetFallbackPath();
         options.useExifOrientation = element->GetUseExifOrientation();
         options.grayscale = element->IsGrayscale();
         options.imageAlpha = element->GetImageAlpha();
@@ -464,6 +509,7 @@ namespace PropertyParser
 
         options.value = element->GetValue();
         options.bitmapImageName = element->GetImagePath();
+        options.fallbackPath = element->GetFallbackPath();
         options.bitmapFrames = element->GetBitmapFrames();
         options.bitmapZeroFrame = element->GetBitmapZeroFrame();
         options.bitmapExtend = element->GetBitmapExtend();
@@ -501,6 +547,7 @@ namespace PropertyParser
 
         options.value = element->GetValue();
         options.rotatorImageName = element->GetImagePath();
+        options.fallbackPath = element->GetFallbackPath();
         options.offsetX = element->GetOffsetX();
         options.offsetY = element->GetOffsetY();
         options.startAngle = element->GetStartAngle();

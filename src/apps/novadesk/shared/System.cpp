@@ -1113,6 +1113,95 @@ namespace novadesk::shared::system
         return true;
     }
 
+        // *****************************************************************************
+    // MessageBox Dialog
+    // *****************************************************************************
+
+    std::string ShowMessageBox(const MessageBoxOptions &opts)
+    {
+        UINT flags = MB_APPLMODAL;
+
+        // Map type to icon
+        std::wstring lowerType = opts.type;
+        std::transform(lowerType.begin(), lowerType.end(), lowerType.begin(), ::towlower);
+
+        if (lowerType == L"info" || lowerType == L"information")
+        {
+            flags |= MB_ICONINFORMATION;
+        }
+        else if (lowerType == L"warning" || lowerType == L"warn")
+        {
+            flags |= MB_ICONWARNING;
+        }
+        else if (lowerType == L"error")
+        {
+            flags |= MB_ICONERROR;
+        }
+        else if (lowerType == L"question")
+        {
+            flags |= MB_ICONQUESTION;
+        }
+        else
+        {
+            // Default to info
+            flags |= MB_ICONINFORMATION;
+        }
+
+        // Map buttons to MessageBox button sets
+        std::wstring lowerButtons = opts.buttons;
+        std::transform(lowerButtons.begin(), lowerButtons.end(), lowerButtons.begin(), ::towlower);
+
+        if (lowerButtons == L"ok-cancel" || lowerButtons == L"okcancel")
+        {
+            flags |= MB_OKCANCEL;
+        }
+        else if (lowerButtons == L"yes-no" || lowerButtons == L"yesno")
+        {
+            flags |= MB_YESNO;
+        }
+        else if (lowerButtons == L"yes-no-cancel" || lowerButtons == L"yesnocancel")
+        {
+            flags |= MB_YESNOCANCEL;
+        }
+        else if (lowerButtons == L"retry-cancel" || lowerButtons == L"retrycancel")
+        {
+            flags |= MB_RETRYCANCEL;
+        }
+        else if (lowerButtons == L"abort-retry-ignore" || lowerButtons == L"abortretryignore")
+        {
+            flags |= MB_ABORTRETRYIGNORE;
+        }
+        else
+        {
+            // Default to OK
+            flags |= MB_OK;
+        }
+
+        // Show the message box
+        int result = MessageBoxW(opts.parent, opts.message.c_str(), opts.title.c_str(), flags);
+
+        // Map result to string
+        switch (result)
+        {
+        case IDOK:
+            return "ok";
+        case IDCANCEL:
+            return "cancel";
+        case IDYES:
+            return "yes";
+        case IDNO:
+            return "no";
+        case IDRETRY:
+            return "retry";
+        case IDABORT:
+            return "abort";
+        case IDIGNORE:
+            return "ignore";
+        default:
+            return "ok";
+        }
+    }
+
     // *****************************************************************************
     // Network Metrics
     // *****************************************************************************

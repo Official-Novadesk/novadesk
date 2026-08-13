@@ -84,11 +84,12 @@ namespace PropertyParser
         const int *paddingLeft = nullptr,
         const int *paddingTop = nullptr,
         const int *paddingRight = nullptr,
-        const int *paddingBottom = nullptr);
+        const int *paddingBottom = nullptr,
+        const std::wstring *flexDirection = nullptr);
     void PreFillAreaGraphOptions(AreaGraphOptions &options, AreaGraphElement *element);
     void PreFillInputBoxOptions(InputBoxOptions &options, InputBoxElement *element);
 
-    void ParseGeneralImageOptions(JSContext *ctx, JSValueConst obj, GeneralImageOptions &options);
+    void ParseGeneralImageOptions(JSContext *ctx, JSValueConst obj, GeneralImageOptions &options, const std::wstring &baseDir = L"");
     void ApplyGeneralImageOptions(GeneralImage *image, const GeneralImageOptions &options);
     void PreFillGeneralImageOptions(GeneralImageOptions &options, GeneralImage *image);
 } // namespace PropertyParser

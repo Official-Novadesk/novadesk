@@ -32,6 +32,9 @@ public:
     virtual int GetAutoWidth() override;
     virtual int GetAutoHeight() override;
 
+    virtual void OnOwnerHWNDSet() override;
+    virtual void OnImageDownloaded(const std::wstring& url, const std::vector<BYTE>& buffer) override;
+
     bool IsLoaded() const { return m_ButtonImage.IsLoaded(); }
 
     void UpdateImage(const std::wstring &path);
@@ -49,8 +52,10 @@ public:
     void SetImageFlip(ImageFlipMode flip) { m_ButtonImage.SetImageFlip(flip); }
     void SetImageCrop(float x, float y, float w, float h, ImageCropOrigin origin) { m_ButtonImage.SetImageCrop(x, y, w, h, origin); }
     void ClearImageCrop() { m_ButtonImage.ClearImageCrop(); }
+    void SetFallbackPath(const std::wstring &path) { m_ButtonImage.SetFallbackPath(path); }
 
     const std::wstring &GetImagePath() const { return m_ButtonImage.GetPath(); }
+    const std::wstring &GetFallbackPath() const { return m_ButtonImage.GetFallbackPath(); }
     bool HasImageTint() const { return m_ButtonImage.HasImageTint(); }
     COLORREF GetImageTint() const { return m_ButtonImage.GetImageTint(); }
     BYTE GetImageTintAlpha() const { return m_ButtonImage.GetImageTintAlpha(); }

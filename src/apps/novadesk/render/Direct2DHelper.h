@@ -18,6 +18,7 @@
 #pragma comment(lib, "dwrite.lib")
 #pragma comment(lib, "windowscodecs.lib")
 #pragma comment(lib, "dxguid.lib")
+#pragma comment(lib, "winhttp.lib")
 
 namespace Direct2D
 {
@@ -35,6 +36,12 @@ namespace Direct2D
     bool CreateBrushFromGradientOrColor(ID2D1RenderTarget* context, const D2D1_RECT_F& rect, const GradientInfo* gradient, COLORREF color, float alpha, ID2D1Brush** brush);
     bool LoadBitmapFromFile(ID2D1RenderTarget* context, const std::wstring& path, ID2D1Bitmap** bitmap, IWICBitmap** wicBitmap = nullptr, bool useExifOrientation = false);
     bool LoadWICBitmapFromFile(const std::wstring& path, IWICBitmap** wicBitmap, bool useExifOrientation = false);
+    bool LoadWICBitmapFromResource(HMODULE hModule, LPCWSTR resourceName, LPCWSTR resourceType, IWICBitmap** wicBitmap);
+    bool LoadWICBitmapFromMemory(const BYTE* data, DWORD size, IWICBitmap** wicBitmap);
+    
+    // URL support
+    bool LoadWICBitmapFromURL(const std::wstring& url, IWICBitmap** wicBitmap, bool useExifOrientation = false);
+    bool DownloadImageFromURL(const std::wstring& url, std::vector<BYTE>& buffer);
     
     D2D1_COLOR_F ColorToD2D(COLORREF color, float alpha = 1.0f);
     D2D1_POINT_2F FindEdgePoint(float angle, const D2D1_RECT_F& rect);

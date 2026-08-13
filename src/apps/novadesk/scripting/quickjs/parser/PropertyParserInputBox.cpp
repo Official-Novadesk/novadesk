@@ -11,6 +11,7 @@
 #include "../../../shared/PathUtils.h"
 #include "../../../shared/Utils.h"
 #include "../../../render/InputBoxElement.h"
+#include "../../../render/FontDownloader.h"
 
 namespace PropertyParser
 {
@@ -96,6 +97,8 @@ namespace PropertyParser
         std::wstring fontPath = GetStringProp(ctx, obj, "fontPath");
         if (!fontPath.empty())
             options.fontPath = PathUtils::ResolvePath(fontPath, baseDir);
+
+
 
         {
             std::wstring fontStr = GetStringProp(ctx, obj, "fontColor");
@@ -228,7 +231,29 @@ namespace PropertyParser
         element->SetInputType(options.inputType);
         element->SetAllowedChars(options.allowedChars);
         if (!options.fontPath.empty())
-            element->SetFontPath(options.fontPath);
+        {
+            if (PathUtils::IsURL(options.fontPath))
+            {
+                std::wstring cachedDir = FontDownloader::GetCachedDir(options.fontPath);
+                if (!cachedDir.empty())
+                {
+                    element->SetFontPath(cachedDir);
+                }
+                else
+                {
+                    element->SetFontPath(L"");
+                    FontDownloader::RequestAsync(options.fontPath, element->GetOwnerHWND(), element->GetId());
+                }
+            }
+            else
+            {
+                element->SetFontPath(options.fontPath);
+            }
+        }
+        else
+        {
+            element->SetFontPath(L"");
+        }
 
         if (options.fontGradient.type != GRADIENT_NONE)
             element->SetFontGradient(options.fontGradient);
@@ -296,6 +321,8 @@ namespace PropertyParser
         options.fontWeight = element->GetFontWeight();
         options.italic = element->IsItalic();
         options.textAlign = element->GetTextAlign();
+        options.fontPath = element->GetFontPath();
+
         options.password = element->IsPasswordMode();
         options.maxLength = element->GetMaxLength();
         options.multiline = element->IsMultiline();

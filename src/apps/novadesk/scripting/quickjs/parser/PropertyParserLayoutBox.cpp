@@ -260,20 +260,21 @@ namespace PropertyParser
         if (options.direction != L"rtl")
             options.direction = L"ltr";
 
-        // Parse flexDirection property
-        options.flexDirection = GetStringProp(ctx, obj, "flexDirection");
-        if (options.flexDirection.empty())
+        // Parse flexDirection property (preserve existing if not provided)
+        std::wstring parsedFlexDir = GetStringProp(ctx, obj, "flexDirection");
+        if (parsedFlexDir.empty())
         {
             JSValue styleFlexDir = JS_GetPropertyStr(ctx, obj, "style");
             if (JS_IsObject(styleFlexDir))
-                options.flexDirection = GetStringProp(ctx, styleFlexDir, "flexDirection");
+                parsedFlexDir = GetStringProp(ctx, styleFlexDir, "flexDirection");
             JS_FreeValue(ctx, styleFlexDir);
         }
-        if (options.flexDirection.empty())
-            options.flexDirection = L"row";
-        std::transform(options.flexDirection.begin(), options.flexDirection.end(), options.flexDirection.begin(), ::towlower);
-        if (options.flexDirection != L"rowreverse" && options.flexDirection != L"column" && options.flexDirection != L"columnreverse")
-            options.flexDirection = L"row";
+        if (!parsedFlexDir.empty())
+        {
+            std::transform(parsedFlexDir.begin(), parsedFlexDir.end(), parsedFlexDir.begin(), ::towlower);
+            if (parsedFlexDir == L"rowreverse" || parsedFlexDir == L"column" || parsedFlexDir == L"columnreverse" || parsedFlexDir == L"row")
+                options.flexDirection = parsedFlexDir;
+        }
 
         if (!GetIntProp(ctx, obj, "gap", options.gap))
         {
@@ -287,17 +288,23 @@ namespace PropertyParser
             JS_FreeValue(ctx, styleGap);
         }
 
-        options.align = GetStringProp(ctx, obj, "align");
-        if (options.align.empty())
-            options.align = GetStringProp(ctx, obj, "alignItems");
-        if (!options.align.empty())
-            std::transform(options.align.begin(), options.align.end(), options.align.begin(), ::towlower);
+        std::wstring parsedAlign = GetStringProp(ctx, obj, "align");
+        if (parsedAlign.empty())
+            parsedAlign = GetStringProp(ctx, obj, "alignItems");
+        if (!parsedAlign.empty())
+        {
+            std::transform(parsedAlign.begin(), parsedAlign.end(), parsedAlign.begin(), ::towlower);
+            options.align = parsedAlign;
+        }
 
-        options.justify = GetStringProp(ctx, obj, "justify");
-        if (options.justify.empty())
-            options.justify = GetStringProp(ctx, obj, "justifyContent");
-        if (!options.justify.empty())
-            std::transform(options.justify.begin(), options.justify.end(), options.justify.begin(), ::towlower);
+        std::wstring parsedJustify = GetStringProp(ctx, obj, "justify");
+        if (parsedJustify.empty())
+            parsedJustify = GetStringProp(ctx, obj, "justifyContent");
+        if (!parsedJustify.empty())
+        {
+            std::transform(parsedJustify.begin(), parsedJustify.end(), parsedJustify.begin(), ::towlower);
+            options.justify = parsedJustify;
+        }
 
         int pad = 0;
         if (GetIntProp(ctx, obj, "padding", pad))
@@ -516,7 +523,8 @@ namespace PropertyParser
         const int *paddingLeft,
         const int *paddingTop,
         const int *paddingRight,
-        const int *paddingBottom)
+        const int *paddingBottom,
+        const std::wstring *flexDirection)
     {
         if (!element)
             return;
@@ -547,8 +555,8 @@ namespace PropertyParser
         }
 
         options.direction = direction ? *direction : L"ltr";
-        options.flexDirection = L"row"; // Default flex direction
-        options.gap = gap ? *gap : 0;
+        options.flexDirection = flexDirection ? *flexDirection : element->GetLayoutDirection();
+        options.gap = gap ? *gap : element->GetLayoutGap();
         options.align = align ? *align : L"";
         options.justify = justify ? *justify : L"";
         options.paddingLeft = paddingLeft ? *paddingLeft : element->GetPaddingLeft();

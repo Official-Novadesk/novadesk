@@ -9,10 +9,13 @@
 
 #include "Direct2DHelper.h"
 #include "../shared/Logging.h"
+#include "../shared/PathUtils.h"
+#include "../Resource.h"
 
 #include <algorithm>
 #include <cstring>
 #include <d2d1effects.h>
+#include <thread>
 
 GeneralImage::GeneralImage()
 {
@@ -33,21 +36,79 @@ void GeneralImage::ResetBitmapCache()
 void GeneralImage::ReloadWICBitmap()
 {
     m_pWICBitmap.Reset();
-    if (m_ImagePath.empty())
+    if (m_LoadedPath.empty())
         return;
 
-    const bool ok = Direct2D::LoadWICBitmapFromFile(m_ImagePath, m_pWICBitmap.ReleaseAndGetAddressOf(), m_UseExifOrientation);
+    const bool ok = Direct2D::LoadWICBitmapFromFile(m_LoadedPath, m_pWICBitmap.ReleaseAndGetAddressOf(), m_UseExifOrientation);
     if (!ok)
     {
-        Logging::Log(LogLevel::Error, L"[novadesk] failed to preload WIC image: %s", m_ImagePath.c_str());
+        Logging::Log(LogLevel::Error, L"[novadesk] failed to preload WIC image: %s", m_LoadedPath.c_str());
     }
+}
+
+void GeneralImage::SetFallbackPath(const std::wstring &path)
+{
+    if (m_FallbackPath == path)
+        return;
+    m_FallbackPath = path;
+    if (m_IsFallbackShowing)
+    {
+        LoadFallbackFromResource();
+    }
+}
+
+void GeneralImage::LoadFallbackFromResource()
+{
+    m_pWICBitmap.Reset();
+    ResetBitmapCache();
+
+    if (!m_FallbackPath.empty())
+    {
+        const bool ok = Direct2D::LoadWICBitmapFromFile(m_FallbackPath, m_pWICBitmap.ReleaseAndGetAddressOf(), m_UseExifOrientation);
+        if (ok)
+        {
+            m_IsFallbackShowing = true;
+            return;
+        }
+        else
+        {
+            Logging::Log(LogLevel::Error, L"[novadesk] failed to load custom fallback image: %s", m_FallbackPath.c_str());
+        }
+    }
+
+    const bool ok = Direct2D::LoadWICBitmapFromResource(
+        GetModuleHandleW(NULL),
+        MAKEINTRESOURCEW(IDR_FALLBACK_IMAGE),
+        RT_RCDATA,
+        m_pWICBitmap.ReleaseAndGetAddressOf());
+    if (!ok)
+    {
+        Logging::Log(LogLevel::Error, L"[novadesk] failed to load fallback image from resource");
+    }
+    m_IsFallbackShowing = true;
 }
 
 void GeneralImage::SetPath(const std::wstring &path)
 {
     m_ImagePath = path;
+    m_LoadedPath = path;
+    m_IsFallbackShowing = false;
+    m_DownloadedBuffer.clear();
     ResetBitmapCache();
-    ReloadWICBitmap();
+
+    if (PathUtils::IsURL(path))
+    {
+        // Show the embedded fallback image immediately while the real one downloads
+        LoadFallbackFromResource();
+        if (m_OwnerHWND)
+        {
+            StartAsyncDownload(path);
+        }
+    }
+    else
+    {
+        ReloadWICBitmap();
+    }
 }
 
 void GeneralImage::EnsureBitmap(ID2D1DeviceContext *context)
@@ -63,17 +124,113 @@ void GeneralImage::EnsureBitmap(ID2D1DeviceContext *context)
 
     if (!m_D2DBitmap)
     {
-        const bool ok = Direct2D::LoadBitmapFromFile(
-            context,
-            m_ImagePath,
-            m_D2DBitmap.ReleaseAndGetAddressOf(),
-            m_pWICBitmap.ReleaseAndGetAddressOf(),
-            m_UseExifOrientation);
+        bool ok = false;
+        if (!m_DownloadedBuffer.empty())
+        {
+            // Real image downloaded asynchronously — decode from memory buffer
+            ok = Direct2D::LoadWICBitmapFromMemory(
+                m_DownloadedBuffer.data(),
+                static_cast<DWORD>(m_DownloadedBuffer.size()),
+                m_pWICBitmap.ReleaseAndGetAddressOf());
+            if (ok)
+            {
+                HRESULT hr = context->CreateBitmapFromWicBitmap(
+                    m_pWICBitmap.Get(),
+                    m_D2DBitmap.ReleaseAndGetAddressOf());
+                ok = SUCCEEDED(hr);
+            }
+        }
+        else if (m_IsFallbackShowing && m_pWICBitmap)
+        {
+            // Fallback already decoded from embedded resource — just wrap it in a D2D bitmap
+            HRESULT hr = context->CreateBitmapFromWicBitmap(
+                m_pWICBitmap.Get(),
+                m_D2DBitmap.ReleaseAndGetAddressOf());
+            ok = SUCCEEDED(hr);
+            if (!ok)
+            {
+                // WIC bitmap stale (e.g. device lost) — re-decode from resource
+                LoadFallbackFromResource();
+                if (m_pWICBitmap)
+                {
+                    hr = context->CreateBitmapFromWicBitmap(
+                        m_pWICBitmap.Get(),
+                        m_D2DBitmap.ReleaseAndGetAddressOf());
+                    ok = SUCCEEDED(hr);
+                }
+            }
+        }
+        else if (!m_LoadedPath.empty() && !PathUtils::IsURL(m_LoadedPath))
+        {
+            // Normal local file
+            ok = Direct2D::LoadBitmapFromFile(
+                context,
+                m_LoadedPath,
+                m_D2DBitmap.ReleaseAndGetAddressOf(),
+                m_pWICBitmap.ReleaseAndGetAddressOf(),
+                m_UseExifOrientation);
+        }
         if (!ok)
         {
-            Logging::Log(LogLevel::Error, L"[novadesk] failed to load image bitmap: %s", m_ImagePath.c_str());
+            Logging::Log(LogLevel::Error, L"[novadesk] failed to load image bitmap: %s", m_LoadedPath.c_str());
         }
     }
+}
+
+void GeneralImage::SetOwnerHWND(HWND hWnd)
+{
+    if (m_OwnerHWND == hWnd)
+        return;
+    m_OwnerHWND = hWnd;
+    // If SetPath was called with a URL before we had an HWND, kick off the download now
+    if (m_OwnerHWND && PathUtils::IsURL(m_ImagePath) && m_IsFallbackShowing)
+    {
+        StartAsyncDownload(m_ImagePath);
+    }
+}
+
+void GeneralImage::StartAsyncDownload(const std::wstring& url)
+{
+    HWND hWnd = m_OwnerHWND;
+    if (!hWnd) return;
+
+    std::thread([hWnd, url]() {
+        std::vector<BYTE>* pBuffer = new std::vector<BYTE>();
+        if (Direct2D::DownloadImageFromURL(url, *pBuffer) && !pBuffer->empty())
+        {
+            std::wstring* pUrl = new std::wstring(url);
+            // wParam = url string, lParam = buffer
+            if (!PostMessageW(hWnd, WM_USER + 500, (WPARAM)pUrl, (LPARAM)pBuffer))
+            {
+                delete pUrl;
+                delete pBuffer;
+            }
+        }
+        else
+        {
+            delete pBuffer;
+        }
+    }).detach();
+}
+
+void GeneralImage::OnImageDownloaded(const std::wstring& url, const std::vector<BYTE>& buffer)
+{
+    if (m_ImagePath != url || buffer.empty())
+        return;
+
+    // Store the buffer so EnsureBitmap can create the D2D resource on the render thread
+    m_DownloadedBuffer = buffer;
+    m_IsFallbackShowing = false;
+    m_LoadedPath = url;   // keep tracking the original URL for future reference
+
+    // Pre-decode into WIC so GetAutoWidth/GetAutoHeight work immediately
+    m_pWICBitmap.Reset();
+    Direct2D::LoadWICBitmapFromMemory(
+        m_DownloadedBuffer.data(),
+        static_cast<DWORD>(m_DownloadedBuffer.size()),
+        m_pWICBitmap.ReleaseAndGetAddressOf());
+
+    ResetBitmapCache();
 }
 
 void GeneralImage::SetImageTint(COLORREF color, BYTE alpha)

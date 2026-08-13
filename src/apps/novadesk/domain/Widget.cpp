@@ -43,6 +43,7 @@
 #include "WidgetContextMenuHelper.h"
 #include "InputBoxContextMenuHelper.h"
 #include "../scripting/quickjs/engine/JSEngine.h"
+#include "InputBoxElement.h"
 #include "../shared/PathUtils.h"
 
 #define WIDGET_CLASS_NAME L"NovadeskWidget"
@@ -669,6 +670,22 @@ LRESULT CALLBACK Widget::WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
 
     switch (message)
     {
+    case WM_USER + 500:
+    {
+        std::wstring*         pUrl    = reinterpret_cast<std::wstring*>(wParam);
+        std::vector<BYTE>*    pBuffer = reinterpret_cast<std::vector<BYTE>*>(lParam);
+        if (pUrl && pBuffer)
+        {
+            if (widget)
+            {
+                widget->OnImageDownloaded(*pUrl, *pBuffer);
+            }
+            delete pUrl;
+            delete pBuffer;
+        }
+        return 0;
+    }
+
     case WM_SETFOCUS:
         if (widget)
             JSEngine::TriggerWidgetEvent(widget, "focus");
@@ -1520,6 +1537,12 @@ void Widget::AddText(const PropertyParser::TextOptions &options)
                                            options.text, options.fontFace, options.fontSize, options.fontColor, options.alpha,
                                            options.fontWeight, options.italic, options.textAlign, options.clip, options.fontPath);
 
+    // Set the owner HWND before applying options so that any async font download
+    // request captures the correct widget HWND (element->GetOwnerHWND() would
+    // otherwise return nullptr before the first Redraw / UpdateLayeredWindowContent).
+    if (m_hWnd)
+        element->SetOwnerHWND(m_hWnd);
+
     // Logging::Log(LogLevel::Debug, L"Widget::AddText: Created TextElement id='%s', text='%s', x=%d, y=%d", element->GetId().c_str(), element->GetText().c_str(), element->GetX(), element->GetY());
 
     PropertyParser::ApplyTextOptions(element, options); // Changed from ApplyElementOptions
@@ -1752,6 +1775,12 @@ void Widget::AddInputBox(const PropertyParser::InputBoxOptions &options)
     }
 
     InputBoxElement *element = new InputBoxElement(options.id, options.x, options.y, options.width, options.height);
+
+    // Set the owner HWND before applying options so that any async font download
+    // request captures the correct widget HWND.
+    if (m_hWnd)
+        element->SetOwnerHWND(m_hWnd);
+
     PropertyParser::ApplyInputBoxOptions(element, options);
 
     m_Elements.push_back(element);
@@ -2086,7 +2115,8 @@ void Widget::ApplyParsedPropertiesToElement(Element *element, JSContext *ctx, JS
                 &cfg.paddingLeft,
                 &cfg.paddingTop,
                 &cfg.paddingRight,
-                &cfg.paddingBottom);
+                &cfg.paddingBottom,
+                &cfg.flexDirection);
         }
         else
         {
@@ -2411,6 +2441,47 @@ void Widget::Redraw()
     }
 }
 
+void Widget::OnImageDownloaded(const std::wstring& url, const std::vector<BYTE>& buffer)
+{
+    bool updated = false;
+    for (Element *element : m_Elements)
+    {
+        if (element)
+        {
+            element->OnImageDownloaded(url, buffer);
+            updated = true;
+        }
+    }
+
+    if (updated)
+    {
+        Redraw();
+    }
+}
+
+void Widget::SetElementFontPath(const std::wstring& elementId, const std::wstring& fontDir)
+{
+    Element* element = FindElementById(elementId);
+    if (!element)
+        return;
+
+    TextElement* textElem = dynamic_cast<TextElement*>(element);
+    if (textElem)
+    {
+        textElem->SetFontPath(fontDir);
+        Redraw();
+        return;
+    }
+
+    InputBoxElement* inputElem = dynamic_cast<InputBoxElement*>(element);
+    if (inputElem)
+    {
+        inputElem->SetFontPath(fontDir);
+        Redraw();
+        return;
+    }
+}
+
 void Widget::ReleaseRenderSurface()
 {
     if (m_hRenderMemDc && m_hRenderOldBitmap)
@@ -2441,6 +2512,14 @@ void Widget::UpdateLayeredWindowContent()
 {
     if (!m_hWnd)
         return;
+
+    for (Element *element : m_Elements)
+    {
+        if (element)
+        {
+            element->SetOwnerHWND(m_hWnd);
+        }
+    }
 
     int calcW = m_Options.width;
     int calcH = m_Options.height;

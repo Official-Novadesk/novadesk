@@ -33,6 +33,9 @@ public:
     virtual int GetAutoWidth() override;
     virtual int GetAutoHeight() override;
 
+    virtual void OnOwnerHWNDSet() override;
+    virtual void OnImageDownloaded(const std::wstring& url, const std::vector<BYTE>& buffer) override;
+
     // Returns true if image loaded successfully
     bool IsLoaded() const { return m_GeneralImage.IsLoaded(); }
 
@@ -52,8 +55,10 @@ public:
     void ClearImageCrop() { m_GeneralImage.ClearImageCrop(); }
     void SetScaleMargins(float left, float top, float right, float bottom);
     void ClearScaleMargins() { m_HasScaleMargins = false; }
+    void SetFallbackPath(const std::wstring &path) { m_GeneralImage.SetFallbackPath(path); }
 
     const std::wstring &GetImagePath() const { return m_GeneralImage.GetPath(); }
+    const std::wstring &GetFallbackPath() const { return m_GeneralImage.GetFallbackPath(); }
     ImageAspectRatio GetPreserveAspectRatio() const { return m_PreserveAspectRatio; }
     bool HasImageTint() const { return m_GeneralImage.HasImageTint(); }
     COLORREF GetImageTint() const { return m_GeneralImage.GetImageTint(); }

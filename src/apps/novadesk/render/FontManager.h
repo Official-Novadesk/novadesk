@@ -26,4 +26,9 @@ namespace FontManager
     ** The path can be absolute or relative to the executable.
     */
     Microsoft::WRL::ComPtr<IDWriteFontCollection> GetFontCollection(const std::wstring& directoryPath);
+
+    // Thread-safe registry for memory-based font data (used by FontDownloader and InMemoryFontFileEnumerator)
+    void AddMemoryFont(const std::wstring& url, const std::string& data);
+    std::vector<uint8_t> GetMemoryFont(const std::wstring& url);
+    bool HasMemoryFont(const std::wstring& url);
 }

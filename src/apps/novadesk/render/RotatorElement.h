@@ -22,6 +22,9 @@ public:
     virtual int GetAutoWidth() override;
     virtual int GetAutoHeight() override;
 
+    virtual void OnOwnerHWNDSet() override;
+    virtual void OnImageDownloaded(const std::wstring& url, const std::vector<BYTE>& buffer) override;
+
     bool IsLoaded() const { return m_RotatorImage.IsLoaded(); }
     void UpdateImage(const std::wstring &path) { m_RotatorImage.SetPath(path); }
 
@@ -40,8 +43,10 @@ public:
     void SetColorMatrix(const float *matrix) { m_RotatorImage.SetColorMatrix(matrix); }
     void SetUseExifOrientation(bool enabled) { m_RotatorImage.SetUseExifOrientation(enabled); }
     void SetImageFlip(ImageFlipMode flip) { m_RotatorImage.SetImageFlip(flip); }
+    void SetFallbackPath(const std::wstring &path) { m_RotatorImage.SetFallbackPath(path); }
 
     const std::wstring &GetImagePath() const { return m_RotatorImage.GetPath(); }
+    const std::wstring &GetFallbackPath() const { return m_RotatorImage.GetFallbackPath(); }
     double GetValue() const { return m_Value; }
     double GetOffsetX() const { return m_OffsetX; }
     double GetOffsetY() const { return m_OffsetY; }

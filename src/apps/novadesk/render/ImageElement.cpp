@@ -420,3 +420,13 @@ bool ImageElement::HitTest(int x, int y)
 
     return pixel[3] > 0; // Alpha channel
 }
+
+void ImageElement::OnOwnerHWNDSet()
+{
+    m_GeneralImage.SetOwnerHWND(m_OwnerHWND);
+}
+
+void ImageElement::OnImageDownloaded(const std::wstring& url, const std::vector<BYTE>& buffer)
+{
+    m_GeneralImage.OnImageDownloaded(url, buffer);
+}

@@ -23,14 +23,19 @@ function Assert-PathExists {
 function Copy-DirectoryContent {
     param(
         [string]$SourceDir,
-        [string]$DestinationDir
+        [string]$DestinationDir,
+        [string[]]$Exclude = @()
     )
 
     if (Test-Path $DestinationDir) {
         Remove-Item -Recurse -Force $DestinationDir
     }
     New-Item -ItemType Directory -Path $DestinationDir -Force | Out-Null
-    Copy-Item -Path (Join-Path $SourceDir "*") -Destination $DestinationDir -Recurse -Force
+    if ($Exclude.Count -gt 0) {
+        Copy-Item -Path (Join-Path $SourceDir "*") -Destination $DestinationDir -Recurse -Force -Exclude $Exclude
+    } else {
+        Copy-Item -Path (Join-Path $SourceDir "*") -Destination $DestinationDir -Recurse -Force
+    }
 }
 
 try {
@@ -73,7 +78,7 @@ try {
     Copy-Item -Path $restartExeSrc -Destination (Join-Path $distDir "restart_novadesk.exe") -Force
     Copy-Item -Path $ndpkgInstallerExeSrc -Destination (Join-Path $distDir "ndpkg_installer.exe") -Force
     Copy-DirectoryContent -SourceDir $widgetsSrc -DestinationDir $distWidgetsDir
-    Copy-DirectoryContent -SourceDir $imagesSrc -DestinationDir $distImagesDir
+    Copy-DirectoryContent -SourceDir $imagesSrc -DestinationDir $distImagesDir -Exclude "image-fallback.jpg"
     Copy-Item -Path $nwmExeSrc -Destination (Join-Path $distNwmDir "nwm.exe") -Force
     Copy-DirectoryContent -SourceDir $nwmTemplateSrc -DestinationDir $distNwmTemplateDir
     Copy-Item -Path $installerStubExeSrc -Destination (Join-Path $distNwmDir "installer_stub.exe") -Force

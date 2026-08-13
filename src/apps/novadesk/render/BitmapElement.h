@@ -28,6 +28,9 @@ public:
     virtual int GetAutoWidth() override;
     virtual int GetAutoHeight() override;
 
+    virtual void OnOwnerHWNDSet() override;
+    virtual void OnImageDownloaded(const std::wstring& url, const std::vector<BYTE>& buffer) override;
+
     bool IsLoaded() const { return m_BitmapImage.IsLoaded(); }
     void UpdateImage(const std::wstring &path) { m_BitmapImage.SetPath(path); }
 
@@ -48,8 +51,10 @@ public:
     void SetColorMatrix(const float *matrix) { m_BitmapImage.SetColorMatrix(matrix); }
     void SetUseExifOrientation(bool enabled) { m_BitmapImage.SetUseExifOrientation(enabled); }
     void SetImageFlip(ImageFlipMode flip) { m_BitmapImage.SetImageFlip(flip); }
+    void SetFallbackPath(const std::wstring &path) { m_BitmapImage.SetFallbackPath(path); }
 
     const std::wstring &GetImagePath() const { return m_BitmapImage.GetPath(); }
+    const std::wstring &GetFallbackPath() const { return m_BitmapImage.GetFallbackPath(); }
     double GetValue() const { return m_Value; }
     int GetBitmapFrames() const { return m_FrameCount; }
     bool GetBitmapZeroFrame() const { return m_ZeroFrame; }

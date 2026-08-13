@@ -114,6 +114,15 @@ namespace novadesk::scripting::quickjs
 
         JSValue GetGeneralImagePropertyValue(JSContext *ctx, Element *element, const std::string &prop)
         {
+            if (prop == "fallbackPath")
+            {
+                std::wstring val;
+                if (auto *img = dynamic_cast<ImageElement *>(element)) val = img->GetFallbackPath();
+                else if (auto *btn = dynamic_cast<ButtonElement *>(element)) val = btn->GetFallbackPath();
+                else if (auto *bmp = dynamic_cast<BitmapElement *>(element)) val = bmp->GetFallbackPath();
+                else if (auto *rot = dynamic_cast<RotatorElement *>(element)) val = rot->GetFallbackPath();
+                return JS_NewString(ctx, Utils::ToString(val).c_str());
+            }
             if (prop == "grayscale")
             {
                 bool val = false;
@@ -1196,6 +1205,7 @@ namespace novadesk::scripting::quickjs
                     return JS_NewFloat64(ctx, t->GetLetterSpacing());
                 if (prop == "fontPath")
                     return JS_NewString(ctx, Utils::ToString(t->GetFontPath()).c_str());
+
                 if (prop == "textAlign")
                 {
                     const char *alStr = "left-top";
@@ -1944,6 +1954,9 @@ namespace novadesk::scripting::quickjs
                 }
                 if (prop == "allowedChars")
                     return JS_NewString(ctx, Utils::ToString(input->GetAllowedChars()).c_str());
+                if (prop == "fontPath")
+                    return JS_NewString(ctx, Utils::ToString(input->GetFontPath()).c_str());
+
                 if (prop == "borderColor")
                     return JS_NewString(ctx, Utils::ToString(ToGradientOrRGBAString(input->GetBorderGradient(), input->GetBorderColor(), input->GetBorderAlpha())).c_str());
                 if (prop == "borderWidth")
@@ -2052,7 +2065,11 @@ namespace novadesk::scripting::quickjs
 
             std::wstring absPath;
             std::wstring baseDir;
-            if (PathUtils::IsPathRelative(scriptPath))
+            if (PathUtils::IsURL(scriptPath))
+            {
+                absPath = scriptPath;
+            }
+            else if (PathUtils::IsPathRelative(scriptPath))
             {
                 baseDir = PathUtils::GetScriptBaseDir(widget->GetOptions().scriptPath, JSEngine::GetEntryScriptDir());
                 absPath = PathUtils::ResolvePath(
@@ -2068,9 +2085,10 @@ namespace novadesk::scripting::quickjs
             // Ensure stale ipcRenderer listeners from prior UI instances are detached.
             JSEngine::ClearUiIpcForScript(absPath);
 
-            const std::string scriptSource = FileUtils::ReadFileContent(absPath);
+            const std::string scriptSource = FileUtils::ReadFileOrUrlContent(absPath);
             if (scriptSource.empty())
             {
+                Logging::Log(LogLevel::Error, L"[novadesk] Failed to load widget ui script: %s", absPath.c_str());
                 return false;
             }
 

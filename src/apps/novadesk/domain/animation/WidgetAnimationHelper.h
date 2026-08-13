@@ -15,7 +15,7 @@
 class WidgetAnimationHelper
 {
 public:
-    static constexpr int kTimerId = 5;
+    static constexpr int kTimerId = 6;
 
     static void StartElementAnimation(
         Widget &widget,

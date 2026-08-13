@@ -128,6 +128,8 @@ namespace PathUtils {
     ** Check if a path is relative.
     */
     bool IsPathRelative(const std::wstring& path) {
+        if (IsURL(path))
+            return false;
         return PathIsRelativeW(path.c_str()) != FALSE;
     }
 
@@ -195,7 +197,9 @@ namespace PathUtils {
     */
     std::wstring NormalizePath(const std::wstring& path) {
         if (path.empty()) return L"";
-        
+        if (IsURL(path))
+            return path;
+
         std::wstring res = path;
         for (auto& c : res) if (c == L'/') c = L'\\';
 
@@ -358,7 +362,9 @@ namespace PathUtils {
     */
     std::wstring GetParentDir(const std::wstring& path) {
         if (path.empty()) return L"";
-        
+        if (IsURL(path))
+            return GetUrlParentDir(path);
+
         std::wstring norm = NormalizePath(path);
         
         // Remove trailing backslash if it's not the root
@@ -378,7 +384,11 @@ namespace PathUtils {
     */
     std::wstring ResolvePath(const std::wstring& path, const std::wstring& baseDir) {
         if (path.empty()) return L"";
-        
+        if (IsURL(path))
+            return path;
+        if (IsURL(baseDir))
+            return ResolveUrl(path, baseDir);
+
         std::wstring res = path;
         for (auto& c : res) if (c == L'/') c = L'\\';
 
@@ -403,8 +413,67 @@ namespace PathUtils {
     {
         if (scriptPath.empty())
             return defaultBaseDir;
+        if (IsURL(scriptPath))
+            return GetUrlParentDir(scriptPath);
 
         const std::wstring absScriptPath = ResolvePath(scriptPath, defaultBaseDir);
         return GetParentDir(absScriptPath);
+    }
+
+    /*
+    ** Check if a path is a URL (starts with http:// or https://)
+    */
+    bool IsURL(const std::wstring& path)
+    {
+        if (path.length() < 7)
+            return false;
+
+        std::wstring lower = path;
+        std::transform(lower.begin(), lower.end(), lower.begin(), ::towlower);
+
+        return lower.rfind(L"http://", 0) == 0 ||
+               lower.rfind(L"https://", 0) == 0 ||
+               lower.rfind(L"file://", 0) == 0;
+    }
+
+    std::wstring GetUrlParentDir(const std::wstring& url)
+    {
+        if (!IsURL(url))
+            return L"";
+
+        const size_t schemeEnd = url.find(L"://");
+        if (schemeEnd == std::wstring::npos)
+            return url;
+
+        const size_t lastSlash = url.find_last_of(L'/');
+        if (lastSlash == std::wstring::npos || lastSlash <= schemeEnd + 2)
+            return url.back() == L'/' ? url : url + L"/";
+
+        return url.substr(0, lastSlash + 1);
+    }
+
+    std::wstring ResolveUrl(const std::wstring& path, const std::wstring& baseUrl)
+    {
+        if (path.empty())
+            return L"";
+        if (IsURL(path))
+            return path;
+        if (!IsURL(baseUrl))
+            return L"";
+
+        if (!path.empty() && path[0] == L'/')
+        {
+            const size_t schemeEnd = baseUrl.find(L"://");
+            if (schemeEnd == std::wstring::npos)
+                return L"";
+
+            const size_t pathStart = baseUrl.find(L'/', schemeEnd + 3);
+            if (pathStart == std::wstring::npos)
+                return baseUrl + path;
+
+            return baseUrl.substr(0, pathStart) + path;
+        }
+
+        return GetUrlParentDir(baseUrl) + path;
     }
 }

@@ -32,6 +32,15 @@ namespace JSEngine
         int offsetYPercent = 0;
     };
 
+    struct ToastEventData
+    {
+        int64_t toastId = 0;
+        std::string type;
+        int actionIndex = -1;
+        std::wstring input;
+        std::string dismissalReason;
+    };
+
     void InitializeJavaScriptAPI(duk_context *ctx);
     bool LoadAndExecuteScript(duk_context *ctx, const std::wstring &scriptPath = L"");
     bool LoadAndExecuteScripts(duk_context *ctx, const std::vector<std::wstring> &scriptPaths);
@@ -69,6 +78,8 @@ namespace JSEngine
     bool RegisterTrayEventCallback(JSContext *ctx, int trayId, const std::string &eventName, JSValueConst fn);
     void ClearTrayEventCallbacks(int trayId);
     void ClearAllTrayEventCallbacks();
+    int RegisterToastCallback(JSContext *ctx, JSValueConst fn);
+    void DispatchToastEventAsync(int callbackId, const ToastEventData &data);
     void ClearUiIpcForScript(const std::wstring &scriptPath);
     bool ExecuteWidgetScript(Widget *widget);
     JSValue CreateUiIpcObject(JSContext *ctx);

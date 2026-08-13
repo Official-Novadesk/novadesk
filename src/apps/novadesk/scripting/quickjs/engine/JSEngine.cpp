@@ -77,6 +77,11 @@ namespace JSEngine
             bool repeat = false;
             std::wstring owner;
         };
+        struct ToastDispatchPayload
+        {
+            int callbackId = -1;
+            ToastEventData data;
+        };
         std::unordered_map<UINT_PTR, TimerEntry> g_timers;
         UINT_PTR g_nextTimerId = 50000;
         std::vector<IpcListener> g_mainIpcListeners;
@@ -347,7 +352,7 @@ namespace JSEngine
 
         bool ExecuteScriptFile(const std::wstring &finalScriptPath)
         {
-            const std::string script = FileUtils::ReadFileContent(finalScriptPath);
+            const std::string script = FileUtils::ReadFileOrUrlContent(finalScriptPath);
             if (script.empty())
             {
                 Logging::Log(LogLevel::Error, L"Failed to load script: %s", finalScriptPath.c_str());
@@ -535,6 +540,47 @@ namespace JSEngine
                 JS_FreeValue(ctx, a);
             g_timers.erase(it);
             return JS_UNDEFINED;
+        }
+
+        void DispatchToastEventNow(int callbackId, const ToastEventData &data)
+        {
+            if (!g_context || callbackId <= 0 || callbackId >= static_cast<int>(g_eventCallbacks.size()))
+                return;
+
+            JSValue callback = g_eventCallbacks[callbackId];
+            if (JS_IsUndefined(callback) || JS_IsNull(callback))
+                return;
+
+            JSValue event = JS_NewObject(g_context);
+            JS_SetPropertyStr(g_context, event, "toastId", JS_NewInt64(g_context, data.toastId));
+            JS_SetPropertyStr(g_context, event, "type", JS_NewString(g_context, data.type.c_str()));
+            if (data.actionIndex >= 0)
+                JS_SetPropertyStr(g_context, event, "actionIndex", JS_NewInt32(g_context, data.actionIndex));
+            if (!data.input.empty())
+                JS_SetPropertyStr(g_context, event, "input", JS_NewString(g_context, Utils::ToString(data.input).c_str()));
+            if (!data.dismissalReason.empty())
+                JS_SetPropertyStr(g_context, event, "reason", JS_NewString(g_context, data.dismissalReason.c_str()));
+
+            JSValue argv[1] = {event};
+            JSValue ret = JS_Call(g_context, callback, JS_UNDEFINED, 1, argv);
+            JS_FreeValue(g_context, event);
+            if (JS_IsException(ret))
+            {
+                LogQuickJsException(g_context);
+            }
+            else
+            {
+                JS_FreeValue(g_context, ret);
+            }
+        }
+
+        void DispatchToastPayload(void *raw)
+        {
+            auto *payload = reinterpret_cast<ToastDispatchPayload *>(raw);
+            if (!payload)
+                return;
+            DispatchToastEventNow(payload->callbackId, payload->data);
+            delete payload;
         }
 
         JSValue JsPathJoin(JSContext *ctx, JSValueConst, int argc, JSValueConst *argv)
@@ -1292,6 +1338,11 @@ namespace JSEngine
             }
 
             // Respect explicit custom script paths first.
+            if (PathUtils::IsURL(scriptPath))
+            {
+                return scriptPath;
+            }
+
             if (!PathUtils::IsPathRelative(scriptPath))
             {
                 return PathUtils::NormalizePath(scriptPath);
@@ -1863,6 +1914,35 @@ namespace JSEngine
         return static_cast<int>(g_eventCallbacks.size() - 1);
     }
 
+    int RegisterToastCallback(JSContext *ctx, JSValueConst fn)
+    {
+        return RegisterEventCallback(ctx, fn);
+    }
+
+    void DispatchToastEventAsync(int callbackId, const ToastEventData &data)
+    {
+        if (callbackId <= 0)
+            return;
+
+        auto *payload = new ToastDispatchPayload{};
+        payload->callbackId = callbackId;
+        payload->data = data;
+
+        if (g_messageWindow)
+        {
+            if (PostMessageW(
+                    g_messageWindow,
+                    WM_NOVADESK_DISPATCH,
+                    reinterpret_cast<WPARAM>(&DispatchToastPayload),
+                    reinterpret_cast<LPARAM>(payload)))
+            {
+                return;
+            }
+        }
+
+        DispatchToastPayload(payload);
+    }
+
     bool RegisterWidgetEventListener(JSContext *ctx, Widget *widget, const std::string &eventName, JSValueConst fn)
     {
         if (!widget || eventName.empty())
@@ -1986,7 +2066,11 @@ namespace JSEngine
         }
 
         std::wstring scriptPath = rawScriptPath;
-        if (PathUtils::IsPathRelative(scriptPath))
+        if (PathUtils::IsURL(scriptPath))
+        {
+            // Keep remote UI script URLs unchanged.
+        }
+        else if (PathUtils::IsPathRelative(scriptPath))
         {
             scriptPath = PathUtils::ResolvePath(scriptPath, GetEntryScriptDir());
         }

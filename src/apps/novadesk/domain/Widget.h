@@ -199,6 +199,7 @@ public:
     void EndUpdate();
 
     void Redraw();
+    void OnImageDownloaded(const std::wstring& url, const std::vector<BYTE>& buffer);
 
     Element* FindElementById(const std::wstring& id);
     static std::vector<Widget *> &GetAllWidgets();
@@ -210,6 +211,8 @@ public:
     void ReflowLayout(const std::wstring &id);
     void StartElementAnimation(const std::wstring &id, const AnimationTarget &to, const AnimationTarget &from, int durationMs, const std::wstring &easing, int iterationCount);
     void StartElementKeyframeAnimation(const std::wstring &id, const std::vector<AnimationKeyframe> &keyframes, int durationMs, const std::wstring &easing, int iterationCount);
+    static Widget* GetWidgetFromHWND(HWND hWnd);
+    void SetElementFontPath(const std::wstring& elementId, const std::wstring& fontDir);
 
     friend class WidgetAnimationHelper;
     friend class WidgetLayoutHelper;
@@ -218,8 +221,6 @@ private:
     static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 
     static bool Register();
-
-    static Widget* GetWidgetFromHWND(HWND hWnd);
 
     void UpdateLayeredWindowContent();
 
@@ -318,7 +319,7 @@ private:
     static const UINT_PTR TIMER_TOPMOST = 2;
     static const UINT_PTR TIMER_TOOLTIP = 3;
     static const UINT_PTR TIMER_CTRL_OVERRIDE = 4;
-    static const UINT_PTR TIMER_ANIMATION = 5;
+    static const UINT_PTR TIMER_ANIMATION = 6;
 };
 
 #endif

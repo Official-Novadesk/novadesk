@@ -1,0 +1,21 @@
+{
+  "name": "OnlineUiScript",
+  "main": "index.js",
+  "version": "1.0.0.0",
+  "author": "NSTechBytes",
+  "description": "Integration test for loading widget UI scripts from remote URLs.",
+  "icon": "",
+  "preview": "",
+  "excludeItems": [],
+  "setup": {
+    "createDesktopShortcut": false,
+    "createStartupShortcut": false,
+    "runOnStartup": false,
+    "installDir": "%ProgramFiles%\\OnlineUiScript",
+    "startMenuFolder": "OnlineUiScript",
+    "setupName": "setup",
+    "setupIcon": "",
+    "enableUninstall": false,
+    "launchAfterInstall": false
+  }
+}

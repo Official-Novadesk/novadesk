@@ -12,6 +12,7 @@
 #include "../../../shared/PathUtils.h"
 #include "../../../shared/Utils.h"
 #include "../engine/JSEngine.h"
+#include "../../../render/FontDownloader.h"
 #include <filesystem>
 #include <cmath>
 #include <algorithm>
@@ -136,6 +137,8 @@ namespace PropertyParser
             options.fontPath = PathUtils::ResolvePath(fontPath, baseDir);
         }
 
+
+
         std::wstring style = GetStringProp(ctx, obj, "fontStyle");
         if (!style.empty())
             options.italic = (style == L"italic");
@@ -196,7 +199,29 @@ namespace PropertyParser
         element->SetTextAlign(options.textAlign);
         element->SetClip(options.clip);
         if (!options.fontPath.empty())
-            element->SetFontPath(options.fontPath);
+        {
+            if (PathUtils::IsURL(options.fontPath))
+            {
+                std::wstring cachedDir = FontDownloader::GetCachedDir(options.fontPath);
+                if (!cachedDir.empty())
+                {
+                    element->SetFontPath(cachedDir);
+                }
+                else
+                {
+                    element->SetFontPath(L"");
+                    FontDownloader::RequestAsync(options.fontPath, element->GetOwnerHWND(), element->GetId());
+                }
+            }
+            else
+            {
+                element->SetFontPath(options.fontPath);
+            }
+        }
+        else
+        {
+            element->SetFontPath(L"");
+        }
         element->SetShadows(options.shadows);
         element->SetFontGradient(options.fontGradient);
         element->SetLetterSpacing(options.letterSpacing);
@@ -226,6 +251,7 @@ namespace PropertyParser
         options.textAlign = element->GetTextAlign();
         options.clip = element->GettextClip();
         options.fontPath = element->GetFontPath();
+
         options.shadows = element->GetShadows();
         options.fontGradient = element->GetFontGradient();
         options.letterSpacing = element->GetLetterSpacing();

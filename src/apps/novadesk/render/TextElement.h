@@ -104,6 +104,7 @@ public:
     void SetTextAlign(TextAlignment align) { m_TextAlign = align; }
     void SetClip(TextClip clip) { m_textClip = clip; }
     void SetFontPath(const std::wstring &path) { m_FontPath = path; }
+
     void SetShadows(const std::vector<TextShadow> &shadows) { m_Shadows = shadows; }
     void SetFontGradient(const GradientInfo &gradient) { m_FontGradient = gradient; }
     void SetLetterSpacing(float spacing) { m_LetterSpacing = spacing; }
@@ -134,6 +135,7 @@ public:
     TextAlignment GetTextAlign() const { return m_TextAlign; }
     TextClip GettextClip() const { return m_textClip; }
     const std::wstring &GetFontPath() const { return m_FontPath; }
+
     const std::vector<TextShadow> &GetShadows() const { return m_Shadows; }
     const GradientInfo &GetFontGradient() const { return m_FontGradient; }
     float GetLetterSpacing() const { return m_LetterSpacing; }
@@ -181,6 +183,7 @@ private:
     TextAlignment m_TextAlign;
     TextClip m_textClip;
     std::wstring m_FontPath;
+
     std::vector<TextShadow> m_Shadows;
     GradientInfo m_FontGradient;
     float m_LetterSpacing = 0.0f;

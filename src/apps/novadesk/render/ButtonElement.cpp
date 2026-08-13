@@ -112,7 +112,7 @@ void ButtonElement::Render(ID2D1DeviceContext *context)
             
             context->SetTransform(currentTransform);
 
-            Logging::Log(LogLevel::Info, L"Button Render Success: id=%s, frame=%d, dest=[%.1f, %.1f]", m_Id.c_str(), frameIndex, destW, destH);
+            //Logging::Log(LogLevel::Info, L"Button Render Success: id=%s, frame=%d, dest=[%.1f, %.1f]", m_Id.c_str(), frameIndex, destW, destH);
         }
         else
         {
@@ -176,4 +176,14 @@ bool ButtonElement::HitTest(int x, int y)
     BYTE alpha = m_ButtonImage.GetPixelAlpha(pixelX, pixelY);
     
     return alpha > 0;
+}
+
+void ButtonElement::OnOwnerHWNDSet()
+{
+    m_ButtonImage.SetOwnerHWND(m_OwnerHWND);
+}
+
+void ButtonElement::OnImageDownloaded(const std::wstring& url, const std::vector<BYTE>& buffer)
+{
+    m_ButtonImage.OnImageDownloaded(url, buffer);
 }

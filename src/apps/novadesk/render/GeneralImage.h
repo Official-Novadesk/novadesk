@@ -10,7 +10,9 @@
 
 #include <array>
 #include <string>
+#include <vector>
 
+#include <windows.h>
 #include <d2d1_1.h>
 #include <wincodec.h>
 #include <wrl/client.h>
@@ -39,6 +41,9 @@ public:
 
     void SetPath(const std::wstring &path);
     const std::wstring &GetPath() const { return m_ImagePath; }
+
+    void SetFallbackPath(const std::wstring &path);
+    const std::wstring &GetFallbackPath() const { return m_FallbackPath; }
 
     void EnsureBitmap(ID2D1DeviceContext *context);
     bool IsLoaded() const { return m_D2DBitmap != nullptr; }
@@ -86,12 +91,22 @@ public:
     int GetAutoWidth() const;
     int GetAutoHeight() const;
 
+    void SetOwnerHWND(HWND hWnd);
+    void OnImageDownloaded(const std::wstring& url, const std::vector<BYTE>& buffer);
+
 private:
     void ReloadWICBitmap();
     void ResetBitmapCache();
+    void StartAsyncDownload(const std::wstring& url);
+    void LoadFallbackFromResource();
 
 private:
     std::wstring m_ImagePath;
+    std::wstring m_LoadedPath;
+    std::wstring m_FallbackPath;
+    HWND m_OwnerHWND = nullptr;
+    bool m_IsFallbackShowing = false;       // true while showing the embedded fallback image
+    std::vector<BYTE> m_DownloadedBuffer;   // in-memory buffer for async downloads
     Microsoft::WRL::ComPtr<ID2D1Bitmap> m_D2DBitmap;
     Microsoft::WRL::ComPtr<IWICBitmap> m_pWICBitmap;
     ID2D1RenderTarget *m_pLastTarget = nullptr;

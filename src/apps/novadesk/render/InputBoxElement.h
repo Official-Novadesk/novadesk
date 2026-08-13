@@ -62,6 +62,7 @@ public:
     void SetFontWeight(int weight) { m_FontWeight = weight; }
     void SetItalic(bool italic) { m_Italic = italic; }
     void SetFontPath(const std::wstring &path) { m_FontPath = path; }
+
     void SetTextAlign(TextAlignment align) { m_TextAlign = align; }
 
     const std::wstring &GetFontFace() const { return m_FontFace; }
@@ -71,6 +72,8 @@ public:
     int GetFontWeight() const { return m_FontWeight; }
     bool IsItalic() const { return m_Italic; }
     TextAlignment GetTextAlign() const { return m_TextAlign; }
+    const std::wstring &GetFontPath() const { return m_FontPath; }
+
 
     // Placeholder
     void SetPlaceholder(const std::wstring &placeholder) { m_Placeholder = placeholder; }
@@ -263,6 +266,7 @@ private:
     bool m_Italic = false;
     TextAlignment m_TextAlign = TEXT_ALIGN_LEFT_CENTER;
     std::wstring m_FontPath;
+
 
     COLORREF m_PlaceholderColor = RGB(150, 150, 150);
     BYTE m_PlaceholderAlpha = 255;

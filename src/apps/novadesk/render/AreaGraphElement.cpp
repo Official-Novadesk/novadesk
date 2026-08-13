@@ -98,8 +98,8 @@ void AreaGraphElement::Render(ID2D1DeviceContext *context)
 
     const float left = (float)m_X + m_PaddingLeft;
     const float top = (float)m_Y + m_PaddingTop;
-    const float right = left + width - 1.0f;
-    const float bottom = top + height - 1.0f;
+    const float right = (float)(m_X + GetWidth()) - 1.0f - m_PaddingRight;
+    const float bottom = (float)(m_Y + GetHeight()) - 1.0f - m_PaddingBottom;
     const D2D1_RECT_F elementRect = D2D1::RectF(left, top, right + 1.0f, bottom + 1.0f);
 
     // 1. Draw Grid
@@ -146,6 +146,9 @@ void AreaGraphElement::Render(ID2D1DeviceContext *context)
         std::vector<D2D1_POINT_2F> points;
         points.reserve(numPoints);
 
+        const float drawWidth  = right - left;
+        const float drawHeight = bottom - top;
+
         for (int i = 0; i < numPoints; ++i)
         {
             float val = m_Data[i];
@@ -154,10 +157,10 @@ void AreaGraphElement::Render(ID2D1DeviceContext *context)
             if (norm > 1.0f) norm = 1.0f;
 
             int capacity = (m_MaxPoints > numPoints) ? m_MaxPoints : numPoints;
-            float dx = (capacity > 1) ? (width - 1.0f) / (float)(capacity - 1) : 0.0f;
+            float dx = (capacity > 1) ? drawWidth / (float)(capacity - 1) : 0.0f;
 
             float px = m_GraphStartLeft ? (left + (float)(numPoints - 1 - i) * dx) : (right - (float)(numPoints - 1 - i) * dx);
-            float py = !m_Flip ? (bottom - norm * (height - 1.0f)) : (top + norm * (height - 1.0f));
+            float py = !m_Flip ? (bottom - norm * drawHeight) : (top + norm * drawHeight);
 
             points.push_back(D2D1::Point2F(px, py));
         }

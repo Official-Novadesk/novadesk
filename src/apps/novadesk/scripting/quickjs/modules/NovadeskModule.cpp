@@ -7,6 +7,9 @@
  
 #include "NovadeskModule.h"
 
+#include <algorithm>
+#include <atomic>
+#include <cwctype>
 #include <map>
 #include <unordered_map>
 #include <unordered_set>
@@ -14,6 +17,7 @@
 #include <vector>
 #include <windows.h>
 
+#include "wintoastlib.h"
 #include "../../../Version.h"
 #include "../../domain/Novadesk.h"
 #include "../../shared/Logging.h"
@@ -72,6 +76,7 @@ namespace novadesk::scripting::quickjs
 
         bool g_moduleDebug = false;
         int g_nextTrayCommandId = 1;
+        std::wstring g_lastToastError;
 
         struct AddonInfo
         {
@@ -114,6 +119,250 @@ namespace novadesk::scripting::quickjs
             std::string throwMessage;
             bool hasThrow = false;
         };
+
+        std::wstring GetVersionProperty(const std::wstring &propertyName);
+
+        struct ToastCallbackIds
+        {
+            int activated = -1;
+            int action = -1;
+            int input = -1;
+            int dismissed = -1;
+            int failed = -1;
+        };
+
+        class ToastHandler final : public WinToastLib::IWinToastHandler
+        {
+        public:
+            explicit ToastHandler(const ToastCallbackIds &callbacks)
+                : m_Callbacks(callbacks)
+            {
+            }
+
+            void SetToastId(INT64 toastId)
+            {
+                m_ToastId.store(toastId);
+            }
+
+            void toastActivated() const override
+            {
+                Logging::Log(LogLevel::Info, L"[novadesk.toast] activated");
+                Dispatch(m_Callbacks.activated, "activated");
+            }
+
+            void toastActivated(int actionIndex) const override
+            {
+                Logging::Log(LogLevel::Info, L"[novadesk.toast] action activated: %d", actionIndex);
+                JSEngine::ToastEventData data{};
+                data.toastId = m_ToastId.load();
+                data.type = "action";
+                data.actionIndex = actionIndex;
+                JSEngine::DispatchToastEventAsync(m_Callbacks.action, data);
+            }
+
+            void toastActivated(std::wstring response) const override
+            {
+                Logging::Log(LogLevel::Info, L"[novadesk.toast] input submitted: %s", response.c_str());
+                JSEngine::ToastEventData data{};
+                data.toastId = m_ToastId.load();
+                data.type = "input";
+                data.input = response;
+                JSEngine::DispatchToastEventAsync(m_Callbacks.input, data);
+            }
+
+            void toastDismissed(WinToastDismissalReason state) const override
+            {
+                Logging::Log(LogLevel::Info, L"[novadesk.toast] dismissed: %d", static_cast<int>(state));
+                JSEngine::ToastEventData data{};
+                data.toastId = m_ToastId.load();
+                data.type = "dismissed";
+                data.dismissalReason = DismissalReasonToString(state);
+                JSEngine::DispatchToastEventAsync(m_Callbacks.dismissed, data);
+            }
+
+            void toastFailed() const override
+            {
+                Logging::Log(LogLevel::Warn, L"[novadesk.toast] failed");
+                Dispatch(m_Callbacks.failed, "failed");
+            }
+
+        private:
+            static std::string DismissalReasonToString(WinToastDismissalReason state)
+            {
+                switch (state)
+                {
+                case WinToastLib::IWinToastHandler::UserCanceled:
+                    return "userCanceled";
+                case WinToastLib::IWinToastHandler::ApplicationHidden:
+                    return "applicationHidden";
+                case WinToastLib::IWinToastHandler::TimedOut:
+                    return "timedOut";
+                default:
+                    return "unknown";
+                }
+            }
+
+            void Dispatch(int callbackId, const std::string &type) const
+            {
+                JSEngine::ToastEventData data{};
+                data.toastId = m_ToastId.load();
+                data.type = type;
+                JSEngine::DispatchToastEventAsync(callbackId, data);
+            }
+
+            ToastCallbackIds m_Callbacks;
+            std::atomic<INT64> m_ToastId = 0;
+        };
+
+        std::wstring JsValueToWString(JSContext *ctx, JSValueConst value)
+        {
+            const char *s = JS_ToCString(ctx, value);
+            if (!s)
+                return L"";
+            std::wstring out = Utils::ToWString(s);
+            JS_FreeCString(ctx, s);
+            return out;
+        }
+
+        std::wstring ToLower(std::wstring value)
+        {
+            std::transform(value.begin(), value.end(), value.begin(), ::towlower);
+            return value;
+        }
+
+        bool GetObjectString(JSContext *ctx, JSValueConst obj, const char *name, std::wstring &out)
+        {
+            JSValue value = JS_GetPropertyStr(ctx, obj, name);
+            if (JS_IsUndefined(value) || JS_IsNull(value))
+            {
+                JS_FreeValue(ctx, value);
+                return false;
+            }
+            out = JsValueToWString(ctx, value);
+            JS_FreeValue(ctx, value);
+            return !out.empty();
+        }
+
+        bool GetObjectBool(JSContext *ctx, JSValueConst obj, const char *name, bool &out)
+        {
+            JSValue value = JS_GetPropertyStr(ctx, obj, name);
+            if (JS_IsUndefined(value) || JS_IsNull(value))
+            {
+                JS_FreeValue(ctx, value);
+                return false;
+            }
+            int b = JS_ToBool(ctx, value);
+            JS_FreeValue(ctx, value);
+            if (b < 0)
+                return false;
+            out = (b != 0);
+            return true;
+        }
+
+        bool GetObjectInt64(JSContext *ctx, JSValueConst obj, const char *name, int64_t &out)
+        {
+            JSValue value = JS_GetPropertyStr(ctx, obj, name);
+            if (JS_IsUndefined(value) || JS_IsNull(value))
+            {
+                JS_FreeValue(ctx, value);
+                return false;
+            }
+            const bool ok = (JS_ToInt64(ctx, &out, value) == 0);
+            JS_FreeValue(ctx, value);
+            return ok;
+        }
+
+        std::wstring ResolveToastAssetPath(const std::wstring &inputPath)
+        {
+            if (inputPath.empty())
+                return inputPath;
+
+            if (PathUtils::IsPathRelative(inputPath))
+            {
+                std::wstring baseDir = PathUtils::GetParentDir(JSEngine::GetCurrentScriptPath());
+                if (baseDir.empty())
+                    baseDir = JSEngine::GetEntryScriptDir();
+                if (baseDir.empty())
+                    baseDir = PathUtils::GetWidgetsDir();
+                return PathUtils::ResolvePath(inputPath, baseDir);
+            }
+
+            return PathUtils::NormalizePath(inputPath);
+        }
+
+        void SetToastError(const std::wstring &message)
+        {
+            g_lastToastError = message;
+            if (!message.empty())
+                Logging::Log(LogLevel::Warn, L"[novadesk.toast] %s", message.c_str());
+        }
+
+        bool EnsureToastInitialized(JSContext *ctx, JSValueConst options = JS_UNDEFINED)
+        {
+            auto *instance = WinToastLib::WinToast::instance();
+            if (!instance)
+            {
+                SetToastError(L"WinToast instance is unavailable");
+                return false;
+            }
+
+            if (instance->isInitialized())
+                return true;
+
+            std::wstring appName = GetVersionProperty(L"FileDescription");
+            std::wstring companyName = GetVersionProperty(L"CompanyName");
+            std::wstring productName = GetVersionProperty(L"ProductName");
+            std::wstring productVersion = GetVersionProperty(L"ProductVersion");
+            std::wstring aumi;
+            if (appName.empty())
+                appName = productName;
+            if (appName.empty())
+                appName = L"Novadesk";
+            if (companyName.empty())
+                companyName = L"OfficialNovadesk";
+            if (productName.empty())
+                productName = appName;
+            if (productVersion.empty())
+                productVersion = Utils::ToWString(std::string(NOVADESK_VERSION));
+
+            if (JS_IsObject(options))
+            {
+                GetObjectString(ctx, options, "appName", appName);
+                GetObjectString(ctx, options, "companyName", companyName);
+                GetObjectString(ctx, options, "productName", productName);
+                GetObjectString(ctx, options, "aumi", aumi);
+
+                std::wstring shortcutPolicy;
+                if (GetObjectString(ctx, options, "shortcutPolicy", shortcutPolicy))
+                {
+                    shortcutPolicy = ToLower(shortcutPolicy);
+                    if (shortcutPolicy == L"ignore")
+                        instance->setShortcutPolicy(WinToastLib::WinToast::SHORTCUT_POLICY_IGNORE);
+                    else if (shortcutPolicy == L"require")
+                        instance->setShortcutPolicy(WinToastLib::WinToast::SHORTCUT_POLICY_REQUIRE_NO_CREATE);
+                    else
+                        instance->setShortcutPolicy(WinToastLib::WinToast::SHORTCUT_POLICY_REQUIRE_CREATE);
+                }
+            }
+
+            if (aumi.empty())
+            {
+                aumi = WinToastLib::WinToast::configureAUMI(companyName, productName, L"", productVersion);
+            }
+
+            instance->setAppName(appName);
+            instance->setAppUserModelId(aumi);
+
+            WinToastLib::WinToast::WinToastError error = WinToastLib::WinToast::NoError;
+            if (!instance->initialize(&error))
+            {
+                SetToastError(WinToastLib::WinToast::strerror(error));
+                return false;
+            }
+
+            SetToastError(L"");
+            return true;
+        }
 
         static JSValue AddonRegisteredFunctionBridge(JSContext *ctx, JSValueConst, int argc, JSValueConst *argv, int magic)
         {
@@ -1379,6 +1628,315 @@ namespace novadesk::scripting::quickjs
             return JS_NewBool(ctx, UnloadAddonById(static_cast<int>(addonId)) ? 1 : 0);
         }
 
+        WinToastLib::WinToastTemplate::Duration ParseToastDuration(const std::wstring &duration)
+        {
+            const std::wstring lower = ToLower(duration);
+            if (lower == L"short")
+                return WinToastLib::WinToastTemplate::Short;
+            if (lower == L"long")
+                return WinToastLib::WinToastTemplate::Long;
+            return WinToastLib::WinToastTemplate::System;
+        }
+
+        WinToastLib::WinToastTemplate::Scenario ParseToastScenario(const std::wstring &scenario)
+        {
+            const std::wstring lower = ToLower(scenario);
+            if (lower == L"alarm")
+                return WinToastLib::WinToastTemplate::Scenario::Alarm;
+            if (lower == L"incomingcall" || lower == L"incoming-call")
+                return WinToastLib::WinToastTemplate::Scenario::IncomingCall;
+            if (lower == L"reminder")
+                return WinToastLib::WinToastTemplate::Scenario::Reminder;
+            return WinToastLib::WinToastTemplate::Scenario::Default;
+        }
+
+        WinToastLib::WinToastTemplate::AudioSystemFile ParseToastAudioSystemFile(const std::wstring &audio)
+        {
+            const std::wstring lower = ToLower(audio);
+            if (lower == L"im")
+                return WinToastLib::WinToastTemplate::IM;
+            if (lower == L"mail")
+                return WinToastLib::WinToastTemplate::Mail;
+            if (lower == L"reminder")
+                return WinToastLib::WinToastTemplate::Reminder;
+            if (lower == L"sms")
+                return WinToastLib::WinToastTemplate::SMS;
+            if (lower == L"alarm")
+                return WinToastLib::WinToastTemplate::Alarm;
+            if (lower == L"call")
+                return WinToastLib::WinToastTemplate::Call;
+            return WinToastLib::WinToastTemplate::DefaultSound;
+        }
+
+        JSValue JsToastInitialize(JSContext *ctx, JSValueConst, int argc, JSValueConst *argv)
+        {
+            JSValueConst options = (argc > 0 && JS_IsObject(argv[0])) ? argv[0] : JS_UNDEFINED;
+            return JS_NewBool(ctx, EnsureToastInitialized(ctx, options) ? 1 : 0);
+        }
+
+        JSValue JsToastIsCompatible(JSContext *ctx, JSValueConst, int, JSValueConst *)
+        {
+            return JS_NewBool(ctx, WinToastLib::WinToast::isCompatible() ? 1 : 0);
+        }
+
+        JSValue JsToastIsInitialized(JSContext *ctx, JSValueConst, int, JSValueConst *)
+        {
+            auto *instance = WinToastLib::WinToast::instance();
+            return JS_NewBool(ctx, (instance && instance->isInitialized()) ? 1 : 0);
+        }
+
+        JSValue JsToastGetLastError(JSContext *ctx, JSValueConst, int, JSValueConst *)
+        {
+            return JS_NewString(ctx, Utils::ToString(g_lastToastError).c_str());
+        }
+
+        JSValue JsToastHide(JSContext *ctx, JSValueConst, int argc, JSValueConst *argv)
+        {
+            if (argc < 1)
+            {
+                return JS_ThrowTypeError(ctx, "toast.hide(id) requires toast id");
+            }
+            int64_t id = 0;
+            if (JS_ToInt64(ctx, &id, argv[0]) != 0)
+            {
+                return JS_ThrowTypeError(ctx, "toast.hide(id) requires numeric toast id");
+            }
+            auto *instance = WinToastLib::WinToast::instance();
+            return JS_NewBool(ctx, (instance && instance->hideToast(id)) ? 1 : 0);
+        }
+
+        JSValue JsToastClear(JSContext *ctx, JSValueConst, int, JSValueConst *)
+        {
+            (void)ctx;
+            auto *instance = WinToastLib::WinToast::instance();
+            if (instance)
+                instance->clear();
+            return JS_UNDEFINED;
+        }
+
+        bool AddToastActions(JSContext *ctx, JSValueConst options, WinToastLib::WinToastTemplate &templ)
+        {
+            JSValue actions = JS_GetPropertyStr(ctx, options, "actions");
+            if (!JS_IsArray(actions))
+            {
+                JS_FreeValue(ctx, actions);
+                return true;
+            }
+
+            uint32_t length = 0;
+            JSValue lengthV = JS_GetPropertyStr(ctx, actions, "length");
+            JS_ToUint32(ctx, &length, lengthV);
+            JS_FreeValue(ctx, lengthV);
+
+            for (uint32_t i = 0; i < length; ++i)
+            {
+                JSValue action = JS_GetPropertyUint32(ctx, actions, i);
+                std::wstring label;
+                if (JS_IsString(action))
+                {
+                    label = JsValueToWString(ctx, action);
+                }
+                else if (JS_IsObject(action))
+                {
+                    GetObjectString(ctx, action, "label", label);
+                    if (label.empty())
+                        GetObjectString(ctx, action, "text", label);
+                }
+                JS_FreeValue(ctx, action);
+
+                if (!label.empty())
+                    templ.addAction(label);
+            }
+
+            JS_FreeValue(ctx, actions);
+            return true;
+        }
+
+        void RegisterToastCallbackProp(JSContext *ctx, JSValueConst options, const char *name, int &callbackId)
+        {
+            if (callbackId > 0)
+                return;
+            JSValue value = JS_GetPropertyStr(ctx, options, name);
+            if (JS_IsFunction(ctx, value))
+                callbackId = JSEngine::RegisterToastCallback(ctx, value);
+            JS_FreeValue(ctx, value);
+        }
+
+        ToastCallbackIds ParseToastCallbacks(JSContext *ctx, JSValueConst options)
+        {
+            ToastCallbackIds callbacks{};
+            RegisterToastCallbackProp(ctx, options, "onActivated", callbacks.activated);
+            RegisterToastCallbackProp(ctx, options, "onActivate", callbacks.activated);
+            RegisterToastCallbackProp(ctx, options, "onClick", callbacks.activated);
+            RegisterToastCallbackProp(ctx, options, "onAction", callbacks.action);
+            RegisterToastCallbackProp(ctx, options, "onInput", callbacks.input);
+            RegisterToastCallbackProp(ctx, options, "onDismissed", callbacks.dismissed);
+            RegisterToastCallbackProp(ctx, options, "onDismiss", callbacks.dismissed);
+            RegisterToastCallbackProp(ctx, options, "onFailed", callbacks.failed);
+            RegisterToastCallbackProp(ctx, options, "onFail", callbacks.failed);
+            return callbacks;
+        }
+
+        JSValue JsToastShow(JSContext *ctx, JSValueConst, int argc, JSValueConst *argv)
+        {
+            if (argc < 1)
+            {
+                return JS_ThrowTypeError(ctx, "toast.show(options | title[, message]) requires options or title");
+            }
+
+            JSValueConst options = JS_UNDEFINED;
+            std::wstring title;
+            std::wstring message;
+            std::wstring thirdLine;
+            std::wstring attribution;
+            std::wstring imagePath;
+            std::wstring heroImagePath;
+            std::wstring audioPath;
+            std::wstring audio;
+            std::wstring duration;
+            std::wstring scenario;
+            std::wstring crop;
+            bool inlineHeroImage = false;
+            bool silent = false;
+            bool loop = false;
+            bool input = false;
+            int64_t expiration = 0;
+            ToastCallbackIds callbacks{};
+
+            if (JS_IsObject(argv[0]) && !JS_IsArray(argv[0]))
+            {
+                options = argv[0];
+                callbacks = ParseToastCallbacks(ctx, options);
+                GetObjectString(ctx, options, "title", title);
+                GetObjectString(ctx, options, "message", message);
+                if (message.empty())
+                    GetObjectString(ctx, options, "body", message);
+                GetObjectString(ctx, options, "thirdLine", thirdLine);
+                GetObjectString(ctx, options, "attribution", attribution);
+                GetObjectString(ctx, options, "image", imagePath);
+                if (imagePath.empty())
+                    GetObjectString(ctx, options, "imagePath", imagePath);
+                GetObjectString(ctx, options, "heroImage", heroImagePath);
+                if (heroImagePath.empty())
+                    GetObjectString(ctx, options, "heroImagePath", heroImagePath);
+                GetObjectString(ctx, options, "audioPath", audioPath);
+                GetObjectString(ctx, options, "audio", audio);
+                GetObjectString(ctx, options, "duration", duration);
+                GetObjectString(ctx, options, "scenario", scenario);
+                GetObjectString(ctx, options, "crop", crop);
+                GetObjectBool(ctx, options, "inlineHeroImage", inlineHeroImage);
+                GetObjectBool(ctx, options, "silent", silent);
+                GetObjectBool(ctx, options, "loop", loop);
+                GetObjectBool(ctx, options, "input", input);
+                GetObjectInt64(ctx, options, "expiration", expiration);
+            }
+            else
+            {
+                title = JsValueToWString(ctx, argv[0]);
+                if (argc > 1)
+                    message = JsValueToWString(ctx, argv[1]);
+            }
+
+            if (title.empty() && message.empty())
+            {
+                return JS_ThrowTypeError(ctx, "toast.show requires non-empty title or message");
+            }
+
+            if (!EnsureToastInitialized(ctx, options))
+                return JS_NULL;
+
+            const bool hasImage = !imagePath.empty();
+            WinToastLib::WinToastTemplate::WinToastTemplateType type = hasImage
+                ? WinToastLib::WinToastTemplate::ImageAndText02
+                : (thirdLine.empty() ? WinToastLib::WinToastTemplate::Text02 : WinToastLib::WinToastTemplate::Text03);
+            WinToastLib::WinToastTemplate templ(type);
+            templ.setFirstLine(title);
+            templ.setSecondLine(message);
+            if (!thirdLine.empty())
+                templ.setThirdLine(thirdLine);
+            if (!attribution.empty())
+                templ.setAttributionText(attribution);
+            if (!duration.empty())
+                templ.setDuration(ParseToastDuration(duration));
+            if (!scenario.empty())
+                templ.setScenario(ParseToastScenario(scenario));
+            if (expiration > 0)
+                templ.setExpiration(expiration);
+            if (JS_IsObject(options) && !input)
+                AddToastActions(ctx, options, templ);
+            if (input)
+                templ.addInput();
+
+            if (hasImage)
+            {
+                templ.setImagePath(
+                    ResolveToastAssetPath(imagePath),
+                    ToLower(crop) == L"circle" ? WinToastLib::WinToastTemplate::Circle : WinToastLib::WinToastTemplate::Square);
+            }
+            if (!heroImagePath.empty())
+                templ.setHeroImagePath(ResolveToastAssetPath(heroImagePath), inlineHeroImage);
+
+            if (silent)
+            {
+                templ.setAudioOption(WinToastLib::WinToastTemplate::Silent);
+            }
+            else
+            {
+                if (loop)
+                    templ.setAudioOption(WinToastLib::WinToastTemplate::Loop);
+                if (!audioPath.empty())
+                    templ.setAudioPath(ResolveToastAssetPath(audioPath));
+                else if (!audio.empty())
+                    templ.setAudioPath(ParseToastAudioSystemFile(audio));
+            }
+
+            WinToastLib::WinToast::WinToastError error = WinToastLib::WinToast::NoError;
+            auto *handler = new ToastHandler(callbacks);
+            INT64 id = WinToastLib::WinToast::instance()->showToast(templ, handler, &error);
+            if (id < 0)
+            {
+                SetToastError(WinToastLib::WinToast::strerror(error));
+                return JS_NULL;
+            }
+            handler->SetToastId(id);
+
+            SetToastError(L"");
+            return JS_NewInt64(ctx, id);
+        }
+
+        JSValue JsDialogShow(JSContext *ctx, JSValueConst, int argc, JSValueConst *argv)
+        {
+            if (argc < 1 || !JS_IsObject(argv[0]))
+            {
+                return JS_ThrowTypeError(ctx, "dialog.show(options) requires an options object");
+            }
+
+            JSValueConst options = argv[0];
+            novadesk::shared::system::MessageBoxOptions opts;
+
+            // Extract properties from the options object
+            GetObjectString(ctx, options, "title", opts.title);
+            GetObjectString(ctx, options, "message", opts.message);
+            GetObjectString(ctx, options, "type", opts.type);
+            GetObjectString(ctx, options, "buttons", opts.buttons);
+
+            // Default to "info" and "ok" if not specified
+            if (opts.type.empty())
+            {
+                opts.type = L"info";
+            }
+            if (opts.buttons.empty())
+            {
+                opts.buttons = L"ok";
+            }
+
+            // Call the native message box
+            std::string result = novadesk::shared::system::ShowMessageBox(opts);
+
+            // Return the result as a JS string
+            return JS_NewString(ctx, result.c_str());
+        }
+
         int InitAppExport(JSContext *ctx, JSModuleDef *m)
         {
             JSValue app = JS_NewObject(ctx);
@@ -1410,6 +1968,20 @@ namespace novadesk::scripting::quickjs
             JS_SetPropertyStr(ctx, addon, "load", JS_NewCFunction(ctx, JsAddonLoad, "load", 1));
             JS_SetPropertyStr(ctx, addon, "unload", JS_NewCFunction(ctx, JsAddonUnload, "unload", 1));
             JS_SetModuleExport(ctx, m, "addon", addon);
+
+            JSValue toast = JS_NewObject(ctx);
+            JS_SetPropertyStr(ctx, toast, "initialize", JS_NewCFunction(ctx, JsToastInitialize, "initialize", 1));
+            JS_SetPropertyStr(ctx, toast, "show", JS_NewCFunction(ctx, JsToastShow, "show", 2));
+            JS_SetPropertyStr(ctx, toast, "hide", JS_NewCFunction(ctx, JsToastHide, "hide", 1));
+            JS_SetPropertyStr(ctx, toast, "clear", JS_NewCFunction(ctx, JsToastClear, "clear", 0));
+            JS_SetPropertyStr(ctx, toast, "isCompatible", JS_NewCFunction(ctx, JsToastIsCompatible, "isCompatible", 0));
+            JS_SetPropertyStr(ctx, toast, "isInitialized", JS_NewCFunction(ctx, JsToastIsInitialized, "isInitialized", 0));
+            JS_SetPropertyStr(ctx, toast, "getLastError", JS_NewCFunction(ctx, JsToastGetLastError, "getLastError", 0));
+            JS_SetModuleExport(ctx, m, "toast", toast);
+
+            JSValue dialog = JS_NewObject(ctx);
+            JS_SetPropertyStr(ctx, dialog, "show", JS_NewCFunction(ctx, JsDialogShow, "show", 1));
+            JS_SetModuleExport(ctx, m, "dialog", dialog);
 
             return 0;
         }
@@ -1455,6 +2027,14 @@ namespace novadesk::scripting::quickjs
             return nullptr;
         }
         if (JS_AddModuleExport(ctx, m, "addon") < 0)
+        {
+            return nullptr;
+        }
+        if (JS_AddModuleExport(ctx, m, "toast") < 0)
+        {
+            return nullptr;
+        }
+        if (JS_AddModuleExport(ctx, m, "dialog") < 0)
         {
             return nullptr;
         }

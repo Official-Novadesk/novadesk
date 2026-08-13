@@ -10,4 +10,5 @@
 
 namespace FileUtils {
     std::string ReadFileContent(const std::wstring& path);
+    std::string ReadFileOrUrlContent(const std::wstring& pathOrUrl);
 }

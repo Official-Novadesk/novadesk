@@ -7,8 +7,12 @@
 
 #include "Direct2DHelper.h"
 #include "../shared/Logging.h"
+#include "../shared/PathUtils.h"
 #include <cmath>
 #include <cstring>
+#include <vector>
+#include <algorithm>
+#include <winhttp.h>
 
 using namespace Microsoft::WRL;
 
@@ -222,6 +226,50 @@ namespace Direct2D
     {
         if (!g_pWICFactory) return false;
 
+        // Check for resource path
+        if (path.length() >= 6 && _wcsnicmp(path.c_str(), L"res://", 6) == 0)
+        {
+            std::wstring resPath = path.substr(6);
+            std::wstring resType = L"PNG";
+            std::wstring resName;
+
+            size_t slash = resPath.find(L'/');
+            if (slash != std::wstring::npos)
+            {
+                resType = resPath.substr(0, slash);
+                resName = resPath.substr(slash + 1);
+            }
+            else
+            {
+                resName = resPath;
+            }
+
+            // Check if name is numeric
+            bool isNumeric = true;
+            for (wchar_t c : resName)
+            {
+                if (!iswdigit(c))
+                {
+                    isNumeric = false;
+                    break;
+                }
+            }
+
+            LPCWSTR nameParam = resName.c_str();
+            if (isNumeric && !resName.empty())
+            {
+                nameParam = MAKEINTRESOURCEW(_wtoi(resName.c_str()));
+            }
+
+            return LoadWICBitmapFromResource(GetModuleHandleW(NULL), nameParam, resType.c_str(), wicBitmap);
+        }
+
+        // Check if it's a URL using PathUtils
+        if (PathUtils::IsURL(path))
+        {
+            return LoadWICBitmapFromURL(path, wicBitmap, useExifOrientation);
+        }
+
         ComPtr<IWICBitmapDecoder> pDecoder;
         HRESULT hr = g_pWICFactory->CreateDecoderFromFilename(path.c_str(), nullptr, GENERIC_READ, WICDecodeMetadataCacheOnLoad, pDecoder.GetAddressOf());
         if (FAILED(hr)) return false;
@@ -258,6 +306,264 @@ namespace Direct2D
 
         hr = g_pWICFactory->CreateBitmapFromSource(pConverter.Get(), WICBitmapCacheOnLoad, wicBitmap);
         return SUCCEEDED(hr);
+    }
+
+    bool DownloadImageFromURL(const std::wstring& url, std::vector<BYTE>& buffer)
+    {
+        buffer.clear();
+
+        // Parse URL
+        URL_COMPONENTS urlComp = { 0 };
+        urlComp.dwStructSize = sizeof(urlComp);
+        
+        WCHAR szHostName[256] = { 0 };
+        WCHAR szUrlPath[1024] = { 0 };
+        
+        urlComp.lpszHostName = szHostName;
+        urlComp.dwHostNameLength = sizeof(szHostName) / sizeof(WCHAR);
+        urlComp.lpszUrlPath = szUrlPath;
+        urlComp.dwUrlPathLength = sizeof(szUrlPath) / sizeof(WCHAR);
+        
+        if (!WinHttpCrackUrl(url.c_str(), (DWORD)url.length(), 0, &urlComp))
+        {
+            Logging::Log(LogLevel::Error, L"[novadesk] Failed to parse URL: %s", url.c_str());
+            return false;
+        }
+
+        // Initialize WinHTTP
+        HINTERNET hSession = WinHttpOpen(
+            L"Novadesk/1.0",
+            WINHTTP_ACCESS_TYPE_DEFAULT_PROXY,
+            WINHTTP_NO_PROXY_NAME,
+            WINHTTP_NO_PROXY_BYPASS,
+            0);
+            
+        if (!hSession)
+        {
+            Logging::Log(LogLevel::Error, L"[novadesk] WinHttpOpen failed");
+            return false;
+        }
+
+        // Connect to server
+        HINTERNET hConnect = WinHttpConnect(
+            hSession,
+            szHostName,
+            urlComp.nPort,
+            0);
+            
+        if (!hConnect)
+        {
+            WinHttpCloseHandle(hSession);
+            Logging::Log(LogLevel::Error, L"[novadesk] WinHttpConnect failed for host: %s", szHostName);
+            return false;
+        }
+
+        // Open request
+        DWORD dwFlags = (urlComp.nScheme == INTERNET_SCHEME_HTTPS) ? WINHTTP_FLAG_SECURE : 0;
+        HINTERNET hRequest = WinHttpOpenRequest(
+            hConnect,
+            L"GET",
+            szUrlPath,
+            nullptr,
+            WINHTTP_NO_REFERER,
+            WINHTTP_DEFAULT_ACCEPT_TYPES,
+            dwFlags);
+            
+        if (!hRequest)
+        {
+            WinHttpCloseHandle(hConnect);
+            WinHttpCloseHandle(hSession);
+            Logging::Log(LogLevel::Error, L"[novadesk] WinHttpOpenRequest failed");
+            return false;
+        }
+
+        // Send request
+        BOOL bResults = WinHttpSendRequest(
+            hRequest,
+            WINHTTP_NO_ADDITIONAL_HEADERS,
+            0,
+            WINHTTP_NO_REQUEST_DATA,
+            0,
+            0,
+            0);
+            
+        if (!bResults)
+        {
+            WinHttpCloseHandle(hRequest);
+            WinHttpCloseHandle(hConnect);
+            WinHttpCloseHandle(hSession);
+            Logging::Log(LogLevel::Error, L"[novadesk] WinHttpSendRequest failed");
+            return false;
+        }
+
+        // Receive response
+        bResults = WinHttpReceiveResponse(hRequest, nullptr);
+        if (!bResults)
+        {
+            WinHttpCloseHandle(hRequest);
+            WinHttpCloseHandle(hConnect);
+            WinHttpCloseHandle(hSession);
+            Logging::Log(LogLevel::Error, L"[novadesk] WinHttpReceiveResponse failed");
+            return false;
+        }
+
+        // Check status code
+        DWORD dwStatusCode = 0;
+        DWORD dwSize = sizeof(dwStatusCode);
+        WinHttpQueryHeaders(hRequest,
+            WINHTTP_QUERY_STATUS_CODE | WINHTTP_QUERY_FLAG_NUMBER,
+            nullptr,
+            &dwStatusCode,
+            &dwSize,
+            nullptr);
+            
+        if (dwStatusCode != 200)
+        {
+            WinHttpCloseHandle(hRequest);
+            WinHttpCloseHandle(hConnect);
+            WinHttpCloseHandle(hSession);
+            Logging::Log(LogLevel::Error, L"[novadesk] HTTP request failed with status code: %d", dwStatusCode);
+            return false;
+        }
+
+        // Read data
+        DWORD dwDownloaded = 0;
+        BYTE tempBuffer[4096];
+        
+        do
+        {
+            dwSize = 0;
+            if (!WinHttpQueryDataAvailable(hRequest, &dwSize))
+            {
+                break;
+            }
+            
+            if (dwSize == 0)
+                break;
+                
+            DWORD dwRead = 0;
+            if (!WinHttpReadData(hRequest, tempBuffer, (std::min)((DWORD)sizeof(tempBuffer), dwSize), &dwRead))
+            {
+                break;
+            }
+            
+            if (dwRead > 0)
+            {
+                buffer.insert(buffer.end(), tempBuffer, tempBuffer + dwRead);
+                dwDownloaded += dwRead;
+            }
+            
+        } while (dwSize > 0);
+
+        // Cleanup
+        WinHttpCloseHandle(hRequest);
+        WinHttpCloseHandle(hConnect);
+        WinHttpCloseHandle(hSession);
+
+        // Logging::Log(LogLevel::Info, L"[novadesk] Downloaded %d bytes from URL: %s", dwDownloaded, url.c_str());
+        return buffer.size() > 0;
+    }
+
+    bool LoadWICBitmapFromURL(const std::wstring& url, IWICBitmap** wicBitmap, bool useExifOrientation)
+    {
+        if (!g_pWICFactory) return false;
+
+        // Download image data
+        std::vector<BYTE> imageData;
+        if (!DownloadImageFromURL(url, imageData))
+        {
+            Logging::Log(LogLevel::Error, L"[novadesk] Failed to download image from URL: %s", url.c_str());
+            return false;
+        }
+
+        // Create stream from memory
+        ComPtr<IWICStream> pStream;
+        HRESULT hr = g_pWICFactory->CreateStream(pStream.GetAddressOf());
+        if (FAILED(hr))
+        {
+            Logging::Log(LogLevel::Error, L"[novadesk] Failed to create WIC stream");
+            return false;
+        }
+
+        hr = pStream->InitializeFromMemory(imageData.data(), (DWORD)imageData.size());
+        if (FAILED(hr))
+        {
+            Logging::Log(LogLevel::Error, L"[novadesk] Failed to initialize stream from memory");
+            return false;
+        }
+
+        // Decode image from stream
+        ComPtr<IWICBitmapDecoder> pDecoder;
+        hr = g_pWICFactory->CreateDecoderFromStream(
+            pStream.Get(),
+            nullptr,
+            WICDecodeMetadataCacheOnLoad,
+            pDecoder.GetAddressOf());
+            
+        if (FAILED(hr))
+        {
+            Logging::Log(LogLevel::Error, L"[novadesk] Failed to create decoder from stream");
+            return false;
+        }
+
+        ComPtr<IWICBitmapFrameDecode> pFrame;
+        hr = pDecoder->GetFrame(0, pFrame.GetAddressOf());
+        if (FAILED(hr))
+        {
+            Logging::Log(LogLevel::Error, L"[novadesk] Failed to get frame from decoder");
+            return false;
+        }
+
+        ComPtr<IWICBitmapSource> pSource = pFrame;
+        if (useExifOrientation)
+        {
+            USHORT orientation = 1;
+            if (ReadExifOrientation(pFrame.Get(), orientation))
+            {
+                const WICBitmapTransformOptions transform = ExifOrientationToWicTransform(orientation);
+                if (transform != WICBitmapTransformRotate0)
+                {
+                    ComPtr<IWICBitmapFlipRotator> pFlipRotator;
+                    hr = g_pWICFactory->CreateBitmapFlipRotator(pFlipRotator.GetAddressOf());
+                    if (FAILED(hr)) return false;
+                    hr = pFlipRotator->Initialize(pSource.Get(), transform);
+                    if (FAILED(hr)) return false;
+                    pSource = pFlipRotator;
+                }
+            }
+        }
+
+        ComPtr<IWICFormatConverter> pConverter;
+        hr = g_pWICFactory->CreateFormatConverter(pConverter.GetAddressOf());
+        if (FAILED(hr))
+        {
+            Logging::Log(LogLevel::Error, L"[novadesk] Failed to create format converter");
+            return false;
+        }
+
+        hr = pConverter->Initialize(
+            pSource.Get(),
+            GUID_WICPixelFormat32bppPBGRA,
+            WICBitmapDitherTypeNone,
+            nullptr,
+            0.0,
+            WICBitmapPaletteTypeMedianCut);
+            
+        if (FAILED(hr))
+        {
+            Logging::Log(LogLevel::Error, L"[novadesk] Failed to initialize format converter");
+            return false;
+        }
+
+        hr = g_pWICFactory->CreateBitmapFromSource(pConverter.Get(), WICBitmapCacheOnLoad, wicBitmap);
+        if (FAILED(hr))
+        {
+            Logging::Log(LogLevel::Error, L"[novadesk] Failed to create bitmap from source");
+            return false;
+        }
+
+        Logging::Log(LogLevel::Info, L"[novadesk] Successfully loaded image from URL: %s", url.c_str());
+        return true;
     }
 
     bool LoadBitmapFromFile(ID2D1RenderTarget* context, const std::wstring& path, ID2D1Bitmap** bitmap, IWICBitmap** wicBitmap, bool useExifOrientation)
@@ -305,5 +611,79 @@ namespace Direct2D
             r.left + (width / 2.0f) + (half_area * cos_axis * std::cos(base_radians)),
             r.top + (height / 2.0f) + (half_area * cos_axis * std::sin(base_radians))
         );
+    }
+
+    bool LoadWICBitmapFromResource(HMODULE hModule, LPCWSTR resourceName, LPCWSTR resourceType, IWICBitmap** wicBitmap)
+    {
+        if (!g_pWICFactory) return false;
+
+        HRSRC hResInfo = FindResourceW(hModule, resourceName, resourceType);
+        if (!hResInfo)
+        {
+            Logging::Log(LogLevel::Error, L"[novadesk] FindResourceW failed");
+            return false;
+        }
+
+        DWORD cbResource = SizeofResource(hModule, hResInfo);
+        HGLOBAL hResData = LoadResource(hModule, hResInfo);
+        if (!hResData) return false;
+
+        LPVOID pResourceData = LockResource(hResData);
+        if (!pResourceData) return false;
+
+        ComPtr<IWICStream> pStream;
+        HRESULT hr = g_pWICFactory->CreateStream(pStream.GetAddressOf());
+        if (FAILED(hr)) return false;
+
+        hr = pStream->InitializeFromMemory(static_cast<BYTE*>(pResourceData), cbResource);
+        if (FAILED(hr)) return false;
+
+        ComPtr<IWICBitmapDecoder> pDecoder;
+        hr = g_pWICFactory->CreateDecoderFromStream(pStream.Get(), nullptr, WICDecodeMetadataCacheOnLoad, pDecoder.GetAddressOf());
+        if (FAILED(hr)) return false;
+
+        ComPtr<IWICBitmapFrameDecode> pFrame;
+        hr = pDecoder->GetFrame(0, pFrame.GetAddressOf());
+        if (FAILED(hr)) return false;
+
+        ComPtr<IWICFormatConverter> pConverter;
+        hr = g_pWICFactory->CreateFormatConverter(pConverter.GetAddressOf());
+        if (FAILED(hr)) return false;
+
+        hr = pConverter->Initialize(pFrame.Get(), GUID_WICPixelFormat32bppPBGRA, WICBitmapDitherTypeNone, nullptr, 0.0, WICBitmapPaletteTypeMedianCut);
+        if (FAILED(hr)) return false;
+
+        hr = g_pWICFactory->CreateBitmapFromSource(pConverter.Get(), WICBitmapCacheOnLoad, wicBitmap);
+        return SUCCEEDED(hr);
+    }
+
+    bool LoadWICBitmapFromMemory(const BYTE* data, DWORD size, IWICBitmap** wicBitmap)
+    {
+        if (!g_pWICFactory || !data || size == 0) return false;
+
+        ComPtr<IWICStream> pStream;
+        HRESULT hr = g_pWICFactory->CreateStream(pStream.GetAddressOf());
+        if (FAILED(hr)) return false;
+
+        hr = pStream->InitializeFromMemory(const_cast<BYTE*>(data), size);
+        if (FAILED(hr)) return false;
+
+        ComPtr<IWICBitmapDecoder> pDecoder;
+        hr = g_pWICFactory->CreateDecoderFromStream(pStream.Get(), nullptr, WICDecodeMetadataCacheOnLoad, pDecoder.GetAddressOf());
+        if (FAILED(hr)) return false;
+
+        ComPtr<IWICBitmapFrameDecode> pFrame;
+        hr = pDecoder->GetFrame(0, pFrame.GetAddressOf());
+        if (FAILED(hr)) return false;
+
+        ComPtr<IWICFormatConverter> pConverter;
+        hr = g_pWICFactory->CreateFormatConverter(pConverter.GetAddressOf());
+        if (FAILED(hr)) return false;
+
+        hr = pConverter->Initialize(pFrame.Get(), GUID_WICPixelFormat32bppPBGRA, WICBitmapDitherTypeNone, nullptr, 0.0, WICBitmapPaletteTypeMedianCut);
+        if (FAILED(hr)) return false;
+
+        hr = g_pWICFactory->CreateBitmapFromSource(pConverter.Get(), WICBitmapCacheOnLoad, wicBitmap);
+        return SUCCEEDED(hr);
     }
 }

@@ -113,6 +113,16 @@ public:
     virtual int GetAutoWidth() { return 0; }
     virtual int GetAutoHeight() { return 0; }
 
+    void SetOwnerHWND(HWND hWnd)
+    {
+        m_OwnerHWND = hWnd;
+        OnOwnerHWNDSet();
+    }
+    HWND GetOwnerHWND() const { return m_OwnerHWND; }
+
+    virtual void OnOwnerHWNDSet() {}
+    virtual void OnImageDownloaded(const std::wstring& url, const std::vector<BYTE>& buffer) {}
+
     virtual GfxRect GetBounds();
     virtual GfxRect GetBackgroundBounds();
 
@@ -330,6 +340,9 @@ protected:
     void RenderBevel(ID2D1DeviceContext* context);
     void ApplyRenderTransform(ID2D1DeviceContext* context, D2D1_MATRIX_3X2_F& originalTransform);
     void RestoreRenderTransform(ID2D1DeviceContext* context, const D2D1_MATRIX_3X2_F& originalTransform);
+
+protected:
+    HWND m_OwnerHWND = nullptr;
 };
 
 #endif

@@ -9,6 +9,9 @@
 #include <filesystem>
 #include <fstream>
 #include <sstream>
+#include "Logging.h"
+#include "PathUtils.h"
+#include "System.h"
 #include "Utils.h"
 #include <vector>
 
@@ -45,5 +48,21 @@ namespace FileUtils {
         }
 
         return std::string(buffer.data(), (size_t)size);
+    }
+
+    std::string ReadFileOrUrlContent(const std::wstring& pathOrUrl)
+    {
+        if (PathUtils::IsURL(pathOrUrl))
+        {
+            std::string data;
+            if (!novadesk::shared::system::WebFetch(pathOrUrl, data))
+            {
+                Logging::Log(LogLevel::Error, L"Failed to fetch script from URL: %s", pathOrUrl.c_str());
+                return "";
+            }
+            return data;
+        }
+
+        return ReadFileContent(pathOrUrl);
     }
 }

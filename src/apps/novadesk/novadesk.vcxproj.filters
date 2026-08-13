@@ -240,6 +240,9 @@
     <ClCompile Include="..\..\third_party\quick-js\dtoa.c">
       <Filter>third_party</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\third_party\WinToast\src\wintoastlib.cpp">
+      <Filter>third_party</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="domain\DesktopManager.h">
@@ -438,6 +441,9 @@
       <Filter>third_party</Filter>
     </ClInclude>
     <ClInclude Include="..\..\third_party\quick-js\list.h">
+      <Filter>third_party</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\third_party\WinToast\include\wintoastlib.h">
       <Filter>third_party</Filter>
     </ClInclude>
   </ItemGroup>

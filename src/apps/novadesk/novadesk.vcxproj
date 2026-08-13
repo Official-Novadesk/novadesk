@@ -62,7 +62,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_UNICODE;UNICODE;NOMINMAX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>.;domain;domain\animation;shared;render;scripting\quickjs;scripting\quickjs\parser;..\..\third_party\quick-js;..\..\third_party\json;..\..\third_party\nanosvg;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;domain;domain\animation;shared;render;..\..\third_party\woff2\include;..\..\third_party\woff2\brotli\include;scripting\quickjs;scripting\quickjs\parser;..\..\third_party\quick-js;..\..\third_party\json;..\..\third_party\nanosvg;..\..\third_party\WinToast\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <LanguageStandard_C>stdc11</LanguageStandard_C>
       <FunctionLevelLinking>true</FunctionLevelLinking>
@@ -72,7 +72,7 @@
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>user32.lib;gdi32.lib;opengl32.lib;winmm.lib;powrprof.lib;shell32.lib;comctl32.lib;d2d1.lib;dwrite.lib;windowscodecs.lib;shlwapi.lib;iphlpapi.lib;pdh.lib;wininet.lib;version.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>user32.lib;gdi32.lib;opengl32.lib;winmm.lib;powrprof.lib;shell32.lib;comctl32.lib;d2d1.lib;dwrite.lib;windowscodecs.lib;shlwapi.lib;iphlpapi.lib;pdh.lib;wininet.lib;version.lib;ole32.lib;propsys.lib;psapi.lib;runtimeobject.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions>/SUBSYSTEM:WINDOWS,5.02 /ENTRY:WinMainCRTStartup %(AdditionalOptions)</AdditionalOptions>
     </Link>
     <ResourceCompile>
@@ -94,7 +94,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_UNICODE;UNICODE;NOMINMAX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>.;domain;domain\animation;shared;render;scripting\quickjs;scripting\quickjs\parser;..\..\third_party\quick-js;..\..\third_party\json;..\..\third_party\nanosvg;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;domain;domain\animation;shared;render;..\..\third_party\woff2\include;..\..\third_party\woff2\brotli\include;scripting\quickjs;scripting\quickjs\parser;..\..\third_party\quick-js;..\..\third_party\json;..\..\third_party\nanosvg;..\..\third_party\WinToast\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <LanguageStandard_C>stdc11</LanguageStandard_C>
       <AdditionalOptions>/wd4146 /wd4703 /Zc:__cplusplus %(AdditionalOptions)</AdditionalOptions>
@@ -107,7 +107,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>false</GenerateDebugInformation>
-      <AdditionalDependencies>user32.lib;gdi32.lib;opengl32.lib;winmm.lib;powrprof.lib;shell32.lib;comctl32.lib;d2d1.lib;dwrite.lib;windowscodecs.lib;shlwapi.lib;iphlpapi.lib;pdh.lib;wininet.lib;version.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>user32.lib;gdi32.lib;opengl32.lib;winmm.lib;powrprof.lib;shell32.lib;comctl32.lib;d2d1.lib;dwrite.lib;windowscodecs.lib;shlwapi.lib;iphlpapi.lib;pdh.lib;wininet.lib;version.lib;ole32.lib;propsys.lib;psapi.lib;runtimeobject.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions>/SUBSYSTEM:WINDOWS,5.02 /ENTRY:WinMainCRTStartup /OPT:REF /OPT:ICF /LTCG %(AdditionalOptions)</AdditionalOptions>
     </Link>
     <ResourceCompile>
@@ -121,6 +121,28 @@
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="render\FontDownloader.cpp" />
+    <ClCompile Include="..\..\third_party\woff2\font.cc" />
+    <ClCompile Include="..\..\third_party\woff2\glyph.cc" />
+    <ClCompile Include="..\..\third_party\woff2\normalize.cc" />
+    <ClCompile Include="..\..\third_party\woff2\table_tags.cc" />
+    <ClCompile Include="..\..\third_party\woff2\transform.cc" />
+    <ClCompile Include="..\..\third_party\woff2\variable_length.cc" />
+    <ClCompile Include="..\..\third_party\woff2\woff2_common.cc" />
+    <ClCompile Include="..\..\third_party\woff2\woff2_dec.cc" />
+    <ClCompile Include="..\..\third_party\woff2\woff2_out.cc" />
+    <ClCompile Include="..\..\third_party\woff2\brotli\common\constants.c" />
+    <ClCompile Include="..\..\third_party\woff2\brotli\common\context.c" />
+    <ClCompile Include="..\..\third_party\woff2\brotli\common\dictionary.c" />
+    <ClCompile Include="..\..\third_party\woff2\brotli\common\platform.c" />
+    <ClCompile Include="..\..\third_party\woff2\brotli\common\shared_dictionary.c" />
+    <ClCompile Include="..\..\third_party\woff2\brotli\common\transform.c" />
+    <ClCompile Include="..\..\third_party\woff2\brotli\dec\bit_reader.c" />
+    <ClCompile Include="..\..\third_party\woff2\brotli\dec\decode.c" />
+    <ClCompile Include="..\..\third_party\woff2\brotli\dec\huffman.c" />
+    <ClCompile Include="..\..\third_party\woff2\brotli\dec\prefix.c" />
+    <ClCompile Include="..\..\third_party\woff2\brotli\dec\state.c" />
+    <ClCompile Include="..\..\third_party\woff2\brotli\dec\static_init.c" />
     <ClCompile Include="domain\DesktopManager.cpp" />
     <ClCompile Include="domain\InputBoxContextMenuHelper.cpp" />
     <ClCompile Include="domain\Novadesk.cpp" />
@@ -194,6 +216,9 @@
     <ClCompile Include="..\..\third_party\quick-js\dtoa.c">
       <AdditionalOptions>/w %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
+    <ClCompile Include="..\..\third_party\WinToast\src\wintoastlib.cpp">
+      <AdditionalOptions>/w %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="domain\DesktopManager.h" />
@@ -262,6 +287,7 @@
     <ClInclude Include="..\..\third_party\quick-js\libregexp.h" />
     <ClInclude Include="..\..\third_party\quick-js\libunicode.h" />
     <ClInclude Include="..\..\third_party\quick-js\list.h" />
+    <ClInclude Include="..\..\third_party\WinToast\include\wintoastlib.h" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="Novadesk.rc" />

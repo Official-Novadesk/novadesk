@@ -98,6 +98,7 @@ namespace PropertyParser
 
     struct GeneralImageOptions : public ElementOptions
     {
+        std::wstring fallbackPath;
         ImageFlipMode imageFlip = IMAGE_FLIP_NONE;
         bool hasImageCrop = false;
         float imageCropX = 0.0f;

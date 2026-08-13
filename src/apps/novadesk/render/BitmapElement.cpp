@@ -344,3 +344,13 @@ int BitmapElement::GetAutoHeight()
 
     return frameH + m_PaddingTop + m_PaddingBottom;
 }
+
+void BitmapElement::OnOwnerHWNDSet()
+{
+    m_BitmapImage.SetOwnerHWND(m_OwnerHWND);
+}
+
+void BitmapElement::OnImageDownloaded(const std::wstring& url, const std::vector<BYTE>& buffer)
+{
+    m_BitmapImage.OnImageDownloaded(url, buffer);
+}

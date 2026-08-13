@@ -178,3 +178,13 @@ void RotatorElement::Render(ID2D1DeviceContext *context)
     // Restore original transform
     context->SetTransform(currentTransform);
 }
+
+void RotatorElement::OnOwnerHWNDSet()
+{
+    m_RotatorImage.SetOwnerHWND(m_OwnerHWND);
+}
+
+void RotatorElement::OnImageDownloaded(const std::wstring& url, const std::vector<BYTE>& buffer)
+{
+    m_RotatorImage.OnImageDownloaded(url, buffer);
+}
